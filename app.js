@@ -968,6 +968,7 @@ function renderClientsTable(clients){
       <td>${new Date(c.created_at).toLocaleDateString()}</td>
       <td>
         <button class="action-btn" onclick="toggleWebsite('${c.website_id}',${!c.is_active})">${c.is_active?'Pause':'Activate'}</button>
+        ${c.subdomain?'<a class="action-btn" href="/client/'+c.subdomain+'" target="_blank">View site</a>':''}
         <button class="action-btn warn" onclick="showUpdateFeeModal('${c.id}')">Fee</button>
         <button class="action-btn danger" onclick="deleteClient('${c.id}','${c.email}')">Delete</button>
       </td>
