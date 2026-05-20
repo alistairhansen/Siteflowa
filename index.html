@@ -302,14 +302,33 @@
             <div class="upgrade-options" id="upgrade-options"></div>
             <div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--border);">
               <div style="font-size:13px;font-weight:600;color:var(--ink-muted);margin-bottom:12px;">Want to downgrade?</div>
-              <p style="font-size:13px;color:var(--ink-light);line-height:1.6;margin-bottom:14px;">Downgrading hides dashboard features but never removes content from your website. If you have a custom domain our team will be in touch to help you switch to a free subdomain.</p>
+              <p style="font-size:13px;color:var(--ink-light);line-height:1.6;margin-bottom:14px;">Downgrading hides dashboard features but never removes content from your website. If you are downgrading to Basic (which does not support custom domains), our team will help you switch to a free subdomain at no charge.</p>
               <div style="display:flex;gap:10px;flex-wrap:wrap;">
                 <button class="btn-secondary" style="padding:9px 18px;font-size:13px;" onclick="requestDowngrade('standard')">Downgrade to Standard</button>
                 <button class="btn-secondary" style="padding:9px 18px;font-size:13px;" onclick="requestDowngrade('basic')">Downgrade to Basic</button>
               </div>
             </div>
           </div>
-          <div class="dash-panel" id="panel-support"><div class="dash-section-title">Support</div><div class="dash-section-sub">Need help? We'll get back to you within one business day.</div><div class="dash-grid"><div class="dash-field full"><label>What do you need help with?</label><select><option>I need a content change I can't make myself</option><option>Something looks wrong on my website</option><option>Billing question</option><option>I want to downgrade my plan</option><option>Other</option></select></div><div class="dash-field full"><label>Describe the issue or request</label><textarea rows="5" placeholder="Tell us what you need..."></textarea></div></div><button class="dash-save" onclick="alert('Message sent! We\'ll be in touch within one business day.')">Send message</button></div>
+          <div class="dash-panel" id="panel-support"><div class="dash-section-title">Support</div><div class="dash-section-sub">We're here to help — reach out anytime and we'll get back to you within one business day.</div>
+            <div style="display:grid;gap:12px;margin-bottom:28px;">
+              <div class="contact-item" id="support-email-item" style="display:none;"><div class="contact-icon">📧</div><div><strong>Email us</strong><a id="support-email-link" href="" style="display:block;font-size:14px;color:var(--accent);text-decoration:none;"></a><span>We respond within one business day</span></div></div>
+              <div class="contact-item" id="support-phone-item" style="display:none;"><div class="contact-icon">📞</div><div><strong>Call us</strong><a id="support-phone-link" href="" style="display:block;font-size:14px;color:var(--accent);text-decoration:none;"></a></div></div>
+              <div class="contact-item"><div class="contact-icon">🕐</div><div><strong>Response time</strong><span>Within one business day</span></div></div>
+            </div>
+            <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:24px;">
+              <h4 style="font-family:var(--serif);font-size:18px;margin-bottom:8px;">Send us a message</h4>
+              <p style="font-size:13px;color:var(--ink-muted);margin-bottom:16px;">Fill this in and we'll reply by email within one business day.</p>
+              <div class="dash-grid"><div class="dash-field full"><label>What do you need help with?</label><select><option>I need a content change I can't make myself</option><option>Something looks wrong on my website</option><option>Billing question</option><option>I want to downgrade my plan</option><option>Other</option></select></div><div class="dash-field full"><label>Message</label><textarea rows="4" placeholder="Describe your issue or request..."></textarea></div></div>
+              <button class="dash-save" style="margin-top:8px;" onclick="sendSupportMessage()">Send message</button>
+            </div>
+            <div style="margin-top:40px;padding-top:28px;border-top:2px solid var(--border);">
+              <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--red);margin-bottom:10px;">Danger zone</div>
+              <div style="background:var(--red-light);border:1px solid var(--red);border-radius:var(--radius-lg);padding:20px 24px;">
+                <h4 style="font-family:var(--serif);font-size:18px;color:var(--red);margin-bottom:8px;">Cancel your subscription</h4>
+                <p style="font-size:13px;color:var(--ink-light);line-height:1.6;margin-bottom:16px;">Cancelling will <strong>permanently take your website offline</strong>. We do not save your website or content. Once cancelled, everything is gone and cannot be recovered. Future payments stop immediately.</p>
+                <button onclick="cancelSubscription()" style="background:var(--red);color:white;border:none;padding:11px 24px;border-radius:var(--radius);font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;">Cancel my subscription</button>
+              </div>
+            </div></div>
         </div>
       </div>
     </div>

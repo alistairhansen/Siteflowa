@@ -45,6 +45,8 @@ async function loadSiteSettings(){
 }
 function applySettings(s){
   if(!s)return
+  window._siteEmail=s.email||''
+  window._sitePhone=s.phone||''
   const name=s.company_name||'Siteflowa'
   document.title=name+' - Professional Websites for Small Business'
   document.getElementById('footer-copy').textContent='(c) 2026 '+name+'. All rights reserved.'
@@ -732,6 +734,40 @@ function renderAnalytics(data,rank){
   }
 }
 
+function loadSupportContactInfo(){
+  const email = window._siteEmail||''
+  const phone = window._sitePhone||''
+  const emailItem = document.getElementById('support-email-item')
+  const phoneItem = document.getElementById('support-phone-item')
+  const emailLink = document.getElementById('support-email-link')
+  const phoneLink = document.getElementById('support-phone-link')
+  if(email && emailItem && emailLink){
+    emailItem.style.display='flex'
+    emailLink.textContent=email
+    emailLink.href='mailto:'+email
+  }
+  if(phone && phoneItem && phoneLink){
+    phoneItem.style.display='flex'
+    phoneLink.textContent=phone
+    phoneLink.href='tel:'+phone.replace(/\D/g,'')
+  }
+}
+
+async function sendSupportMessage(){
+  const select = document.querySelector('#panel-support select')
+  const textarea = document.querySelector('#panel-support textarea')
+  const subject = select?.value||'Support request'
+  const message = textarea?.value||''
+  const email = window._siteEmail
+  if(!message){alert('Please describe your issue first');return}
+  if(email){
+    window.location.href='mailto:'+email+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(message)
+  }else{
+    alert('Message noted! We will be in touch within one business day.')
+  }
+  if(textarea) textarea.value=''
+}
+
 async function fetchClientExtras(plan){
   const token=getToken();if(!token)return
   try{
@@ -753,6 +789,7 @@ async function fetchClientExtras(plan){
       }
     }
     buildUpgradeOptions(data.client?.plan||'standard')
+    loadSupportContactInfo()
   }catch(e){console.error(e)}
 }
 function buildUpgradeOptions(current){
@@ -779,8 +816,12 @@ async function upgradePlan(plan){
 }
 
 async function requestDowngrade(toPlan){
-  const currentPlan=document.getElementById('client-plan-badge')?.textContent?.toLowerCase()||'standard'
-  if(!confirm('Request a downgrade to '+toPlan+'? Our team will be in touch to process this. If you have a custom domain it will need to be changed.'))return
+  const currentPlan=document.getElementById('client-plan-badge')?.textContent?.toLowerCase().trim()||'standard'
+  let msg='Request a downgrade to '+toPlan+'?\n\nThis will hide some dashboard features but your website content will never be removed.'
+  if(toPlan==='basic'){
+    msg+='\n\nIMPORTANT: The Basic plan does not support custom domain names. If you currently have a custom domain, our team will contact you to help switch to a free subdomain (yourname.siteflowa.com) at no charge.'
+  }
+  if(!confirm(msg))return
   try{
     await fetch(API+'/notify-downgrade',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({from_plan:currentPlan,to_plan:toPlan})})
     alert('Downgrade request sent! Our team will contact you within one business day to process the change.')
@@ -794,12 +835,41 @@ async function saveBizInfo(){
     if(d.message){const m=document.getElementById('save-msg-business');m.classList.add('show');setTimeout(()=>m.classList.remove('show'),3000)}
   }catch(e){alert('Save failed')}
 }
+async function cancelSubscription(){
+  const confirmed = confirm(
+    'Are you sure you want to cancel?\n\n' +
+    'WARNING: This will permanently take your website offline.\n\n' +
+    'We do not save your website or any of your content. ' +
+    'Once cancelled, your website and all its content will be gone and cannot be recovered.\n\n' +
+    'Your next monthly payment will not be charged.\n\n' +
+    'Type OK to confirm you understand this is permanent.'
+  )
+  if (!confirmed) return
+  try {
+    const res = await fetch(API + '/cancel-subscription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
+    })
+    const d = await res.json()
+    if (d.message) {
+      alert('Your subscription has been cancelled. Your website is now offline. Thank you for using Siteflowa.')
+      doLogout()
+    } else {
+      alert(d.error || 'Something went wrong. Please contact support.')
+    }
+  } catch(e) { alert('Could not connect to server') }
+}
+
 async function openBillingPortal(){
   try{
     const res=await fetch(API+'/billing-portal',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()}})
     const d=await res.json()
-    if(d.url)window.location.href=d.url
-    else alert(d.error||'Could not open billing portal')
+    if(d.url){
+      window.location.href=d.url
+    }else{
+      // Portal not set up yet - show helpful message
+      alert('To update your payment method, please email us at ' + (window._siteEmail||'hello@siteflowa.com') + ' and we will send you a secure payment update link.')
+    }
   }catch(e){alert('Could not connect to server')}
 }
 function copyReferral(){
