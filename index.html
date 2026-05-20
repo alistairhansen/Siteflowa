@@ -1026,90 +1026,44 @@ function renderDynamicPanels(schema, content, plan) {
 function renderDynamicField(field, value) {
   const v = value !== undefined ? value : (field.default || '')
   const id = 'dc-' + field.key
+  const t = field.type
 
-  switch(field.type) {
-    case 'text':
-    case 'tel':
-    case 'email':
-    case 'url':
-      return `<div class="dash-field ${field.type==='textarea'?'full':''}">
-        <label>${field.label}</label>
-        <input type="${field.type==='text'?'text':field.type}" id="${id}" value="${escHtml(v)}" placeholder="${field.placeholder||''}">
-      </div>`
-
-    case 'textarea':
-      return `<div class="dash-field full">
-        <label>${field.label}</label>
-        <textarea id="${id}" rows="3" placeholder="${field.placeholder||''}">${escHtml(v)}</textarea>
-      </div>`
-
-    case 'photo':
-      return `<div class="dash-field">
-        <label>${field.label}</label>
-        <div style="display:flex;gap:10px;align-items:center;">
-          ${v ? `<img src="${v}" style="width:60px;height:60px;border-radius:8px;object-fit:cover;">` : '<div style="width:60px;height:60px;border-radius:8px;background:var(--cream);display:flex;align-items:center;justify-content:center;font-size:20px;">📷</div>'}
-          <div>
-            <input type="url" id="${id}" value="${escHtml(v)}" placeholder="Paste photo URL" style="font-size:12px;margin-bottom:4px;">
-            <div style="font-size:11px;color:var(--ink-muted);">Paste a direct image URL</div>
-          </div>
-        </div>
-      </div>`
-
-    case 'badges':
-      const badgeVal = Array.isArray(v) ? v.join(', ') : v
-      return `<div class="dash-field full">
-        <label>${field.label}</label>
-        <input type="text" id="${id}" value="${escHtml(badgeVal)}" placeholder="e.g. Licensed & insured, Free quotes, 5-star rated">
-        <div style="font-size:11px;color:var(--ink-muted);margin-top:4px;">Separate each badge with a comma</div>
-      </div>`
-
-    case 'hours':
-      const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
-      const dayLabels = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
-      const hrs = (typeof v === 'object' && v) ? v : {}
-      return `<div class="dash-field full">
-        <label>${field.label}</label>
-        <div style="display:grid;gap:8px;margin-top:6px;">
-          <div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;font-size:11px;font-weight:600;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.06em;padding:0 4px;">
-            <span>Day</span><span>Opens</span><span>Closes</span>
-          </div>
-          ${days.map((d,i) => `
-            <div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;align-items:center;">
-              <span style="font-size:13px;font-weight:500;">${dayLabels[i]}</span>
-              <input type="time" id="${id}-${d}-open" value="${hrs[d]?.open||''}" placeholder="Closed">
-              <input type="time" id="${id}-${d}-close" value="${hrs[d]?.close||''}" placeholder="Closed">
-            </div>`).join('')}
-        </div>
-      </div>`
-
-    case 'repeater':
-      const items = Array.isArray(v) ? v : []
-      return `<div class="dash-field full">
-        <label>${field.label}</label>
-        <div id="${id}-list" style="display:grid;gap:10px;margin-top:6px;">
-          ${items.map((item, idx) => renderRepeaterItem(field, item, idx, id)).join('')}
-        </div>
-        <button onclick="addRepeaterItem('${field.key}','${id}')" style="margin-top:10px;background:var(--cream);border:1px dashed var(--border-strong);border-radius:var(--radius);padding:8px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;width:100%;">+ Add ${field.label.replace(/s$/,'')}</button>
-      </div>`
-
-    case 'photo_array':
-      const photos = Array.isArray(v) ? v : []
-      return `<div class="dash-field full">
-        <label>${field.label}</label>
-        <div id="${id}-list" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;">
-          ${photos.map((url, idx) => `
-            <div style="position:relative;">
-              <img src="${url}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;">
-              <button onclick="removePhoto('${id}',${idx})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;">x</button>
-            </div>`).join('')}
-          <div style="width:80px;height:80px;border:2px dashed var(--border-strong);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-muted);" onclick="addPhotoUrl('${id}')">+</div>
-        </div>
-        <div style="font-size:11px;color:var(--ink-muted);margin-top:6px;">Click + to add a photo URL</div>
-      </div>`
-
-    default:
-      return ''
+  if (t === 'text' || t === 'tel' || t === 'email' || t === 'url') {
+    return '<div class="dash-field"><label>' + field.label + '</label><input type="' + t + '" id="' + id + '" value="' + escHtml(v) + '" placeholder="' + (field.placeholder||'') + '"></div>'
   }
+  if (t === 'textarea') {
+    return '<div class="dash-field full"><label>' + field.label + '</label><textarea id="' + id + '" rows="3" placeholder="' + (field.placeholder||'') + '">' + escHtml(v) + '</textarea></div>'
+  }
+  if (t === 'photo') {
+    const preview = v ? '<img src="' + v + '" style="width:60px;height:60px;border-radius:8px;object-fit:cover;">' : '<div style="width:60px;height:60px;border-radius:8px;background:var(--cream);display:flex;align-items:center;justify-content:center;font-size:20px;">📷</div>'
+    return '<div class="dash-field"><label>' + field.label + '</label><div style="display:flex;gap:10px;align-items:center;">' + preview + '<div><input type="url" id="' + id + '" value="' + escHtml(v) + '" placeholder="Paste photo URL" style="font-size:12px;margin-bottom:4px;"><div style="font-size:11px;color:var(--ink-muted);">Paste a direct image URL</div></div></div></div>'
+  }
+  if (t === 'badges') {
+    const badgeVal = Array.isArray(v) ? v.join(', ') : v
+    return '<div class="dash-field full"><label>' + field.label + '</label><input type="text" id="' + id + '" value="' + escHtml(badgeVal) + '" placeholder="e.g. Licensed & insured, Free quotes"><div style="font-size:11px;color:var(--ink-muted);margin-top:4px;">Separate each badge with a comma</div></div>'
+  }
+  if (t === 'hours') {
+    const hDays = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
+    const hLabels = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+    const hrs = (typeof v === 'object' && v) ? v : {}
+    const rows = hDays.map(function(d, i) {
+      return '<div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;align-items:center;"><span style="font-size:13px;font-weight:500;">' + hLabels[i] + '</span><input type="time" id="' + id + '-' + d + '-open" value="' + (hrs[d] && hrs[d].open ? hrs[d].open : '') + '" placeholder="Closed"><input type="time" id="' + id + '-' + d + '-close" value="' + (hrs[d] && hrs[d].close ? hrs[d].close : '') + '" placeholder="Closed"></div>'
+    }).join('')
+    return '<div class="dash-field full"><label>' + field.label + '</label><div style="display:grid;gap:8px;margin-top:6px;"><div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;font-size:11px;font-weight:600;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.06em;"><span>Day</span><span>Opens</span><span>Closes</span></div>' + rows + '</div></div>'
+  }
+  if (t === 'repeater') {
+    const items = Array.isArray(v) ? v : []
+    const itemsHtml = items.map(function(item, idx) { return renderRepeaterItem(field, item, idx, id) }).join('')
+    return '<div class="dash-field full"><label>' + field.label + '</label><div id="' + id + '-list" style="display:grid;gap:10px;margin-top:6px;">' + itemsHtml + '</div><button onclick="addRepeaterItem(''+field.key+'',''+id+'')" style="margin-top:10px;background:var(--cream);border:1px dashed var(--border-strong);border-radius:var(--radius);padding:8px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;width:100%;">+ Add item</button></div>'
+  }
+  if (t === 'photo_array') {
+    const photos = Array.isArray(v) ? v : []
+    const photosHtml = photos.map(function(url, idx) {
+      return '<div style="position:relative;"><img src="' + url + '" style="width:80px;height:80px;border-radius:8px;object-fit:cover;"><button onclick="removePhoto(''+id+'','+idx+')" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;font-size:11px;">x</button></div>'
+    }).join('')
+    return '<div class="dash-field full"><label>' + field.label + '</label><div id="' + id + '-list" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;">' + photosHtml + '<div style="width:80px;height:80px;border:2px dashed var(--border-strong);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-muted);" onclick="addPhotoUrl(''+id+'')">+</div></div><div style="font-size:11px;color:var(--ink-muted);margin-top:6px;">Click + to add a photo URL</div></div>'
+  }
+  return ''
 }
 
 function renderRepeaterItem(field, item, idx, id) {
