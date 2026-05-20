@@ -717,6 +717,17 @@ app.post('/notify-downgrade', authMiddleware, async (req, res) => {
     res.json({ message: 'Notifications sent' })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
+// ── ADMIN - update domain info ──────────────────────────
+app.post('/admin/update-domain', authMiddleware, staffMiddleware, async (req, res) => {
+  const { client_id, domain_name, domain_cost, domain_yearly_fee } = req.body
+  try {
+    await pool.query(
+      'UPDATE clients SET domain_name=$1, domain_cost=$2, domain_yearly_fee=$3 WHERE id=$4',
+      [domain_name, domain_cost||0, domain_yearly_fee||0, client_id]
+    )
+    res.json({ message: 'Domain info saved' })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
 // ── TEST ────────────────────────────────────────────────
 app.get('/health', async (req, res) => {
   try { await pool.query('SELECT 1'); res.json({ message: 'Siteflowa server running!' }) }

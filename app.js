@@ -932,6 +932,7 @@ function renderManagerTable(clients){
         <div class="detail-item"><div class="dl">Active</div><div class="dv">${c.is_active?'OK Yes':'No No'}</div></div>
       </div>
       <p class="readonly-notice">i️ Contact admin to change pricing, plan, or delete this account.</p>
+      ${c.domain_name ? '<div style="margin-top:8px;padding:10px 14px;background:var(--cream);border-radius:var(--radius);font-size:13px;"><strong>Domain:</strong> '+c.domain_name+' &middot; <strong>Cost:</strong> $'+(c.domain_cost||0)+'/yr &middot; <strong>Client charged:</strong> $'+(c.domain_yearly_fee||0)+'/yr</div>' : ''}
     </div></td></tr>
   `).join('')
 }
@@ -993,6 +994,21 @@ function renderClientsTable(clients){
         <div class="sections-edit-checks">${SECTIONS.map(s=>{const on=c.sections?c.sections[s]:['gallery','hours','contact'].includes(s);return`<label class="section-check"><input type="checkbox" id="sec-${s}-${c.id}" ${on?'checked':''}> ${SECTION_LABELS[s]}</label>`}).join('')}</div>
         <button class="dash-save" onclick="updateSections('${c.website_id}','${c.id}')" style="padding:8px 14px;font-size:13px;margin-top:10px;">Update sections</button>
       </div>
+      <div class="sections-edit" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+        <div class="sections-edit-label">Domain & yearly fees</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px;align-items:end;">
+          <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-muted);">Domain name</label><input type="text" id="dn-${c.id}" value="${c.domain_name||''}" placeholder="e.g. janeplumbing.com" style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);"></div>
+          <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-muted);">Domain cost/year ($)</label><input type="number" id="dc-${c.id}" value="${c.domain_cost||0}" placeholder="0" oninput="calcDomainFee('${c.id}')" style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);"></div>
+          <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-muted);">Yearly domain fee charged ($)</label><input type="number" id="dyf-${c.id}" value="${c.domain_yearly_fee||0}" readonly style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);background:var(--cream);color:var(--ink-muted);" title="Auto-calculated based on plan"></div>
+        </div>
+        <div style="margin-top:8px;">
+          <button class="dash-save" onclick="updateDomainFee('${c.id}','${c.website_id}')" style="padding:8px 14px;font-size:13px;">Save domain info</button>
+          <span style="font-size:12px;color:var(--ink-muted);margin-left:10px;" id="domain-save-msg-${c.id}"></span>
+        </div>
+        <div style="font-size:12px;color:var(--ink-muted);margin-top:6px;line-height:1.5;">
+          Standard: free if under $30/yr, client pays excess. Premium: free if under $80/yr, client pays excess. Basic: no custom domain.
+        </div>
+      </div>
     </div></td></tr>
   `).join('')
 }
@@ -1035,6 +1051,43 @@ function showUpdateFeeModal(cid){const amount=prompt('Enter update fee amount ($
 async function chargeUpdateFee(cid,amount){
   try{const res=await fetch(API+'/admin/charge-update-fee',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({client_id:cid,amount})});const d=await res.json();if(d.message){alert('Update fee of $'+amount+' set. Client will be prompted to pay before accessing their dashboard.');loadAdminData()}else alert(d.error||'Failed')}catch(e){alert('Could not connect')}
 }
+function calcDomainFee(cid){
+  const domainCost = parseFloat(document.getElementById('dc-'+cid)?.value)||0
+  const planEl = document.getElementById('pl-'+cid)
+  const plan = planEl ? planEl.value : 'standard'
+  let yearlyFee = 0
+  if(plan === 'standard') yearlyFee = domainCost > 30 ? Math.round((domainCost-30)*100)/100 : 0
+  else if(plan === 'premium') yearlyFee = domainCost > 80 ? Math.round((domainCost-80)*100)/100 : 0
+  const feeEl = document.getElementById('dyf-'+cid)
+  if(feeEl) feeEl.value = yearlyFee
+}
+
+async function updateDomainFee(cid, wid){
+  const domainName = document.getElementById('dn-'+cid)?.value||''
+  const domainCost = parseFloat(document.getElementById('dc-'+cid)?.value)||0
+  // get client plan from the plan select
+  const planEl = document.getElementById('pl-'+cid)
+  const plan = planEl ? planEl.value : 'standard'
+  // calculate what client owes based on plan
+  let yearlyFee = 0
+  if(plan === 'basic') yearlyFee = 0
+  else if(plan === 'standard') yearlyFee = domainCost > 30 ? Math.round((domainCost - 30)*100)/100 : 0
+  else if(plan === 'premium') yearlyFee = domainCost > 80 ? Math.round((domainCost - 80)*100)/100 : 0
+  // update the readonly field
+  const feeEl = document.getElementById('dyf-'+cid)
+  if(feeEl) feeEl.value = yearlyFee
+  try{
+    const res = await fetch(API+'/admin/update-domain',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({client_id:cid,domain_name:domainName,domain_cost:domainCost,domain_yearly_fee:yearlyFee})})
+    const d = await res.json()
+    const msg = document.getElementById('domain-save-msg-'+cid)
+    if(d.message){
+      if(msg){msg.textContent='✓ Saved';setTimeout(()=>msg.textContent='',3000)}
+    } else {
+      if(msg) msg.textContent = d.error||'Failed'
+    }
+  }catch(e){alert('Could not connect')}
+}
+
 async function deleteClient(cid,email){
   if(!confirm('Delete '+email+'? This removes their account, website, and all data. Cannot be undone.'))return
   try{const res=await fetch(API+'/admin/delete-client/'+cid,{method:'DELETE',headers:{'Authorization':'Bearer '+getToken()}});const d=await res.json();if(d.message)loadAdminData();else alert(d.error||'Failed')}catch(e){alert('Could not connect')}
