@@ -541,10 +541,10 @@ function showTourComplete(){
     <div style="font-size:32px;margin-bottom:12px;">🎉</div>
     <div style="font-family:var(--serif);font-size:22px;margin-bottom:8px;">You're all set!</div>
     <p style="font-size:14px;color:rgba(255,255,255,0.8);line-height:1.6;margin-bottom:20px;">Your dashboard is ready to go. Start by updating your business info so your website is always current.</p>
-    <button onclick="removeTourTooltip()" style="background:white;color:var(--accent);border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-family:var(--sans);font-size:14px;font-weight:500;">Let's go!</button>
+    <button onclick="document.getElementById('tour-tooltip').remove()" style="background:white;color:var(--accent);border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-family:var(--sans);font-size:14px;font-weight:500;">Let's go!</button>
   `
   document.body.appendChild(tooltip)
-  setTimeout(removeTourTooltip, 6000)
+  setTimeout(()=>{const t=document.getElementById('tour-tooltip');if(t)t.remove()}, 8000)
 }
 async function fetchClientExtras(plan){
   const token=getToken();if(!token)return
@@ -555,7 +555,16 @@ async function fetchClientExtras(plan){
     if(data.client){
       const s=data.client.subscription_status
       document.getElementById('billing-status-text').textContent=s==='active'?'Active - Monthly plan':s==='suspended'?'Account suspended':'Pending payment'
-      document.getElementById('overview-status').textContent=data.website?.is_active?'Active OK':'Inactive No'
+      document.getElementById('overview-status').textContent=data.website?.is_active?'Active':'Inactive'
+    }
+    // show domain fee if applicable
+    if(data.client?.domain_yearly_fee && parseFloat(data.client.domain_yearly_fee) > 0){
+      const notice = document.getElementById('domain-fee-notice')
+      const text = document.getElementById('domain-fee-text')
+      if(notice && text){
+        notice.style.display='block'
+        text.textContent = data.client.domain_name + ' renews yearly at $' + parseFloat(data.client.domain_yearly_fee).toFixed(2) + '/yr (billed annually)'
+      }
     }
     buildUpgradeOptions(data.client?.plan||'standard')
   }catch(e){console.error(e)}
@@ -918,7 +927,7 @@ function renderManagerTable(clients){
       <td><span class="plan-pill ${c.plan||'standard'}">${(c.plan||'standard').charAt(0).toUpperCase()+(c.plan||'standard').slice(1)}</span></td>
       <td><span class="status-badge ${c.is_active?'active':c.subscription_status==='pending_payment'?'pending':'inactive'}">${c.is_active?'Active':c.subscription_status==='pending_payment'?'Pending':'Inactive'}</span></td>
       <td style="font-size:12px;">${c.created_by_email||'-'}</td>
-      <td>${new Date(c.created_at).toLocaleDateString()}</td>
+      <td>${new Date(c.created_at).toLocaleDateString('en-CA',{timeZone:'America/Vancouver',year:'numeric',month:'short',day:'numeric'})}</td>
       <td><button class="action-btn" style="background:var(--blue-light);border-color:var(--blue);color:var(--blue);" onclick="previewClientDashboard('${c.id}','${c.email}','${c.website_id||''}')">Preview dashboard</button></td>
     </tr>
     <tr class="client-detail-row" id="mgr-detail-${c.id}"><td colspan="7"><div class="client-detail-inner">
@@ -966,13 +975,15 @@ function renderClientsTable(clients){
       <td><span class="status-badge ${c.is_active?'active':c.subscription_status==='suspended'?'suspended':c.subscription_status==='pending_payment'?'pending':'inactive'}">${c.is_active?'Active':c.subscription_status==='suspended'?'Suspended':c.subscription_status==='pending_payment'?'Pending':'Inactive'}</span></td>
       <td>$${c.setup_fee||299}</td><td>$${c.monthly_fee||49}/mo</td>
       <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;">${c.created_by_email||'-'}</td>
-      <td>${new Date(c.created_at).toLocaleDateString()}</td>
+      <td>${new Date(c.created_at).toLocaleDateString('en-CA',{timeZone:'America/Vancouver',year:'numeric',month:'short',day:'numeric'})}</td>
       <td>
-        <button class="action-btn" onclick="toggleWebsite('${c.website_id}',${!c.is_active})">${c.is_active?'Pause':'Activate'}</button>
-        ${c.subdomain?'<a class="action-btn" href="/client/'+c.subdomain+'" target="_blank">View site</a>':''}
-        <button class="action-btn" style="background:var(--blue-light);border-color:var(--blue);color:var(--blue);" onclick="previewClientDashboard('${c.id}','${c.email}','${c.website_id||''}')">Preview dashboard</button>
-        <button class="action-btn warn" onclick="showUpdateFeeModal('${c.id}')">Fee</button>
-        <button class="action-btn danger" onclick="deleteClient('${c.id}','${c.email}')">Delete</button>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">
+          <button class="action-btn" onclick="toggleWebsite('${c.website_id}',${!c.is_active})">${c.is_active?'Pause':'Activate'}</button>
+          ${c.subdomain?'<a class="action-btn" href="/client/'+c.subdomain+'" target="_blank" style="text-decoration:none;">View site</a>':''}
+          <button class="action-btn" style="background:var(--blue-light);border-color:var(--blue);color:var(--blue);" onclick="previewClientDashboard('${c.id}','${c.email}','${c.website_id||''}')">Preview</button>
+          <button class="action-btn warn" onclick="showUpdateFeeModal('${c.id}')">Fee</button>
+          <button class="action-btn danger" onclick="deleteClient('${c.id}','${c.email}')">Delete</button>
+        </div>
       </td>
     </tr>
     <tr class="client-detail-row" id="detail-${c.id}"><td colspan="10"><div class="client-detail-inner">
@@ -1027,7 +1038,15 @@ async function createWebsite(){
   if(!business_name||!subdomain)return alert('Please fill in business name and subdomain')
   const sections={gallery:true,hours:true,contact:true,services:true,team:true,menu:false}
   try{
-    const body = {business_name,subdomain,setup_fee,monthly_fee,plan,sections}
+    const domainName = document.getElementById('new-domain-name')?.value||''
+    const domainCost = parseFloat(document.getElementById('new-domain-cost')?.value)||0
+    const planForDomain = plan
+    let domainYearlyFee = 0
+    if(planForDomain==='standard') domainYearlyFee = domainCost>30 ? Math.round((domainCost-30)*100)/100 : 0
+    else if(planForDomain==='premium') domainYearlyFee = domainCost>80 ? Math.round((domainCost-80)*100)/100 : 0
+    // add domain cost to setup fee for first payment
+    const totalSetupFee = setup_fee + (domainCost > 0 && planForDomain !== 'basic' ? Math.min(domainCost, planForDomain==='premium'?80:30) : 0)
+    const body = {business_name,subdomain,setup_fee:totalSetupFee,monthly_fee,plan,sections,domain_name:domainName,domain_cost:domainCost,domain_yearly_fee:domainYearlyFee}
     if(pendingHtmlContent) body.site_html = pendingHtmlContent
     const res=await fetch(API+'/admin/create-website',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify(body)})
     const d=await res.json()
@@ -1065,6 +1084,24 @@ function showUpdateFeeModal(cid){const amount=prompt('Enter update fee amount ($
 async function chargeUpdateFee(cid,amount){
   try{const res=await fetch(API+'/admin/charge-update-fee',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({client_id:cid,amount})});const d=await res.json();if(d.message){alert('Update fee of $'+amount+' set. Client will be prompted to pay before accessing their dashboard.');loadAdminData()}else alert(d.error||'Failed')}catch(e){alert('Could not connect')}
 }
+function calcNewDomainFee(){
+  const cost = parseFloat(document.getElementById('new-domain-cost')?.value)||0
+  const plan = document.getElementById('new-plan')?.value||'standard'
+  const notice = document.getElementById('new-domain-fee-notice')
+  const text = document.getElementById('new-domain-fee-text')
+  if(!notice||!text)return
+  if(cost===0||plan==='basic'){notice.style.display='none';return}
+  notice.style.display='block'
+  let covered = plan==='premium' ? 80 : 30
+  let yearlyCharge = cost > covered ? Math.round((cost-covered)*100)/100 : 0
+  let addedToLaunch = Math.min(cost, covered)
+  let msg = 'Domain: ' + (document.getElementById('new-domain-name')?.value||'') + ' ($' + cost.toFixed(2) + '/yr)'
+  msg += ' — $' + addedToLaunch.toFixed(2) + ' covered in launch fee'
+  if(yearlyCharge>0) msg += ' — client charged $' + yearlyCharge.toFixed(2) + '/yr after first year'
+  else msg += ' — fully covered, no yearly charge to client'
+  text.textContent = msg
+}
+
 function calcDomainFee(cid){
   const domainCost = parseFloat(document.getElementById('dc-'+cid)?.value)||0
   const planEl = document.getElementById('pl-'+cid)
