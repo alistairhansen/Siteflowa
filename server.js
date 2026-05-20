@@ -11,6 +11,7 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 app.use(express.static(__dirname))
+app.use('/sites', express.static(__dirname + '/sites'))
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
