@@ -185,7 +185,8 @@ app.get('/my-dashboard', authMiddleware, async (req, res) => {
     const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.user.id])
     const refCode = await pool.query('SELECT * FROM referral_codes WHERE owner_client_id=$1', [req.user.id])
     const client = await pool.query('SELECT id,email,subscription_status,created_at,plan,update_fee_required,update_fee_amount FROM clients WHERE id=$1', [req.user.id])
-    res.json({ client: client.rows[0], website: website.rows[0]||null, referral_code: refCode.rows[0]||null })
+    const ws = website.rows[0] || null
+res.json({ client: client.rows[0], website: ws, referral_code: refCode.rows[0]||null })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
