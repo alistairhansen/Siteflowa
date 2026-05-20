@@ -9,7 +9,8 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 const app = express()
 app.use(cors())
-app.use(express.json())
+app.use(express.json({ limit: '50mb' }))
+app.use(express.urlencoded({ limit: '50mb', extended: true }))
 app.use(express.static(__dirname))
 app.use('/sites', express.static(__dirname + '/sites'))
 
@@ -138,7 +139,7 @@ app.post('/forgot-password', async (req, res) => {
       'INSERT INTO password_resets (client_id, token, expires_at) VALUES ($1, $2, $3)',
       [result.rows[0].id, token, expires]
     )
-   const resetLink = `https://siteflowa.onrender.com/reset?token=${token}`
+    const resetLink = `https://siteflowa.onrender.com?token=${token}`
     await resend.emails.send({
       from: 'Siteflowa <onboarding@resend.dev>',
       to: emailLower,
@@ -148,9 +149,9 @@ app.post('/forgot-password', async (req, res) => {
           <h2 style="font-family:Georgia,serif;color:#0f1117;">Reset your password</h2>
           <p style="color:#4a4f5e;line-height:1.6;">We received a request to reset your Siteflowa password. Click the button below to choose a new one.</p>
           <a href="${resetLink}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">Reset my password</a>
-          <p style="color:#8b909e;font-size:13px;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+          <p style="color:#8b909e;font-size:13px;">This link expires in 1 hour. If you did not request this, you can safely ignore this email.</p>
           <hr style="border:none;border-top:1px solid #e5e3de;margin:24px 0;">
-          <p style="color:#8b909e;font-size:12px;">Siteflowa — Professional websites for small business</p>
+          <p style="color:#8b909e;font-size:12px;">Siteflowa - Professional websites for small business</p>
         </div>
       `
     })
@@ -188,7 +189,7 @@ app.get('/my-dashboard', authMiddleware, async (req, res) => {
     const refCode = await pool.query('SELECT * FROM referral_codes WHERE owner_client_id=$1', [req.user.id])
     const client = await pool.query('SELECT id,email,subscription_status,created_at,plan,update_fee_required,update_fee_amount FROM clients WHERE id=$1', [req.user.id])
     const ws = website.rows[0] || null
-res.json({ client: client.rows[0], website: ws, referral_code: refCode.rows[0]||null })
+    res.json({ client: client.rows[0], website: ws, referral_code: refCode.rows[0]||null })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
@@ -198,6 +199,15 @@ app.post('/my-website/save', authMiddleware, async (req, res) => {
   try {
     await pool.query('UPDATE websites SET business_name=$1,phone=$2,address=$3,tagline=$4 WHERE client_id=$5', [business_name, phone, address, tagline, req.user.id])
     res.json({ message: 'Saved' })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── CLIENT - save content ───────────────────────────────
+app.post('/my-website/content', authMiddleware, async (req, res) => {
+  const { content } = req.body
+  try {
+    await pool.query('UPDATE websites SET content=$1 WHERE client_id=$2', [JSON.stringify(content), req.user.id])
+    res.json({ message: 'Content saved' })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
@@ -238,6 +248,43 @@ app.post('/activate-account', authMiddleware, async (req, res) => {
     await pool.query('UPDATE clients SET subscription_status=$1 WHERE id=$2', ['active', req.user.id])
     await pool.query('UPDATE websites SET is_active=TRUE WHERE client_id=$1', [req.user.id])
     res.json({ message: 'Account activated' })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── NOTIFY DOWNGRADE ────────────────────────────────────
+app.post('/notify-downgrade', authMiddleware, async (req, res) => {
+  const { from_plan, to_plan } = req.body
+  try {
+    const client = await pool.query('SELECT * FROM clients WHERE id=$1', [req.user.id])
+    const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.user.id])
+    const staff = await pool.query("SELECT email FROM clients WHERE role IN ('admin','manager') AND subscription_status='active'")
+    const clientInfo = client.rows[0]
+    const siteInfo = website.rows[0]
+    const emails = staff.rows.map(s => s.email)
+    if (emails.length > 0) {
+      await resend.emails.send({
+        from: 'Siteflowa <onboarding@resend.dev>',
+        to: emails,
+        subject: 'Plan downgrade - ' + (siteInfo?.business_name || clientInfo.email),
+        html: `
+          <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;">
+            <h2 style="font-family:Georgia,serif;color:#e65100;">Plan downgrade alert</h2>
+            <p style="color:#4a4f5e;">A client is downgrading from <strong>${from_plan}</strong> to <strong>${to_plan}</strong>.</p>
+            <div style="background:#fff3e0;border:1px solid #e65100;border-radius:10px;padding:20px;margin:20px 0;">
+              <strong>${siteInfo?.business_name || 'Unknown'}</strong><br>
+              <span style="color:#4a4f5e;">${clientInfo.email}</span><br>
+              <span style="color:#4a4f5e;">Domain: ${siteInfo?.subdomain || '-'}.siteflowa.com</span>
+            </div>
+            ${(from_plan === 'standard' || from_plan === 'premium') && to_plan === 'basic' ? `
+              <div style="background:#ffebee;border:1px solid #e53935;border-radius:10px;padding:16px;margin-top:16px;">
+                <strong style="color:#e53935;">Custom domain action required</strong>
+                <p style="color:#4a4f5e;font-size:14px;margin-top:8px;">This client had a custom domain. Contact them about switching to a free subdomain.</p>
+              </div>` : ''}
+          </div>
+        `
+      })
+    }
+    res.json({ message: 'Notifications sent' })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
@@ -302,23 +349,12 @@ app.post('/admin/unclaim-inquiry', authMiddleware, staffMiddleware, async (req, 
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// ── CLOSE INQUIRY ────────────────────────────────────────
+// ── CLOSE INQUIRY ───────────────────────────────────────
 app.post('/admin/close-inquiry', authMiddleware, staffMiddleware, async (req, res) => {
   const { inquiry_id } = req.body
   try {
-    await pool.query(
-      'UPDATE inquiries SET closed=TRUE, status=$1 WHERE id=$2',
-      ['closed', inquiry_id]
-    )
+    await pool.query('UPDATE inquiries SET closed=TRUE, status=$1 WHERE id=$2', ['closed', inquiry_id])
     res.json({ message: 'Inquiry closed' })
-  } catch (err) { res.status(500).json({ error: err.message }) }
-})
-
-// ── SITE SETTINGS ───────────────────────────────────────
-app.get('/site-settings', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM site_settings LIMIT 1')
-    res.json(result.rows[0] || {})
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
@@ -356,6 +392,7 @@ app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
     const clients = await pool.query(`
       SELECT c.id, c.email, c.created_at, c.is_admin, c.role, c.subscription_status, c.plan,
              c.update_fee_required, c.update_fee_amount, c.commission_rate,
+             c.domain_name, c.domain_cost, c.domain_yearly_fee,
              w.id as website_id, w.business_name, w.subdomain, w.is_active,
              w.setup_fee, w.monthly_fee, w.client_email, w.sections, w.website_type,
              w.created_by, cb.email as created_by_email,
@@ -401,17 +438,40 @@ app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
 // ── ADMIN - create website ──────────────────────────────
 app.post('/admin/create-website', authMiddleware, staffMiddleware, async (req, res) => {
   try {
-    const { business_name, subdomain, setup_fee, monthly_fee, plan, sections, website_type } = req.body
+    const { business_name, subdomain, setup_fee, monthly_fee, plan, sections, website_type, site_html } = req.body
     const website = await pool.query(
       'INSERT INTO websites (business_name,subdomain,is_active,setup_fee,monthly_fee,created_by,sections,website_type) VALUES ($1,$2,FALSE,$3,$4,$5,$6,$7) RETURNING id',
       [business_name, subdomain, setup_fee||299, monthly_fee||49, req.user.id, JSON.stringify(sections||{gallery:true,hours:true,contact:true}), website_type||'general']
     )
     const code = Math.random().toString(36).substring(2,8).toUpperCase()
-await pool.query('INSERT INTO invite_codes (code,website_id) VALUES ($1,$2)', [code, website.rows[0].id])
-if (site_html) {
-  await pool.query('UPDATE websites SET site_html=$1 WHERE id=$2', [site_html, website.rows[0].id])
-}
-res.json({ message: 'Website created', invite_code: code, website_id: website.rows[0].id })
+    await pool.query('INSERT INTO invite_codes (code,website_id) VALUES ($1,$2)', [code, website.rows[0].id])
+    if (site_html) {
+      await pool.query('UPDATE websites SET site_html=$1 WHERE id=$2', [site_html, website.rows[0].id])
+    }
+    res.json({ message: 'Website created', invite_code: code, website_id: website.rows[0].id })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── ADMIN - upload site HTML ────────────────────────────
+app.post('/admin/upload-site-html', authMiddleware, staffMiddleware, async (req, res) => {
+  const { website_id, site_html } = req.body
+  try {
+    await pool.query('UPDATE websites SET site_html=$1 WHERE id=$2', [site_html, website_id])
+    res.json({ message: 'Website HTML saved' })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── ADMIN - client preview ──────────────────────────────
+app.get('/admin/client-preview/:clientId', authMiddleware, staffMiddleware, async (req, res) => {
+  try {
+    const client = await pool.query('SELECT * FROM clients WHERE id=$1', [req.params.clientId])
+    const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.params.clientId])
+    if (!client.rows[0]) return res.status(404).json({ error: 'Client not found' })
+    res.json({
+      client: client.rows[0],
+      website: website.rows[0] || null,
+      plan: client.rows[0].plan || 'standard'
+    })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
@@ -467,6 +527,18 @@ app.post('/admin/update-commission', authMiddleware, adminMiddleware, async (req
   try {
     await pool.query('UPDATE clients SET commission_rate=$1 WHERE id=$2', [commission_rate, client_id])
     res.json({ message: 'Commission updated' })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── ADMIN - update domain info ──────────────────────────
+app.post('/admin/update-domain', authMiddleware, staffMiddleware, async (req, res) => {
+  const { client_id, domain_name, domain_cost, domain_yearly_fee } = req.body
+  try {
+    await pool.query(
+      'UPDATE clients SET domain_name=$1, domain_cost=$2, domain_yearly_fee=$3 WHERE id=$4',
+      [domain_name, domain_cost||0, domain_yearly_fee||0, client_id]
+    )
+    res.json({ message: 'Domain info saved' })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
@@ -534,41 +606,7 @@ app.delete('/admin/remove-admin/:clientId', authMiddleware, adminMiddleware, asy
     res.json({ message: 'Admin removed' })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
-// ── CLIENT WEBSITE - save content ──────────────────────
-app.post('/my-website/content', authMiddleware, async (req, res) => {
-  const { content } = req.body
-  try {
-    await pool.query('UPDATE websites SET content=$1 WHERE client_id=$2', [JSON.stringify(content), req.user.id])
-    res.json({ message: 'Content saved' })
-  } catch (err) { res.status(500).json({ error: err.message }) }
-})
 
-// ── SERVE CLIENT WEBSITE ────────────────────────────────
-app.get('/site/:subdomain', async (req, res) => {
-  const { subdomain } = req.params
-  try {
-    const result = await pool.query(`
-      SELECT w.*, c.subscription_status, c.plan,
-             c.update_fee_required
-      FROM websites w
-      LEFT JOIN clients c ON c.id = w.client_id
-      WHERE w.subdomain = $1
-    `, [subdomain])
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Website not found' })
-    }
-    const website = result.rows[0]
-    res.json({
-      is_active: website.is_active && website.subscription_status === 'active',
-      business_name: website.business_name,
-      subdomain: website.subdomain,
-      plan: website.plan || 'standard',
-      sections: website.sections || {},
-      content: website.content || {},
-      schema: website.schema || {}
-    })
-  } catch (err) { res.status(500).json({ error: err.message }) }
-})
 // ── MANAGER EARNINGS ────────────────────────────────────
 app.get('/manager/earnings', authMiddleware, async (req, res) => {
   try {
@@ -608,36 +646,29 @@ app.post('/admin/close-period', authMiddleware, adminMiddleware, async (req, res
     const rate = manager.commission_rate || 10
     const websites = await pool.query(`
       SELECT w.*, c.plan, c.email as client_email
-      FROM websites w
-      LEFT JOIN clients c ON c.id = w.client_id
+      FROM websites w LEFT JOIN clients c ON c.id = w.client_id
       WHERE w.created_by = $1 AND w.created_at >= $2
     `, [manager_id, periodStart])
     const earnings = websites.rows.reduce((sum, w) => sum + ((w.setup_fee || 299) * rate / 100), 0)
     const periodEnd = new Date()
-
-    // Save period to history
-    await pool.query(`
-      INSERT INTO pay_periods (manager_id, period_start, period_end, websites_count, total_earned, commission_rate, websites_data)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, [manager_id, periodStart, periodEnd, websites.rows.length, Math.round(earnings), rate, JSON.stringify(websites.rows)])
-
-    // Update period start
+    await pool.query(
+      'INSERT INTO pay_periods (manager_id, period_start, period_end, websites_count, total_earned, commission_rate, websites_data) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [manager_id, periodStart, periodEnd, websites.rows.length, Math.round(earnings), rate, JSON.stringify(websites.rows)]
+    )
     await pool.query('UPDATE site_settings SET current_period_start=$1', [periodEnd])
-
-    // Send email receipt
     try {
       await resend.emails.send({
         from: 'Siteflowa <onboarding@resend.dev>',
         to: manager.email,
-        subject: `Your Siteflowa earnings — ${periodStart.toLocaleDateString()} to ${periodEnd.toLocaleDateString()}`,
+        subject: 'Your Siteflowa earnings - ' + periodStart.toLocaleDateString() + ' to ' + periodEnd.toLocaleDateString(),
         html: `
           <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
             <h2 style="font-family:Georgia,serif;color:#0f1117;">Your earnings summary</h2>
-            <p style="color:#4a4f5e;">Period: <strong>${periodStart.toLocaleDateString()} – ${periodEnd.toLocaleDateString()}</strong></p>
+            <p style="color:#4a4f5e;">Period: <strong>${periodStart.toLocaleDateString()} to ${periodEnd.toLocaleDateString()}</strong></p>
             <div style="background:#e8f4f1;border-radius:12px;padding:24px;margin:24px 0;text-align:center;">
-              <div style="font-size:13px;color:#1a6b5a;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Total earned this period</div>
-              <div style="font-size:48px;font-family:Georgia,serif;color:#1a6b5a;font-weight:700;">$${Math.round(earnings)}</div>
-              <div style="font-size:13px;color:#4a4f5e;margin-top:4px;">${rate}% commission on ${websites.rows.length} website${websites.rows.length!==1?'s':''}</div>
+              <div style="font-size:13px;color:#1a6b5a;font-weight:600;text-transform:uppercase;margin-bottom:8px;">Total earned</div>
+              <div style="font-size:48px;font-family:Georgia,serif;color:#1a6b5a;">$${Math.round(earnings)}</div>
+              <div style="font-size:13px;color:#4a4f5e;">${rate}% commission on ${websites.rows.length} website${websites.rows.length!==1?'s':''}</div>
             </div>
             <table style="width:100%;border-collapse:collapse;font-size:14px;">
               <thead><tr style="border-bottom:2px solid #e5e3de;">
@@ -649,20 +680,17 @@ app.post('/admin/close-period', authMiddleware, adminMiddleware, async (req, res
               <tbody>
                 ${websites.rows.map(w => `
                   <tr style="border-bottom:1px solid #e5e3de;">
-                    <td style="padding:10px 0;">${w.business_name||'—'}</td>
+                    <td style="padding:10px 0;">${w.business_name||'-'}</td>
                     <td style="padding:10px 0;text-transform:capitalize;">${w.plan||'standard'}</td>
                     <td style="padding:10px 0;text-align:right;">$${w.setup_fee||299}</td>
                     <td style="padding:10px 0;text-align:right;color:#1a6b5a;font-weight:600;">$${Math.round((w.setup_fee||299)*rate/100)}</td>
                   </tr>`).join('')}
               </tbody>
             </table>
-            <hr style="border:none;border-top:1px solid #e5e3de;margin:24px 0;">
-            <p style="color:#8b909e;font-size:12px;">Siteflowa — Professional websites for small business</p>
           </div>
         `
       })
     } catch(emailErr) { console.error('Email failed:', emailErr) }
-
     res.json({ message: 'Period closed and receipt sent', earnings: Math.round(earnings), websites_count: websites.rows.length })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
@@ -675,7 +703,7 @@ app.get('/admin/pay-periods/:managerId', authMiddleware, adminMiddleware, async 
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// ── ADMIN - update pay period settings ─────────────────
+// ── ADMIN - pay settings ────────────────────────────────
 app.post('/admin/pay-settings', authMiddleware, adminMiddleware, async (req, res) => {
   const { pay_cycle_days, current_period_start } = req.body
   try {
@@ -684,188 +712,53 @@ app.post('/admin/pay-settings', authMiddleware, adminMiddleware, async (req, res
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// ── DOWNGRADE NOTIFICATION ──────────────────────────────
-app.post('/notify-downgrade', authMiddleware, async (req, res) => {
-  const { from_plan, to_plan } = req.body
+// ── SERVE CLIENT WEBSITE DATA ───────────────────────────
+app.get('/site/:subdomain', async (req, res) => {
+  const { subdomain } = req.params
   try {
-    const client = await pool.query('SELECT * FROM clients WHERE id=$1', [req.user.id])
-    const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.user.id])
-    const staff = await pool.query("SELECT email FROM clients WHERE role IN ('admin','manager') AND subscription_status='active'")
-    const clientInfo = client.rows[0]
-    const siteInfo = website.rows[0]
-    const emails = staff.rows.map(s => s.email)
-    if (emails.length > 0) {
-      await resend.emails.send({
-        from: 'Siteflowa <onboarding@resend.dev>',
-        to: emails,
-        subject: `⚠️ Plan downgrade — ${siteInfo?.business_name || clientInfo.email}`,
-        html: `
-          <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;">
-            <h2 style="font-family:Georgia,serif;color:#e65100;">Plan downgrade alert</h2>
-            <p style="color:#4a4f5e;line-height:1.6;">A client is downgrading from <strong>${from_plan}</strong> to <strong>${to_plan}</strong>.</p>
-            <div style="background:#fff3e0;border:1px solid #e65100;border-radius:10px;padding:20px;margin:20px 0;">
-              <strong>${siteInfo?.business_name || 'Unknown'}</strong><br>
-              <span style="color:#4a4f5e;">${clientInfo.email}</span><br>
-              <span style="color:#4a4f5e;">Domain: ${siteInfo?.subdomain || '—'}.siteflowa.com</span>
-            </div>
-            ${(from_plan === 'standard' || from_plan === 'premium') && to_plan === 'basic' ? `
-              <div style="background:#ffebee;border:1px solid #e53935;border-radius:10px;padding:16px;margin-top:16px;">
-                <strong style="color:#e53935;">⚠️ Custom domain action required</strong><br>
-                <p style="color:#4a4f5e;font-size:14px;margin-top:8px;">This client had a custom domain. You need to contact them about switching to a free subdomain before processing the downgrade.</p>
-              </div>` : ''}
-            <p style="color:#8b909e;font-size:12px;margin-top:24px;">Siteflowa admin notification</p>
-          </div>
-        `
-      })
-    }
-    res.json({ message: 'Notifications sent' })
-  } catch (err) { res.status(500).json({ error: err.message }) }
-})
-// ── ADMIN - update domain info ──────────────────────────
-app.post('/admin/update-domain', authMiddleware, staffMiddleware, async (req, res) => {
-  const { client_id, domain_name, domain_cost, domain_yearly_fee } = req.body
-  try {
-    await pool.query(
-      'UPDATE clients SET domain_name=$1, domain_cost=$2, domain_yearly_fee=$3 WHERE id=$4',
-      [domain_name, domain_cost||0, domain_yearly_fee||0, client_id]
-    )
-    res.json({ message: 'Domain info saved' })
-  } catch (err) { res.status(500).json({ error: err.message }) }
-})
-// ── UPLOAD CLIENT SITE HTML ─────────────────────────────
-app.post('/admin/upload-site-html', authMiddleware, staffMiddleware, async (req, res) => {
-  const { website_id, site_html } = req.body
-  try {
-    await pool.query('UPDATE websites SET site_html=$1 WHERE id=$2', [site_html, website_id])
-    res.json({ message: 'Website HTML saved' })
-  } catch (err) { res.status(500).json({ error: err.message }) }
-})
-
-// ── CLIENT PREVIEW FOR ADMIN ────────────────────────────
-app.get('/admin/client-preview/:clientId', authMiddleware, staffMiddleware, async (req, res) => {
-  try {
-    const client = await pool.query('SELECT * FROM clients WHERE id=$1', [req.params.clientId])
-    const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.params.clientId])
-    if (!client.rows[0]) return res.status(404).json({ error: 'Client not found' })
+    const result = await pool.query(`
+      SELECT w.*, c.subscription_status, c.plan, c.update_fee_required
+      FROM websites w
+      LEFT JOIN clients c ON c.id = w.client_id
+      WHERE w.subdomain = $1
+    `, [subdomain])
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Website not found' })
+    const website = result.rows[0]
     res.json({
-      client: client.rows[0],
-      website: website.rows[0] || null,
-      plan: client.rows[0].plan || 'standard'
+      is_active: website.is_active && website.subscription_status === 'active',
+      business_name: website.business_name,
+      subdomain: website.subdomain,
+      plan: website.plan || 'standard',
+      sections: website.sections || {},
+      content: website.content || {},
+      schema: website.schema || {}
     })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// ── SERVE CLIENT SITE FROM DATABASE ────────────────────
+// ── SERVE CLIENT SITE HTML ──────────────────────────────
 app.get('/client/:subdomain', async (req, res) => {
   const fs = require('fs')
   const { subdomain } = req.params
   try {
-    // First check database for uploaded HTML
     const result = await pool.query('SELECT site_html FROM websites WHERE subdomain=$1', [subdomain])
     if (result.rows[0]?.site_html) {
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
       return res.send(result.rows[0].site_html)
     }
-    // Fall back to file in sites/ folder
     const sitePath = __dirname + '/sites/' + subdomain + '.html'
-    if (fs.existsSync(sitePath)) {
-      return res.sendFile(sitePath)
-    }
-    res.status(404).send('<h1 style="font-family:sans-serif;text-align:center;margin-top:100px;">Website not found</h1><p style="text-align:center;color:#888;">This website has not been set up yet.</p>')
+    if (fs.existsSync(sitePath)) return res.sendFile(sitePath)
+    res.status(404).send('<div style="font-family:sans-serif;text-align:center;padding:100px 40px;"><h1>Website not found</h1><p style="color:#888;">This website has not been set up yet.</p></div>')
   } catch (err) {
     res.status(500).send('<h1>Error loading website</h1>')
   }
 })
-// ── TRACK PAGE VIEW ─────────────────────────────────────
-app.post('/track', async (req, res) => {
-  const { subdomain, page, referrer } = req.body
-  try {
-    // parse referrer source
-    let source = 'Direct'
-    if (referrer) {
-      if (referrer.includes('google')) source = 'Google'
-      else if (referrer.includes('facebook')) source = 'Facebook'
-      else if (referrer.includes('instagram')) source = 'Instagram'
-      else if (referrer.includes('tiktok')) source = 'TikTok'
-      else if (referrer.includes('bing')) source = 'Bing'
-      else if (referrer.includes('yahoo')) source = 'Yahoo'
-      else if (referrer.includes('twitter') || referrer.includes('x.com')) source = 'X / Twitter'
-      else if (referrer) source = 'Other website'
-    }
-    // parse device from user agent
-    const ua = req.headers['user-agent'] || ''
-    let device = 'Desktop'
-    if (/mobile/i.test(ua)) device = 'Mobile'
-    else if (/tablet|ipad/i.test(ua)) device = 'Tablet'
-    // parse browser
-    let browser = 'Other'
-    if (/chrome/i.test(ua) && !/edge/i.test(ua)) browser = 'Chrome'
-    else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = 'Safari'
-    else if (/firefox/i.test(ua)) browser = 'Firefox'
-    else if (/edge/i.test(ua)) browser = 'Edge'
-    await pool.query(
-      'INSERT INTO page_views (subdomain, page, referrer, referrer_source, device, browser) VALUES ($1,$2,$3,$4,$5,$6)',
-      [subdomain, page || '/', referrer || '', source, device, browser]
-    )
-    res.json({ ok: true })
-  } catch (err) {
-    res.json({ ok: false })
-  }
-})
 
-// ── GET ANALYTICS ────────────────────────────────────────
-app.get('/analytics/:subdomain', authMiddleware, async (req, res) => {
-  const { subdomain } = req.params
-  const { period } = req.query // 7, 30, 90
-  const days = parseInt(period) || 30
-  try {
-    // verify this client owns this subdomain or is staff
-    if (req.user.role === 'client') {
-      const website = await pool.query('SELECT subdomain FROM websites WHERE client_id=$1', [req.user.id])
-      if (website.rows[0]?.subdomain !== subdomain) {
-        return res.status(403).json({ error: 'Access denied' })
-      }
-    }
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
-
-    const [total, daily, sources, devices, browsers, pages] = await Promise.all([
-      pool.query('SELECT COUNT(*) as count FROM page_views WHERE subdomain=$1 AND created_at>=$2', [subdomain, since]),
-      pool.query(`SELECT DATE_TRUNC('day', created_at) as day, COUNT(*) as views FROM page_views WHERE subdomain=$1 AND created_at>=$2 GROUP BY day ORDER BY day`, [subdomain, since]),
-      pool.query(`SELECT referrer_source, COUNT(*) as count FROM page_views WHERE subdomain=$1 AND created_at>=$2 GROUP BY referrer_source ORDER BY count DESC`, [subdomain, since]),
-      pool.query(`SELECT device, COUNT(*) as count FROM page_views WHERE subdomain=$1 AND created_at>=$2 GROUP BY device ORDER BY count DESC`, [subdomain, since]),
-      pool.query(`SELECT browser, COUNT(*) as count FROM page_views WHERE subdomain=$1 AND created_at>=$2 GROUP BY browser ORDER BY count DESC`, [subdomain, since]),
-      pool.query(`SELECT page, COUNT(*) as count FROM page_views WHERE subdomain=$1 AND created_at>=$2 GROUP BY page ORDER BY count DESC LIMIT 10`, [subdomain, since])
-    ])
-
-    res.json({
-      total_views: parseInt(total.rows[0]?.count) || 0,
-      daily: daily.rows,
-      sources: sources.rows,
-      devices: devices.rows,
-      browsers: browsers.rows,
-      pages: pages.rows
-    })
-  } catch (err) { res.status(500).json({ error: err.message }) }
-})
 // ── HEALTH CHECK ────────────────────────────────────────
 app.get('/health', async (req, res) => {
   try { await pool.query('SELECT 1'); res.json({ message: 'Siteflowa server running!' }) }
   catch (err) { res.status(500).json({ error: 'DB connection failed' }) }
 })
-
-// ── SERVE CLIENT SITES ───────────────────────────────────
-app.get('/client/:subdomain', (req, res) => {
-  const fs = require('fs')
-  const sitePath = __dirname + '/sites/' + req.params.subdomain + '.html'
-  if (fs.existsSync(sitePath)) {
-    res.sendFile(sitePath)
-  } else {
-    res.status(404).send('<h1>Website not found</h1><p>This website has not been set up yet.</p>')
-  }
-})
-
-const PORT = process.env.PORT || 3000
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
 
 const PORT = process.env.PORT || 3000
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
