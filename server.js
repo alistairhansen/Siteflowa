@@ -564,6 +564,158 @@ app.get('/site/:subdomain', async (req, res) => {
     })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
+// ── MANAGER EARNINGS ────────────────────────────────────
+app.get('/manager/earnings', authMiddleware, async (req, res) => {
+  try {
+    const settings = await pool.query('SELECT * FROM site_settings LIMIT 1')
+    const s = settings.rows[0] || {}
+    const periodStart = s.current_period_start ? new Date(s.current_period_start) : new Date(new Date().setDate(1))
+    const websites = await pool.query(`
+      SELECT w.*, c.plan, c.email as client_email
+      FROM websites w
+      LEFT JOIN clients c ON c.id = w.client_id
+      WHERE w.created_by = $1 AND w.created_at >= $2
+    `, [req.user.id, periodStart])
+    const managerData = await pool.query('SELECT commission_rate FROM clients WHERE id=$1', [req.user.id])
+    const rate = managerData.rows[0]?.commission_rate || 10
+    const earnings = websites.rows.reduce((sum, w) => sum + ((w.setup_fee || 299) * rate / 100), 0)
+    res.json({
+      websites: websites.rows,
+      commission_rate: rate,
+      period_start: periodStart,
+      period_end: new Date(),
+      total_earnings: Math.round(earnings),
+      websites_count: websites.rows.length
+    })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── ADMIN - close pay period ────────────────────────────
+app.post('/admin/close-period', authMiddleware, adminMiddleware, async (req, res) => {
+  const { manager_id } = req.body
+  try {
+    const settings = await pool.query('SELECT * FROM site_settings LIMIT 1')
+    const s = settings.rows[0] || {}
+    const periodStart = s.current_period_start ? new Date(s.current_period_start) : new Date(new Date().setDate(1))
+    const managerData = await pool.query('SELECT * FROM clients WHERE id=$1', [manager_id])
+    const manager = managerData.rows[0]
+    if (!manager) return res.status(404).json({ error: 'Manager not found' })
+    const rate = manager.commission_rate || 10
+    const websites = await pool.query(`
+      SELECT w.*, c.plan, c.email as client_email
+      FROM websites w
+      LEFT JOIN clients c ON c.id = w.client_id
+      WHERE w.created_by = $1 AND w.created_at >= $2
+    `, [manager_id, periodStart])
+    const earnings = websites.rows.reduce((sum, w) => sum + ((w.setup_fee || 299) * rate / 100), 0)
+    const periodEnd = new Date()
+
+    // Save period to history
+    await pool.query(`
+      INSERT INTO pay_periods (manager_id, period_start, period_end, websites_count, total_earned, commission_rate, websites_data)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [manager_id, periodStart, periodEnd, websites.rows.length, Math.round(earnings), rate, JSON.stringify(websites.rows)])
+
+    // Update period start
+    await pool.query('UPDATE site_settings SET current_period_start=$1', [periodEnd])
+
+    // Send email receipt
+    try {
+      await resend.emails.send({
+        from: 'Siteflowa <onboarding@resend.dev>',
+        to: manager.email,
+        subject: `Your Siteflowa earnings — ${periodStart.toLocaleDateString()} to ${periodEnd.toLocaleDateString()}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
+            <h2 style="font-family:Georgia,serif;color:#0f1117;">Your earnings summary</h2>
+            <p style="color:#4a4f5e;">Period: <strong>${periodStart.toLocaleDateString()} – ${periodEnd.toLocaleDateString()}</strong></p>
+            <div style="background:#e8f4f1;border-radius:12px;padding:24px;margin:24px 0;text-align:center;">
+              <div style="font-size:13px;color:#1a6b5a;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Total earned this period</div>
+              <div style="font-size:48px;font-family:Georgia,serif;color:#1a6b5a;font-weight:700;">$${Math.round(earnings)}</div>
+              <div style="font-size:13px;color:#4a4f5e;margin-top:4px;">${rate}% commission on ${websites.rows.length} website${websites.rows.length!==1?'s':''}</div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:14px;">
+              <thead><tr style="border-bottom:2px solid #e5e3de;">
+                <th style="text-align:left;padding:8px 0;color:#8b909e;">Business</th>
+                <th style="text-align:left;padding:8px 0;color:#8b909e;">Plan</th>
+                <th style="text-align:right;padding:8px 0;color:#8b909e;">Build fee</th>
+                <th style="text-align:right;padding:8px 0;color:#8b909e;">Your cut</th>
+              </tr></thead>
+              <tbody>
+                ${websites.rows.map(w => `
+                  <tr style="border-bottom:1px solid #e5e3de;">
+                    <td style="padding:10px 0;">${w.business_name||'—'}</td>
+                    <td style="padding:10px 0;text-transform:capitalize;">${w.plan||'standard'}</td>
+                    <td style="padding:10px 0;text-align:right;">$${w.setup_fee||299}</td>
+                    <td style="padding:10px 0;text-align:right;color:#1a6b5a;font-weight:600;">$${Math.round((w.setup_fee||299)*rate/100)}</td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+            <hr style="border:none;border-top:1px solid #e5e3de;margin:24px 0;">
+            <p style="color:#8b909e;font-size:12px;">Siteflowa — Professional websites for small business</p>
+          </div>
+        `
+      })
+    } catch(emailErr) { console.error('Email failed:', emailErr) }
+
+    res.json({ message: 'Period closed and receipt sent', earnings: Math.round(earnings), websites_count: websites.rows.length })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── ADMIN - pay period history ──────────────────────────
+app.get('/admin/pay-periods/:managerId', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM pay_periods WHERE manager_id=$1 ORDER BY period_end DESC', [req.params.managerId])
+    res.json({ periods: result.rows })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── ADMIN - update pay period settings ─────────────────
+app.post('/admin/pay-settings', authMiddleware, adminMiddleware, async (req, res) => {
+  const { pay_cycle_days, current_period_start } = req.body
+  try {
+    await pool.query('UPDATE site_settings SET pay_cycle_days=$1, current_period_start=$2', [pay_cycle_days||7, current_period_start||new Date()])
+    res.json({ message: 'Pay settings updated' })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── DOWNGRADE NOTIFICATION ──────────────────────────────
+app.post('/notify-downgrade', authMiddleware, async (req, res) => {
+  const { from_plan, to_plan } = req.body
+  try {
+    const client = await pool.query('SELECT * FROM clients WHERE id=$1', [req.user.id])
+    const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.user.id])
+    const staff = await pool.query("SELECT email FROM clients WHERE role IN ('admin','manager') AND subscription_status='active'")
+    const clientInfo = client.rows[0]
+    const siteInfo = website.rows[0]
+    const emails = staff.rows.map(s => s.email)
+    if (emails.length > 0) {
+      await resend.emails.send({
+        from: 'Siteflowa <onboarding@resend.dev>',
+        to: emails,
+        subject: `⚠️ Plan downgrade — ${siteInfo?.business_name || clientInfo.email}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;">
+            <h2 style="font-family:Georgia,serif;color:#e65100;">Plan downgrade alert</h2>
+            <p style="color:#4a4f5e;line-height:1.6;">A client is downgrading from <strong>${from_plan}</strong> to <strong>${to_plan}</strong>.</p>
+            <div style="background:#fff3e0;border:1px solid #e65100;border-radius:10px;padding:20px;margin:20px 0;">
+              <strong>${siteInfo?.business_name || 'Unknown'}</strong><br>
+              <span style="color:#4a4f5e;">${clientInfo.email}</span><br>
+              <span style="color:#4a4f5e;">Domain: ${siteInfo?.subdomain || '—'}.siteflowa.com</span>
+            </div>
+            ${(from_plan === 'standard' || from_plan === 'premium') && to_plan === 'basic' ? `
+              <div style="background:#ffebee;border:1px solid #e53935;border-radius:10px;padding:16px;margin-top:16px;">
+                <strong style="color:#e53935;">⚠️ Custom domain action required</strong><br>
+                <p style="color:#4a4f5e;font-size:14px;margin-top:8px;">This client had a custom domain. You need to contact them about switching to a free subdomain before processing the downgrade.</p>
+              </div>` : ''}
+            <p style="color:#8b909e;font-size:12px;margin-top:24px;">Siteflowa admin notification</p>
+          </div>
+        `
+      })
+    }
+    res.json({ message: 'Notifications sent' })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
 // ── TEST ────────────────────────────────────────────────
 app.get('/', async (req, res) => {
   try { await pool.query('SELECT 1'); res.json({ message: 'Siteflowa server running!' }) }
