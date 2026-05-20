@@ -14,6 +14,12 @@ const DEMO_Q_LABELS=["Business type","Main goal","Sections wanted","Style prefer
 function getToken(){return localStorage.getItem('wc_token')}
 function getRole(){return localStorage.getItem('wc_role')}
 
+function toggleMobileMenu(){
+  document.querySelector('nav').classList.toggle('nav-mobile-open')
+}
+function closeMobileMenu(){
+  document.querySelector('nav').classList.remove('nav-mobile-open')
+}
 function showPage(n){
   document.querySelectorAll('.page-section').forEach(s=>s.classList.remove('active'))
   document.getElementById('page-'+n).classList.add('active')
@@ -934,7 +940,7 @@ async function loadAdminData(){
     if(data.clients)renderClientsTable(data.clients.filter(c=>c.role==='client'||(!c.role&&!c.is_admin)))
     if(data.managers)renderStaffList(data.managers)
     if(data.monthly_chart)renderChart(data.monthly_chart)
-    loadAdminCodes();loadManagerCodes();loadInquiries('admin')
+    loadAdminCodes();loadManagerCodes();loadInquiries('admin');loadPipeline();loadAssetForms()
   }catch(e){console.error(e)}
 }
 
@@ -946,6 +952,7 @@ async function loadPaySettings(){
     const startEl=document.getElementById('period-start-date')
     if(cycleEl)cycleEl.value=s.pay_cycle_days||7
     if(startEl&&s.current_period_start)startEl.value=new Date(s.current_period_start).toISOString().split('T')[0]
+    const depEl=document.getElementById('deposit-percent');if(depEl&&s.deposit_percent)depEl.value=s.deposit_percent
   }catch(e){console.error(e)}
 }
 function renderChart(rows){
@@ -1612,4 +1619,527 @@ window.addEventListener('load',()=>{
     window.history.replaceState({},'',window.location.pathname)
     openLogin()
   }
+  if(params.get('assetform')){
+    const token=params.get('assetform')
+    showPage('assetform')
+    loadAssetFormPage(token)
+    window.history.replaceState({},'',window.location.pathname)
+  }
 })
+// ══════════════════════════════════════════════════════
+// SALES PIPELINE
+// ══════════════════════════════════════════════════════
+let allLeads = []
+
+const STAGE_LABELS = {
+  new: 'New lead', contacted: 'Contacted', interested: 'Interested',
+  demo_sent: 'Demo sent', deposit_paid: 'Deposit paid', building: 'Building',
+  ready: 'Ready to launch', live: 'Live', not_interested: 'Not interested'
+}
+const STAGE_COLORS = {
+  new: '#6b7280', contacted: '#3b82f6', interested: '#8b5cf6',
+  demo_sent: '#f59e0b', deposit_paid: '#10b981', building: '#1a6b5a',
+  ready: '#059669', live: '#047857', not_interested: '#ef4444'
+}
+
+async function loadPipeline() {
+  const token = getToken()
+  if (!token) return
+  try {
+    const res = await fetch(API + '/admin/leads', { headers: { 'Authorization': 'Bearer ' + token } })
+    const data = await res.json()
+    allLeads = data.leads || []
+    renderPipeline(allLeads)
+    // also populate mgr-pipeline-wrap if exists
+    const mgrWrap = document.getElementById('mgr-pipeline-wrap')
+    if (mgrWrap) renderPipelineInto(mgrWrap, allLeads)
+  } catch(e) { console.error(e) }
+}
+
+function filterPipeline() {
+  const filter = document.getElementById('pipeline-filter')?.value || 'all'
+  const filtered = filter === 'all' ? allLeads : allLeads.filter(l => l.stage === filter)
+  renderPipeline(filtered)
+}
+
+function renderPipeline(leads) {
+  const wrap = document.getElementById('pipeline-wrap')
+  if (!wrap) return
+  renderPipelineInto(wrap, leads)
+}
+
+function renderPipelineInto(wrap, leads) {
+  if (!leads || !leads.length) {
+    wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No leads yet. Add your first potential client above.</p>'
+    return
+  }
+  const myEmail = localStorage.getItem('wc_email') || ''
+  const role = getRole()
+  wrap.innerHTML = `
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border);">
+            <th style="text-align:left;padding:10px 8px;color:var(--ink-muted);font-weight:600;">Business</th>
+            <th style="text-align:left;padding:10px 8px;color:var(--ink-muted);font-weight:600;">Contact</th>
+            <th style="text-align:left;padding:10px 8px;color:var(--ink-muted);font-weight:600;">Plan</th>
+            <th style="text-align:left;padding:10px 8px;color:var(--ink-muted);font-weight:600;">Stage</th>
+            <th style="text-align:left;padding:10px 8px;color:var(--ink-muted);font-weight:600;">Claimed by</th>
+            <th style="text-align:left;padding:10px 8px;color:var(--ink-muted);font-weight:600;">Added by</th>
+            <th style="text-align:left;padding:10px 8px;color:var(--ink-muted);font-weight:600;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${leads.map(l => {
+            const isMine = l.claimed_by_email === myEmail
+            const unclaimed = !l.claimed_by
+            const canEdit = isMine || role === 'admin'
+            return `
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:10px 8px;">
+                  <div style="font-weight:600;">${l.business_name}</div>
+                  ${l.website_url ? '<a href="'+l.website_url+'" target="_blank" style="font-size:11px;color:var(--accent);">View website</a>' : ''}
+                  ${l.notes ? '<div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">'+l.notes+'</div>' : ''}
+                </td>
+                <td style="padding:10px 8px;">
+                  <div>${l.contact_name || '-'}</div>
+                  ${l.email ? '<a href="mailto:'+l.email+'" style="font-size:11px;color:var(--accent);">'+l.email+'</a>' : ''}
+                  ${l.phone ? '<div style="font-size:11px;">'+l.phone+'</div>' : ''}
+                </td>
+                <td style="padding:10px 8px;text-transform:capitalize;">${l.plan_interest || 'standard'}</td>
+                <td style="padding:10px 8px;">
+                  <span style="background:${STAGE_COLORS[l.stage]||'#6b7280'}22;color:${STAGE_COLORS[l.stage]||'#6b7280'};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;">
+                    ${STAGE_LABELS[l.stage] || l.stage}
+                  </span>
+                </td>
+                <td style="padding:10px 8px;font-size:12px;">${l.claimed_by_email || '<span style="color:var(--ink-muted)">Unclaimed</span>'}</td>
+                <td style="padding:10px 8px;font-size:12px;">${l.added_by_email || '-'}</td>
+                <td style="padding:10px 8px;">
+                  <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                    ${unclaimed ? '<button class="action-btn" onclick="claimLead(\''+l.id+'\')">Claim</button>' : ''}
+                    ${canEdit ? `<select onchange="updateLeadStage('${l.id}',this.value)" style="padding:4px 8px;font-size:11px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);">
+                      ${Object.entries(STAGE_LABELS).map(([k,v]) => '<option value="'+k+'"'+(l.stage===k?' selected':'')+'>'+v+'</option>').join('')}
+                    </select>` : ''}
+                    ${role === 'admin' ? '<button class="action-btn danger" onclick="deleteLead(\''+l.id+'\')">Delete</button>' : ''}
+                  </div>
+                </td>
+              </tr>`
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`
+}
+
+function showAddLeadModal() {
+  const existing = document.getElementById('add-lead-modal')
+  if (existing) existing.remove()
+  const modal = document.createElement('div')
+  modal.id = 'add-lead-modal'
+  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.7);display:flex;align-items:center;justify-content:center;padding:20px;'
+  modal.innerHTML = `
+    <div style="background:white;border-radius:16px;max-width:520px;width:100%;padding:32px;box-shadow:0 24px 60px rgba(0,0,0,0.25);">
+      <h3 style="font-family:var(--serif);font-size:22px;margin-bottom:20px;">Add new lead</h3>
+      <div class="dash-grid">
+        <div class="dash-field"><label>Business name *</label><input type="text" id="lead-biz" placeholder="Acme Plumbing"></div>
+        <div class="dash-field"><label>Contact name</label><input type="text" id="lead-contact" placeholder="John Smith"></div>
+        <div class="dash-field"><label>Email</label><input type="email" id="lead-email" placeholder="john@acme.com"></div>
+        <div class="dash-field"><label>Phone</label><input type="tel" id="lead-phone" placeholder="+1 (555) 000-0000"></div>
+        <div class="dash-field full"><label>Website URL</label><input type="url" id="lead-url" placeholder="https://acme.com"></div>
+        <div class="dash-field full"><label>Notes</label><textarea id="lead-notes" rows="2" placeholder="Any notes about this lead..."></textarea></div>
+        <div class="dash-field"><label>Plan interest</label><select id="lead-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px;">
+        <button class="dash-save" onclick="submitLead()">Add lead</button>
+        <button onclick="document.getElementById('add-lead-modal').remove()" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:10px 20px;font-family:var(--sans);font-size:14px;cursor:pointer;">Cancel</button>
+      </div>
+    </div>`
+  document.body.appendChild(modal)
+}
+
+async function submitLead() {
+  const biz = document.getElementById('lead-biz')?.value
+  if (!biz) { alert('Business name is required'); return }
+  const body = {
+    business_name: biz,
+    contact_name: document.getElementById('lead-contact')?.value,
+    email: document.getElementById('lead-email')?.value,
+    phone: document.getElementById('lead-phone')?.value,
+    website_url: document.getElementById('lead-url')?.value,
+    notes: document.getElementById('lead-notes')?.value,
+    plan_interest: document.getElementById('lead-plan')?.value
+  }
+  try {
+    const res = await fetch(API + '/admin/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify(body)
+    })
+    const d = await res.json()
+    if (d.lead) {
+      document.getElementById('add-lead-modal')?.remove()
+      loadPipeline()
+    } else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+async function claimLead(id) {
+  try {
+    const res = await fetch(API + '/admin/leads/' + id + '/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
+    })
+    const d = await res.json()
+    if (d.message) loadPipeline()
+    else alert(d.error || 'Could not claim')
+  } catch(e) { alert('Could not connect') }
+}
+
+async function updateLeadStage(id, stage) {
+  try {
+    const res = await fetch(API + '/admin/leads/' + id + '/stage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ stage })
+    })
+    const d = await res.json()
+    if (!d.message) alert(d.error || 'Could not update stage')
+    else loadPipeline()
+  } catch(e) { alert('Could not connect') }
+}
+
+async function deleteLead(id) {
+  if (!confirm('Delete this lead?')) return
+  try {
+    await fetch(API + '/admin/leads/' + id, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    loadPipeline()
+  } catch(e) { alert('Could not connect') }
+}
+
+// ══════════════════════════════════════════════════════
+// WEBSITE BRIEFS / ASSET FORMS
+// ══════════════════════════════════════════════════════
+async function sendAssetForm() {
+  const email = document.getElementById('brief-email')?.value
+  const plan = document.getElementById('brief-plan')?.value || 'standard'
+  if (!email) { alert('Please enter a client email'); return }
+  try {
+    const res = await fetch(API + '/admin/send-asset-form', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ email, plan })
+    })
+    const d = await res.json()
+    if (d.message) {
+      const msg = document.getElementById('save-msg-brief')
+      if (msg) { msg.classList.add('show'); setTimeout(() => msg.classList.remove('show'), 3000) }
+      document.getElementById('brief-email').value = ''
+      loadAssetForms()
+    } else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+async function sendAssetFormMgr() {
+  const email = document.getElementById('mgr-brief-email')?.value
+  const plan = document.getElementById('mgr-brief-plan')?.value || 'standard'
+  if (!email) { alert('Please enter a client email'); return }
+  try {
+    const res = await fetch(API + '/admin/send-asset-form', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ email, plan })
+    })
+    const d = await res.json()
+    if (d.message) {
+      const msg = document.getElementById('save-msg-mgr-brief')
+      if (msg) { msg.classList.add('show'); setTimeout(() => msg.classList.remove('show'), 3000) }
+      document.getElementById('mgr-brief-email').value = ''
+    } else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+async function loadAssetForms() {
+  try {
+    const res = await fetch(API + '/admin/asset-forms', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    const data = await res.json()
+    renderAssetForms(data.forms || [])
+  } catch(e) { console.error(e) }
+}
+
+function renderAssetForms(forms) {
+  const wrap = document.getElementById('asset-forms-wrap')
+  if (!wrap) return
+  if (!forms.length) {
+    wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No website briefs sent yet.</p>'
+    return
+  }
+  wrap.innerHTML = forms.map(f => `
+    <div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div style="font-weight:600;font-size:14px;">${f.email}</div>
+        <div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">
+          ${f.plan} plan &middot; Sent ${new Date(f.created_at).toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric'})}
+          ${f.submitted_at ? ' &middot; <strong style="color:var(--accent);">Submitted '+new Date(f.submitted_at).toLocaleDateString('en-CA',{month:'short',day:'numeric'})+'</strong>' : ''}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:${f.status==='submitted'?'var(--accent-light)':'var(--cream)'};color:${f.status==='submitted'?'var(--accent)':'var(--ink-muted)'};">
+          ${f.status === 'submitted' ? 'Submitted' : 'Awaiting'}
+        </span>
+        ${f.status === 'submitted' ? '<button class="action-btn" onclick="viewBriefAndGenerate(\''+f.id+'\')">View & generate prompt</button>' : ''}
+      </div>
+    </div>`).join('')
+}
+
+function viewBriefAndGenerate(formId) {
+  // Find form in loaded data - reload and show
+  fetch(API + '/admin/asset-forms', { headers: { 'Authorization': 'Bearer ' + getToken() } })
+    .then(r => r.json())
+    .then(data => {
+      const form = data.forms?.find(f => f.id === formId)
+      if (!form || !form.form_data) return
+      const fd = typeof form.form_data === 'string' ? JSON.parse(form.form_data) : form.form_data
+      showBriefModal(form, fd)
+    })
+}
+
+function showBriefModal(form, fd) {
+  const existing = document.getElementById('brief-modal')
+  if (existing) existing.remove()
+  const plan = form.plan
+  const planRank = { basic: 1, standard: 2, premium: 3 }
+
+  // Generate the Claude prompt automatically
+  const prompt = generateClaudePrompt(form.email, plan, fd)
+
+  const modal = document.createElement('div')
+  modal.id = 'brief-modal'
+  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.8);display:flex;align-items:center;justify-content:center;padding:20px;'
+  modal.innerHTML = `
+    <div style="background:white;border-radius:16px;max-width:700px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.3);">
+      <div style="padding:24px 28px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <h3 style="font-family:var(--serif);font-size:20px;">Website brief — ${form.email}</h3>
+          <p style="font-size:13px;color:var(--ink-muted);margin-top:4px;">${plan} plan &middot; Submitted ${new Date(form.submitted_at).toLocaleDateString()}</p>
+        </div>
+        <button onclick="document.getElementById('brief-modal').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-muted);">x</button>
+      </div>
+      <div style="padding:20px 28px;overflow-y:auto;flex:1;">
+        <div style="background:var(--accent-light);border:1px solid rgba(26,107,90,0.2);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:20px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent);margin-bottom:10px;">Claude build prompt — copy this</div>
+          <pre id="claude-prompt-text" style="font-size:12px;line-height:1.6;white-space:pre-wrap;font-family:monospace;color:var(--ink);">${prompt}</pre>
+          <button onclick="navigator.clipboard.writeText(document.getElementById('claude-prompt-text').textContent).then(()=>alert('Copied!'))" style="margin-top:12px;background:var(--accent);color:white;border:none;padding:8px 18px;border-radius:var(--radius);font-family:var(--sans);font-size:13px;cursor:pointer;">Copy prompt</button>
+        </div>
+        <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:12px;">Raw form data</div>
+        ${Object.entries(fd).map(([k,v]) => v ? '<div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="font-weight:600;min-width:160px;color:var(--ink-muted);">'+k+'</span><span>'+v+'</span></div>' : '').join('')}
+      </div>
+    </div>`
+  document.body.appendChild(modal)
+}
+
+function generateClaudePrompt(email, plan, fd) {
+  const sub = (fd.subdomain || email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g,'')).substring(0,20)
+  const sections = []
+  if (fd.business_name) sections.push('hero, about')
+  if (fd.services) sections.push('services')
+  if (fd.photos) sections.push('gallery')
+  if (fd.hours) sections.push('hours')
+  sections.push('contact')
+  if (plan === 'premium' && fd.blog) sections.push('blog')
+
+  const editable = ['business name', 'phone', 'email', 'address', 'tagline', 'hero photo', 'about text', 'about photo', 'hours']
+  if (plan !== 'basic') editable.push('services (name, description, price)', 'gallery photos (up to '+(plan==='premium'?'unlimited':'8')+')')
+  if (plan === 'premium') editable.push('blog posts')
+
+  return `Build a Siteflowa client website.
+
+Business: ${fd.business_name || '[Business name]'}
+Type: ${fd.business_type || '[Type]'}
+Subdomain: ${sub}
+Sections: ${sections.join(', ')}
+Style: ${fd.style || 'clean and professional'}
+Colours: ${fd.colours || 'green and white'}
+Special: ${fd.special || 'none'}
+
+Use the SITE_CONFIG format with:
+- api: https://siteflowa.onrender.com
+- subdomain: ${sub}
+- schema: declare every editable field (types: text, textarea, email, tel, photo, photo_array, repeater, hours, badges)
+- defaults: use the client's actual content below as defaults
+
+On load: fetch /site/${sub}, merge with defaults, show offline page if is_active=false.
+Plan visibility: basic=hero/about/hours/contact only, standard adds services/gallery, premium adds everything.
+Single self-contained HTML file, no external JS dependencies.
+Include the Siteflowa analytics tracking snippet.
+
+Editable fields the client should be able to change:
+${editable.map(e => '- ' + e).join('\n')}
+
+Client content to use as defaults:
+Business name: ${fd.business_name || ''}
+Tagline: ${fd.tagline || ''}
+Phone: ${fd.phone || ''}
+Email: ${fd.email || ''}
+Address: ${fd.address || ''}
+Hours: ${fd.hours || ''}
+About: ${fd.about || ''}
+Services: ${fd.services || ''}
+Style notes: ${fd.style_notes || ''}
+Logo/brand colours: ${fd.colours || ''}`
+}
+
+// ══════════════════════════════════════════════════════
+// ASSET FORM PAGE (client-facing)
+// ══════════════════════════════════════════════════════
+async function loadAssetFormPage(token) {
+  try {
+    const res = await fetch(API + '/asset-form/' + token)
+    const data = await res.json()
+    if (data.error) { showPage('home'); return }
+    if (data.status === 'submitted') {
+      showAssetFormSubmitted()
+      return
+    }
+    showAssetFormPage(data.plan, token)
+  } catch(e) { showPage('home') }
+}
+
+function showAssetFormPage(plan, token) {
+  showPage('assetform')
+  const wrap = document.getElementById('asset-form-wrap')
+  if (!wrap) return
+  const planRank = { basic: 0, standard: 1, premium: 2 }
+  const rank = planRank[plan] || 0
+
+  wrap.innerHTML = `
+    <div style="max-width:680px;margin:0 auto;">
+      <div class="section-eyebrow">Website brief</div>
+      <h2 style="font-family:var(--serif);font-size:clamp(28px,4vw,42px);letter-spacing:-0.025em;margin-bottom:10px;">Tell us about your business</h2>
+      <p style="font-size:16px;color:var(--ink-light);margin-bottom:36px;line-height:1.7;">Fill in as much as you can — the more detail you give us, the better your website will be. You don't need to fill in everything, just the parts you want included.</p>
+
+      <div style="background:var(--cream);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:20px;">
+        <h3 style="font-family:var(--serif);font-size:18px;margin-bottom:16px;">Basic info</h3>
+        <div class="form-row">
+          <div><label class="form-label">Business name *</label><input type="text" id="af-biz" class="form-input" placeholder="e.g. Jane's Plumbing"></div>
+          <div><label class="form-label">Business type</label><input type="text" id="af-type" class="form-input" placeholder="e.g. Plumbing, Restaurant, Salon"></div>
+        </div>
+        <div class="form-row">
+          <div><label class="form-label">Phone number</label><input type="tel" id="af-phone" class="form-input" placeholder="+1 (555) 000-0000"></div>
+          <div><label class="form-label">Email address</label><input type="email" id="af-email" class="form-input" placeholder="hello@yourbusiness.com"></div>
+        </div>
+        <div><label class="form-label">Business address</label><input type="text" id="af-address" class="form-input" placeholder="123 Main St, Vancouver BC"></div>
+        <div style="margin-top:14px;"><label class="form-label">Tagline / short description</label><input type="text" id="af-tagline" class="form-input" placeholder="e.g. Vancouver's most trusted plumbers"></div>
+        <div style="margin-top:14px;"><label class="form-label">Tell us about your business</label><textarea id="af-about" class="form-input" rows="3" placeholder="A short paragraph about who you are, what you do, and why customers should choose you..."></textarea></div>
+      </div>
+
+      <div style="background:var(--cream);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:20px;">
+        <h3 style="font-family:var(--serif);font-size:18px;margin-bottom:16px;">Hours & contact</h3>
+        <div><label class="form-label">Business hours</label><textarea id="af-hours" class="form-input" rows="4" placeholder="Monday-Friday: 8am-5pm&#10;Saturday: 9am-2pm&#10;Sunday: Closed"></textarea></div>
+      </div>
+
+      ${rank >= 1 ? `
+      <div style="background:var(--cream);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:20px;">
+        <h3 style="font-family:var(--serif);font-size:18px;margin-bottom:6px;">Your services</h3>
+        <p style="font-size:13px;color:var(--ink-muted);margin-bottom:16px;">List up to 6 services. Include a name, short description, and price if you'd like it shown.</p>
+        <textarea id="af-services" class="form-input" rows="6" placeholder="1. Emergency repairs — Available 24/7 for burst pipes and leaks — From $149&#10;2. Bathroom renovations — Full plumbing for renos and new builds — From $299&#10;3. Drain cleaning — Professional drain clearing service — From $99"></textarea>
+      </div>
+      <div style="background:var(--cream);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:20px;">
+        <h3 style="font-family:var(--serif);font-size:18px;margin-bottom:6px;">Photos</h3>
+        <p style="font-size:13px;color:var(--ink-muted);margin-bottom:16px;">Paste direct links to any photos you'd like on your website (from Google Drive, Dropbox, your website, etc). Up to ${rank >= 2 ? 'unlimited' : '8'} photos.</p>
+        <textarea id="af-photos" class="form-input" rows="4" placeholder="https://drive.google.com/... &#10;https://dropbox.com/..."></textarea>
+      </div>` : ''}
+
+      <div style="background:var(--cream);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:20px;">
+        <h3 style="font-family:var(--serif);font-size:18px;margin-bottom:16px;">Style preferences</h3>
+        <div class="form-row">
+          <div>
+            <label class="form-label">Website style</label>
+            <select id="af-style" class="form-input">
+              <option value="">No preference</option>
+              <option value="clean and minimal">Clean and minimal</option>
+              <option value="bold and modern">Bold and modern</option>
+              <option value="warm and friendly">Warm and friendly</option>
+              <option value="professional and corporate">Professional and corporate</option>
+            </select>
+          </div>
+          <div><label class="form-label">Brand colours (if any)</label><input type="text" id="af-colours" class="form-input" placeholder="e.g. dark green and white"></div>
+        </div>
+        <div style="margin-top:14px;"><label class="form-label">Anything else you'd like included?</label><textarea id="af-special" class="form-input" rows="3" placeholder="Any special features, sections, or specific requests..."></textarea></div>
+      </div>
+
+      <button onclick="submitAssetForm('${token}')" class="btn btn-p" style="width:100%;padding:16px;font-size:16px;margin-bottom:40px;">Submit my website brief</button>
+    </div>`
+}
+
+async function submitAssetForm(token) {
+  const biz = document.getElementById('af-biz')?.value
+  if (!biz) { alert('Please enter your business name'); return }
+  const form_data = {
+    business_name: document.getElementById('af-biz')?.value,
+    business_type: document.getElementById('af-type')?.value,
+    phone: document.getElementById('af-phone')?.value,
+    email: document.getElementById('af-email')?.value,
+    address: document.getElementById('af-address')?.value,
+    tagline: document.getElementById('af-tagline')?.value,
+    about: document.getElementById('af-about')?.value,
+    hours: document.getElementById('af-hours')?.value,
+    services: document.getElementById('af-services')?.value,
+    photos: document.getElementById('af-photos')?.value,
+    style: document.getElementById('af-style')?.value,
+    colours: document.getElementById('af-colours')?.value,
+    special: document.getElementById('af-special')?.value
+  }
+  try {
+    const res = await fetch(API + '/asset-form/' + token + '/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ form_data })
+    })
+    const d = await res.json()
+    if (d.message) showAssetFormSubmitted()
+    else alert(d.error || 'Submission failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+function showAssetFormSubmitted() {
+  showPage('assetform')
+  const wrap = document.getElementById('asset-form-wrap')
+  if (wrap) wrap.innerHTML = `
+    <div style="max-width:520px;margin:0 auto;text-align:center;padding:60px 20px;">
+      <div style="font-size:56px;margin-bottom:20px;">🎉</div>
+      <h2 style="font-family:var(--serif);font-size:32px;margin-bottom:14px;">Brief submitted!</h2>
+      <p style="font-size:16px;color:var(--ink-light);line-height:1.7;">Thank you — we've received everything we need to start building your website. We'll be in touch within one business day to confirm the next steps.</p>
+    </div>`
+}
+
+// ══════════════════════════════════════════════════════
+// DEPOSIT SETTINGS
+// ══════════════════════════════════════════════════════
+async function savePaySettings() {
+  const days = document.getElementById('pay-cycle-days')?.value || 7
+  const start = document.getElementById('period-start-date')?.value || new Date().toISOString().split('T')[0]
+  const deposit = document.getElementById('deposit-percent')?.value || 50
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch(API + '/admin/pay-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+        body: JSON.stringify({ pay_cycle_days: parseInt(days), current_period_start: start })
+      }),
+      fetch(API + '/admin/deposit-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+        body: JSON.stringify({ deposit_percent: parseInt(deposit) })
+      })
+    ])
+    const d = await r1.json()
+    if (d.message) {
+      const msg = document.getElementById('save-msg-pay')
+      if (msg) { msg.classList.add('show'); setTimeout(() => msg.classList.remove('show'), 3000) }
+    }
+  } catch(e) { alert('Could not connect') }
+}

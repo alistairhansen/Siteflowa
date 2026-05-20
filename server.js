@@ -753,49 +753,219 @@ app.get('/client/:subdomain', async (req, res) => {
     res.status(500).send('<h1>Error loading website</h1>')
   }
 })
-// ── CANCEL SUBSCRIPTION ─────────────────────────────────
-app.post('/cancel-subscription', authMiddleware, async (req, res) => {
+
+
+// ── LEADS / SALES PIPELINE ──────────────────────────────
+app.get('/admin/leads', authMiddleware, staffMiddleware, async (req, res) => {
   try {
-    const client = await pool.query('SELECT * FROM clients WHERE id=$1', [req.user.id])
-    const clientData = client.rows[0]
-    // Cancel in Stripe if they have a subscription
-    if (clientData.stripe_customer_id) {
-      try {
-        const subscriptions = await stripe.subscriptions.list({ customer: clientData.stripe_customer_id })
-        for (const sub of subscriptions.data) {
-          await stripe.subscriptions.cancel(sub.id)
-        }
-      } catch(stripeErr) { console.error('Stripe cancel error:', stripeErr) }
+    const result = await pool.query('SELECT * FROM leads ORDER BY created_at DESC')
+    res.json({ leads: result.rows })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.post('/admin/leads', authMiddleware, staffMiddleware, async (req, res) => {
+  const { business_name, contact_name, email, phone, website_url, notes, plan_interest } = req.body
+  try {
+    const result = await pool.query(
+      'INSERT INTO leads (business_name,contact_name,email,phone,website_url,notes,plan_interest,added_by,added_by_email) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
+      [business_name, contact_name, email, phone, website_url, notes, plan_interest||'standard', req.user.id, req.user.email]
+    )
+    res.json({ lead: result.rows[0] })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.post('/admin/leads/:id/claim', authMiddleware, staffMiddleware, async (req, res) => {
+  try {
+    const lead = await pool.query('SELECT * FROM leads WHERE id=$1', [req.params.id])
+    if (lead.rows[0]?.claimed_by && lead.rows[0].claimed_by !== req.user.id) {
+      return res.status(400).json({ error: 'Already claimed by ' + lead.rows[0].claimed_by_email })
     }
-    // Deactivate in our system
-    await pool.query('UPDATE clients SET subscription_status=$1 WHERE id=$2', ['cancelled', req.user.id])
-    await pool.query('UPDATE websites SET is_active=FALSE WHERE client_id=$1', [req.user.id])
-    // Notify all staff
+    await pool.query('UPDATE leads SET claimed_by=$1, claimed_by_email=$2, updated_at=NOW() WHERE id=$3',
+      [req.user.id, req.user.email, req.params.id])
+    res.json({ message: 'Claimed' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.post('/admin/leads/:id/stage', authMiddleware, staffMiddleware, async (req, res) => {
+  const { stage } = req.body
+  try {
+    const lead = await pool.query('SELECT * FROM leads WHERE id=$1', [req.params.id])
+    if (lead.rows[0]?.claimed_by && lead.rows[0].claimed_by !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only the person who claimed this lead can update its stage' })
+    }
+    await pool.query('UPDATE leads SET stage=$1, updated_at=NOW() WHERE id=$2', [stage, req.params.id])
+    res.json({ message: 'Stage updated' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.delete('/admin/leads/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM leads WHERE id=$1', [req.params.id])
+    res.json({ message: 'Lead deleted' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── ASSET FORMS ─────────────────────────────────────────
+app.post('/admin/send-asset-form', authMiddleware, staffMiddleware, async (req, res) => {
+  const { email, plan } = req.body
+  try {
+    const token = require('crypto').randomBytes(24).toString('hex')
+    await pool.query(
+      'INSERT INTO asset_forms (email, plan, token, status) VALUES ($1,$2,$3,$4)',
+      [email, plan||'standard', token, 'sent']
+    )
+    const formUrl = 'https://siteflowa.onrender.com?assetform=' + token
+    await resend.emails.send({
+      from: 'Siteflowa <onboarding@resend.dev>',
+      to: email,
+      subject: 'Your Siteflowa website brief form',
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;">
+          <h2 style="font-family:Georgia,serif;color:#0f1117;">Let's build your website</h2>
+          <p style="color:#4a4f5e;line-height:1.6;">We're ready to start building your website. Fill in the form below with your business details and we'll take care of the rest.</p>
+          <a href="${formUrl}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">Fill in your website brief</a>
+          <p style="color:#8b909e;font-size:13px;">This link is unique to you. Once submitted we'll get started on your website right away.</p>
+        </div>
+      `
+    })
+    res.json({ message: 'Form sent to ' + email })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/asset-form/:token', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM asset_forms WHERE token=$1', [req.params.token])
+    if (!result.rows[0]) return res.status(404).json({ error: 'Form not found' })
+    res.json(result.rows[0])
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.post('/asset-form/:token/submit', async (req, res) => {
+  const { form_data } = req.body
+  try {
+    await pool.query(
+      'UPDATE asset_forms SET form_data=$1, status=$2, submitted_at=NOW() WHERE token=$3',
+      [JSON.stringify(form_data), 'submitted', req.params.token]
+    )
+    // notify staff
     const staff = await pool.query("SELECT email FROM clients WHERE role IN ('admin','manager') AND subscription_status='active'")
-    const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.user.id])
+    const form = await pool.query('SELECT * FROM asset_forms WHERE token=$1', [req.params.token])
     if (staff.rows.length > 0) {
       await resend.emails.send({
         from: 'Siteflowa <onboarding@resend.dev>',
         to: staff.rows.map(s => s.email),
-        subject: 'Subscription cancelled - ' + (website.rows[0]?.business_name || clientData.email),
+        subject: 'Website brief submitted - ' + form.rows[0].email,
         html: `
           <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;">
-            <h2 style="font-family:Georgia,serif;color:#e53935;">Subscription cancelled</h2>
-            <p style="color:#4a4f5e;">A client has cancelled their subscription and their website has been taken offline.</p>
-            <div style="background:#ffebee;border:1px solid #e53935;border-radius:10px;padding:20px;margin:20px 0;">
-              <strong>${website.rows[0]?.business_name || 'Unknown'}</strong><br>
-              <span style="color:#4a4f5e;">${clientData.email}</span><br>
-              <span style="color:#4a4f5e;">Plan: ${clientData.plan || 'standard'}</span><br>
-              <span style="color:#4a4f5e;">Cancelled: ${new Date().toLocaleDateString()}</span>
-            </div>
-            <p style="color:#8b909e;font-size:12px;">Their website is now offline and their account has been deactivated.</p>
+            <h2 style="font-family:Georgia,serif;">Website brief received</h2>
+            <p><strong>${form.rows[0].email}</strong> has submitted their website brief (${form.rows[0].plan} plan).</p>
+            <p>Log in to your dashboard to view the full brief and start building.</p>
           </div>
         `
       })
     }
-    res.json({ message: 'Subscription cancelled successfully' })
-  } catch (err) { res.status(500).json({ error: err.message }) }
+    res.json({ message: 'Form submitted successfully' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
 })
+
+app.get('/admin/asset-forms', authMiddleware, staffMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM asset_forms ORDER BY created_at DESC')
+    res.json({ forms: result.rows })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── DEPOSIT SETTINGS ────────────────────────────────────
+app.post('/admin/deposit-settings', authMiddleware, adminMiddleware, async (req, res) => {
+  const { deposit_percent } = req.body
+  try {
+    await pool.query('UPDATE site_settings SET deposit_percent=$1', [deposit_percent||50])
+    res.json({ message: 'Deposit settings saved' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── CREATE DEPOSIT CHECKOUT ─────────────────────────────
+app.post('/create-deposit', authMiddleware, async (req, res) => {
+  const { amount, plan } = req.body
+  try {
+    const client = await pool.query('SELECT * FROM clients WHERE id=$1', [req.user.id])
+    const clientData = client.rows[0]
+    let customerId = clientData.stripe_customer_id
+    if (!customerId) {
+      const customer = await stripe.customers.create({ email: clientData.email, metadata: { client_id: req.user.id } })
+      customerId = customer.id
+      await pool.query('UPDATE clients SET stripe_customer_id=$1 WHERE id=$2', [customerId, req.user.id])
+    }
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'cad',
+          product_data: { name: 'Siteflowa Website Deposit', description: 'Deposit to begin building your website. Remaining balance due at launch.' },
+          unit_amount: Math.round(amount * 100)
+        },
+        quantity: 1
+      }],
+      mode: 'payment',
+      payment_intent_data: { metadata: { client_id: req.user.id, payment_type: 'deposit', plan } },
+      success_url: 'https://siteflowa.onrender.com?deposit=success',
+      cancel_url: 'https://siteflowa.onrender.com?deposit=cancelled',
+      metadata: { client_id: req.user.id, payment_type: 'deposit' }
+    })
+    res.json({ url: session.url })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── SEND ACTIVATION CODE ────────────────────────────────
+app.post('/admin/send-activation', authMiddleware, adminMiddleware, async (req, res) => {
+  const { client_id } = req.body
+  try {
+    const code = Math.random().toString(36).substring(2,10).toUpperCase()
+    await pool.query('UPDATE clients SET activation_code=$1 WHERE id=$2', [code, client_id])
+    const client = await pool.query('SELECT * FROM clients WHERE id=$1', [client_id])
+    await resend.emails.send({
+      from: 'Siteflowa <onboarding@resend.dev>',
+      to: client.rows[0].email,
+      subject: 'Your Siteflowa website is ready!',
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;">
+          <h2 style="font-family:Georgia,serif;color:#1a6b5a;">Your website is ready to launch!</h2>
+          <p style="color:#4a4f5e;line-height:1.6;">We've finished building your website. Log in to preview it and pay your launch fee to go live.</p>
+          <p style="color:#4a4f5e;">Your activation code: <strong style="font-size:20px;letter-spacing:0.1em;">${code}</strong></p>
+          <a href="https://siteflowa.onrender.com" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">Preview your website</a>
+        </div>
+      `
+    })
+    res.json({ message: 'Activation code sent' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── UPLOAD PREVIEW SITE ─────────────────────────────────
+app.post('/admin/upload-preview', authMiddleware, staffMiddleware, async (req, res) => {
+  const { client_id, preview_html } = req.body
+  try {
+    await pool.query('UPDATE websites SET preview_html=$1 WHERE client_id=$2', [preview_html, client_id])
+    await pool.query('UPDATE clients SET onboarding_stage=$1 WHERE id=$2', ['preview_ready', client_id])
+    res.json({ message: 'Preview uploaded' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── SERVE BY CUSTOM DOMAIN ──────────────────────────────
+app.get('/client-domain/:domain', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT w.site_html, w.subdomain FROM websites w JOIN clients c ON c.id=w.client_id WHERE c.domain_name=$1 AND w.is_active=TRUE',
+      [req.params.domain]
+    )
+    if (result.rows[0]?.site_html) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8')
+      return res.send(result.rows[0].site_html)
+    }
+    res.status(404).send('<h1>Website not found</h1>')
+  } catch(err) { res.status(500).send('<h1>Error</h1>') }
+})
+
 // ── HEALTH CHECK ────────────────────────────────────────
 app.get('/health', async (req, res) => {
   try { await pool.query('SELECT 1'); res.json({ message: 'Siteflowa server running!' }) }
@@ -813,7 +983,9 @@ app.post('/create-checkout', authMiddleware, async (req, res) => {
   const { setup_fee, monthly_fee, plan, business_name } = req.body
   try {
     const client = await pool.query('SELECT * FROM clients WHERE id=$1', [req.user.id])
+    const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.user.id])
     const clientData = client.rows[0]
+    const websiteData = website.rows[0]
 
     // Create or get Stripe customer
     let customerId = clientData.stripe_customer_id
@@ -837,15 +1009,28 @@ app.post('/create-checkout', authMiddleware, async (req, res) => {
             currency: 'cad',
             product_data: {
               name: 'Siteflowa ' + (planNames[plan] || 'Standard') + ' Plan — Website Setup',
-              description: 'One-time website build fee for ' + (business_name || 'your business') + '. Your monthly subscription of $' + monthly_fee + '/mo begins one month from today.',
+              description: 'One-time website build fee for ' + (business_name || 'your business'),
             },
             unit_amount: Math.round(setup_fee * 100),
           },
           quantity: 1,
+        },
+        {
+          price_data: {
+            currency: 'cad',
+            product_data: {
+              name: 'Siteflowa Monthly Subscription',
+              description: 'First month free — billing starts 30 days from today',
+            },
+            unit_amount: 0,
+            recurring: { interval: 'month' },
+          },
+          quantity: 1,
         }
       ],
-      mode: 'payment',
-      payment_intent_data: {
+      mode: 'subscription',
+      subscription_data: {
+        trial_period_days: 30,
         metadata: { client_id: req.user.id, plan: plan }
       },
       success_url: 'https://siteflowa.onrender.com?payment=success&session_id={CHECKOUT_SESSION_ID}',
@@ -859,6 +1044,7 @@ app.post('/create-checkout', authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message })
   }
 })
+
 // Stripe webhook - handle payment confirmation
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature']
@@ -870,16 +1056,16 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
     return res.status(400).send('Webhook Error: ' + err.message)
   }
 
-if (event.type === 'checkout.session.completed' || event.type === 'payment_intent.succeeded') {
-  const obj = event.data.object
-  const clientId = obj.metadata?.client_id
-  if (clientId) {
-    await pool.query('UPDATE clients SET subscription_status=$1, stripe_session_id=$2 WHERE id=$3',
-      ['active', obj.id, clientId])
-    await pool.query('UPDATE websites SET is_active=TRUE WHERE client_id=$1', [clientId])
-    console.log('Payment confirmed for client:', clientId)
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object
+    const clientId = session.metadata?.client_id
+    if (clientId) {
+      await pool.query('UPDATE clients SET subscription_status=$1, stripe_session_id=$2 WHERE id=$3',
+        ['active', session.id, clientId])
+      await pool.query('UPDATE websites SET is_active=TRUE WHERE client_id=$1', [clientId])
+      console.log('Payment confirmed for client:', clientId)
+    }
   }
-}
 
   if (event.type === 'invoice.payment_failed') {
     const invoice = event.data.object
