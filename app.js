@@ -231,14 +231,14 @@ function renderDynamicField(field, value) {
   if (t === 'repeater') {
     const items = Array.isArray(v) ? v : []
     const itemsHtml = items.map(function(item, idx) { return renderRepeaterItem(field, item, idx, id) }).join('')
-    return '<div class="dash-field full"><label>' + field.label + '</label><div id="' + id + '-list" style="display:grid;gap:10px;margin-top:6px;">' + itemsHtml + '</div><button onclick="addRepeaterItem(''+field.key+'',''+id+'')" style="margin-top:10px;background:var(--cream);border:1px dashed var(--border-strong);border-radius:var(--radius);padding:8px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;width:100%;">+ Add item</button></div>'
+    return '<div class="dash-field full"><label>' + field.label + '</label><div id="' + id + '-list" style="display:grid;gap:10px;margin-top:6px;">' + itemsHtml + '</div><button onclick="addRepeaterItem(\'' + field.key + '\',\'' + id + '\')" style="margin-top:10px;background:var(--cream);border:1px dashed var(--border-strong);border-radius:var(--radius);padding:8px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;width:100%;">+ Add item</button></div>'
   }
   if (t === 'photo_array') {
     const photos = Array.isArray(v) ? v : []
     const photosHtml = photos.map(function(url, idx) {
-      return '<div style="position:relative;"><img src="' + url + '" style="width:80px;height:80px;border-radius:8px;object-fit:cover;"><button onclick="removePhoto(''+id+'','+idx+')" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;font-size:11px;">x</button></div>'
+      return '<div style="position:relative;"><img src="' + url + '" style="width:80px;height:80px;border-radius:8px;object-fit:cover;"><button onclick="removePhoto(\'' + id + '\',' + idx + ')" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;font-size:11px;">x</button></div>'
     }).join('')
-    return '<div class="dash-field full"><label>' + field.label + '</label><div id="' + id + '-list" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;">' + photosHtml + '<div style="width:80px;height:80px;border:2px dashed var(--border-strong);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-muted);" onclick="addPhotoUrl(''+id+'')">+</div></div><div style="font-size:11px;color:var(--ink-muted);margin-top:6px;">Click + to add a photo URL</div></div>'
+    return '<div class="dash-field full"><label>' + field.label + '</label><div id="' + id + '-list" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;">' + photosHtml + '<div style="width:80px;height:80px;border:2px dashed var(--border-strong);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-muted);" onclick="addPhotoUrl(\'' + id + '\')">+</div></div><div style="font-size:11px;color:var(--ink-muted);margin-top:6px;">Click + to add a photo URL</div></div>'
   }
   return ''
 }
@@ -708,7 +708,7 @@ function renderStaffList(managers){
   }).join('')
 }
 
-async async function closePeriod(managerId, email){
+async function closePeriod(managerId, email){
   if(!confirm('Close pay period for '+email+'? This will calculate earnings, send receipt, and reset stats.'))return
   try{
     const res=await fetch(API+'/admin/close-period',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({manager_id:managerId})})
