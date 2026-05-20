@@ -9,6 +9,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 const app = express()
 app.use(cors())
+app.use(express.json())
 app.use(express.static(__dirname))
 
 const pool = new Pool({
