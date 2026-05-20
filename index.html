@@ -333,7 +333,7 @@
         <div class="dash-field"><label>Plan</label><select id="mgr-new-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
         <button class="dash-save" onclick="mgrCreateWebsite()" style="height:42px;white-space:nowrap;align-self:end;">Create + get code</button>
       </div>
-      <div class="invite-code-result" id="mgr-invite-result"><p>✅ Website created! Send this invite code to your client:</p><div class="code" id="mgr-invite-code-display">——</div><small>They enter this when creating their account.</small></div>
+      <div class="invite-code-result" id="mgr-invite-result"><p>Website created! Send this invite code to your client:</p><div class="code" id="mgr-invite-code-display">——</div><small>They enter this when creating their account.</small></div>
     </div>
     <div class="dashboard-wrap" style="margin-top:24px;">
       <div class="dashboard-header">
@@ -411,7 +411,20 @@
       </div>
       <p style="font-size:12px;color:var(--ink-muted);margin-top:10px;">Pricing is set automatically based on the plan rates in Site Settings above.</p>
       <p style="font-size:12px;color:var(--ink-muted);margin-top:10px;">Sections are defined by the client's website template — no manual selection needed.</p>
-      <div class="invite-code-result" id="invite-result"><p>✅ Website created! Send this invite code to your client:</p><div class="code" id="invite-code-display">——</div><small>They enter this when creating their account.</small></div>
+      <div style="margin-top:16px;">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Upload client website HTML (optional — can add later)</div>
+        <div id="html-drop-zone" style="border:2px dashed var(--border-strong);border-radius:var(--radius-lg);padding:28px;text-align:center;cursor:pointer;transition:all 0.2s;"
+          ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='var(--accent-light)'"
+          ondragleave="this.style.borderColor='var(--border-strong)';this.style.background=''"
+          ondrop="handleHtmlDrop(event)"
+          onclick="document.getElementById('html-file-input').click()">
+          <div style="font-size:28px;margin-bottom:8px;">📄</div>
+          <p style="font-size:14px;color:var(--ink-muted);">Drag and drop the client website HTML here<br><strong style="color:var(--accent);">or click to browse</strong></p>
+          <p style="font-size:12px;color:var(--ink-muted);margin-top:6px;" id="html-file-name">No file selected</p>
+          <input type="file" id="html-file-input" accept=".html" style="display:none;" onchange="handleHtmlFileSelect(event)">
+        </div>
+      </div>
+      <div class="invite-code-result" id="invite-result"><p>Website created! Send this invite code to your client:</p><div class="code" id="invite-code-display">——</div><small>They enter this when creating their account.</small></div>
     </div>
     <div class="admin-section">
       <h3>📩 Inquiries</h3>

@@ -919,6 +919,7 @@ function renderManagerTable(clients){
       <td><span class="status-badge ${c.is_active?'active':c.subscription_status==='pending_payment'?'pending':'inactive'}">${c.is_active?'Active':c.subscription_status==='pending_payment'?'Pending':'Inactive'}</span></td>
       <td style="font-size:12px;">${c.created_by_email||'-'}</td>
       <td>${new Date(c.created_at).toLocaleDateString()}</td>
+      <td><button class="action-btn" style="background:var(--blue-light);border-color:var(--blue);color:var(--blue);" onclick="previewClientDashboard('${c.id}','${c.email}','${c.website_id||''}')">Preview dashboard</button></td>
     </tr>
     <tr class="client-detail-row" id="mgr-detail-${c.id}"><td colspan="7"><div class="client-detail-inner">
       <div class="detail-grid">
@@ -969,6 +970,7 @@ function renderClientsTable(clients){
       <td>
         <button class="action-btn" onclick="toggleWebsite('${c.website_id}',${!c.is_active})">${c.is_active?'Pause':'Activate'}</button>
         ${c.subdomain?'<a class="action-btn" href="/client/'+c.subdomain+'" target="_blank">View site</a>':''}
+        <button class="action-btn" style="background:var(--blue-light);border-color:var(--blue);color:var(--blue);" onclick="previewClientDashboard('${c.id}','${c.email}','${c.website_id||''}')">Preview dashboard</button>
         <button class="action-btn warn" onclick="showUpdateFeeModal('${c.id}')">Fee</button>
         <button class="action-btn danger" onclick="deleteClient('${c.id}','${c.email}')">Delete</button>
       </td>
@@ -1025,10 +1027,21 @@ async function createWebsite(){
   if(!business_name||!subdomain)return alert('Please fill in business name and subdomain')
   const sections={gallery:true,hours:true,contact:true,services:true,team:true,menu:false}
   try{
-    const res=await fetch(API+'/admin/create-website',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({business_name,subdomain,setup_fee,monthly_fee,plan,sections})})
+    const body = {business_name,subdomain,setup_fee,monthly_fee,plan,sections}
+    if(pendingHtmlContent) body.site_html = pendingHtmlContent
+    const res=await fetch(API+'/admin/create-website',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify(body)})
     const d=await res.json()
-    if(d.invite_code){document.getElementById('invite-code-display').textContent=d.invite_code;document.getElementById('invite-result').style.display='block';document.getElementById('new-biz-name').value='';document.getElementById('new-subdomain').value='';loadAdminData()}
-    else alert(d.error||'Failed to create website')
+    if(d.invite_code){
+      document.getElementById('invite-code-display').textContent=d.invite_code
+      document.getElementById('invite-result').style.display='block'
+      document.getElementById('new-biz-name').value=''
+      document.getElementById('new-subdomain').value=''
+      document.getElementById('html-file-name').textContent='No file selected'
+      document.getElementById('html-drop-zone').style.borderColor='var(--border-strong)'
+      document.getElementById('html-drop-zone').style.background=''
+      pendingHtmlContent=null
+      loadAdminData()
+    } else alert(d.error||'Failed to create website')
   }catch(e){alert('Could not connect to server')}
 }
 async function toggleWebsite(wid,activate){
@@ -1087,6 +1100,93 @@ async function updateDomainFee(cid, wid){
       if(msg) msg.textContent = d.error||'Failed'
     }
   }catch(e){alert('Could not connect')}
+}
+
+// ── HTML FILE UPLOAD ──────────────────────────────────
+let pendingHtmlContent = null
+
+function handleHtmlDrop(e) {
+  e.preventDefault()
+  const zone = document.getElementById('html-drop-zone')
+  zone.style.borderColor = 'var(--accent)'
+  zone.style.background = 'var(--accent-light)'
+  const file = e.dataTransfer.files[0]
+  if (!file || !file.name.endsWith('.html')) {
+    alert('Please drop an HTML file')
+    zone.style.borderColor = 'var(--border-strong)'
+    zone.style.background = ''
+    return
+  }
+  readHtmlFile(file)
+}
+
+function handleHtmlFileSelect(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  readHtmlFile(file)
+}
+
+function readHtmlFile(file) {
+  const reader = new FileReader()
+  reader.onload = function(e) {
+    pendingHtmlContent = e.target.result
+    document.getElementById('html-file-name').textContent = 'Ready: ' + file.name
+    document.getElementById('html-drop-zone').style.borderColor = 'var(--accent)'
+    document.getElementById('html-drop-zone').style.background = 'var(--accent-light)'
+  }
+  reader.readAsText(file)
+}
+
+// ── PREVIEW CLIENT DASHBOARD ───────────────────────────
+function previewClientDashboard(clientId, email, websiteId) {
+  // Store preview info and show the dashboard in preview mode
+  localStorage.setItem('preview_client_id', clientId)
+  localStorage.setItem('preview_email', email)
+  localStorage.setItem('preview_website_id', websiteId)
+  localStorage.setItem('is_preview_mode', 'true')
+  // Load their dashboard data
+  loadClientDashboardPreview(clientId, email, websiteId)
+}
+
+async function loadClientDashboardPreview(clientId, email, websiteId) {
+  const token = getToken()
+  try {
+    const res = await fetch(API + '/admin/client-preview/' + clientId, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    })
+    const data = await res.json()
+    if (data.error) { alert(data.error); return }
+    // Show preview banner
+    showPreviewBanner(email)
+    // Load dashboard with client data
+    loadClientDashboard(email, data.website, data.plan)
+  } catch(e) {
+    alert('Could not load client dashboard preview')
+  }
+}
+
+function showPreviewBanner(email) {
+  const existing = document.getElementById('preview-banner')
+  if (existing) existing.remove()
+  const banner = document.createElement('div')
+  banner.id = 'preview-banner'
+  banner.style.cssText = 'position:fixed;top:64px;left:0;right:0;z-index:150;background:var(--blue);color:white;padding:10px 24px;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:500;'
+  banner.innerHTML = '<span>👀 Previewing dashboard as: <strong>' + email + '</strong> — changes you make here will affect their real account</span><button onclick="exitPreview()" style="background:white;color:var(--blue);border:none;padding:6px 16px;border-radius:6px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;">Exit preview</button>'
+  document.body.appendChild(banner)
+  // push content down
+  document.querySelector('section')?.style.setProperty('padding-top', '120px')
+}
+
+function exitPreview() {
+  localStorage.removeItem('preview_client_id')
+  localStorage.removeItem('preview_email')
+  localStorage.removeItem('preview_website_id')
+  localStorage.removeItem('is_preview_mode')
+  const banner = document.getElementById('preview-banner')
+  if (banner) banner.remove()
+  const role = getRole()
+  if (role === 'admin') showPage('admin')
+  else showPage('manager')
 }
 
 async function deleteClient(cid,email){
