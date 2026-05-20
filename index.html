@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" charset="UTF-8">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -826,7 +826,7 @@ let currentWebsite=null,setupFee=299,monthlyFee=49,discountApplied=false,siteSet
 const SECTIONS=['gallery','hours','contact','services','menu','team']
 const SECTION_LABELS={gallery:'🖼️ Gallery',hours:'🕐 Hours',contact:'📞 Contact',services:'🔧 Services',menu:'🍽️ Menu',team:'👥 Team'}
 const DEMO_QS=[
-  {q:"What type of business are you?",d:"Helps us pick the right layout.",opts:["Trades & construction","Restaurant / café","Retail shop","Health & beauty","Professional services","Other"]},
+  {q:"What type of business are you?",d:"Helps us pick the right layout.",opts:["Trades & construction","Restaurant / cafe","Retail shop","Health & beauty","Professional services","Other"]},
   {q:"Main goal of your website?",d:"We'll make the most important thing stand out.",opts:["Get people to call me","Show off my work","Take bookings or orders","Just have an online presence","Attract new customers","Share my menu / services"]},
   {q:"Which sections would you like?",d:"Pick everything that applies.",opts:["Gallery / photos","Business hours","Menu or services list","Online booking link","Meet the team","Customer reviews","Contact form","Map & directions"],multi:true},
   {q:"Style preference?",d:"We'll match the design to your brand.",opts:["Clean & professional","Bold & modern","Warm & friendly","Minimal & elegant","Fun & colourful","Dark & dramatic"]},
@@ -869,8 +869,8 @@ async function loadSiteSettings(){
 function applySettings(s){
   if(!s)return
   const name=s.company_name||'Siteflowa'
-  document.title=name+' — Professional Websites for Small Business'
-  document.getElementById('footer-copy').textContent='© 2026 '+name+'. All rights reserved.'
+  document.title=name+' - Professional Websites for Small Business'
+  document.getElementById('footer-copy').textContent='(c) 2026 '+name+'. All rights reserved.'
   if(s.tagline)document.getElementById('hero-tagline').textContent=s.tagline
   if(s.plan_basic_price){
     document.getElementById('home-stat-price').textContent='$'+s.plan_basic_price
@@ -891,7 +891,7 @@ function applySettings(s){
   if(s.tiktok)socials.push({l:'🎵 TikTok',u:'https://tiktok.com/@'+s.tiktok})
   if(s.twitter)socials.push({l:'🐦 X',u:'https://x.com/'+s.twitter})
   if(s.linkedin)socials.push({l:'💼 LinkedIn',u:'https://linkedin.com/company/'+s.linkedin})
-  if(s.youtube)socials.push({l:'▶️ YouTube',u:'https://youtube.com/@'+s.youtube})
+  if(s.youtube)socials.push({l:'️ YouTube',u:'https://youtube.com/@'+s.youtube})
   document.getElementById('social-links-wrap').innerHTML=socials.map(x=>`<a href="${x.u}" target="_blank" class="social-link">${x.l}</a>`).join('')
   document.getElementById('footer-socials').innerHTML=socials.map(x=>`<a href="${x.u}" target="_blank" class="footer-social">${x.l.split(' ')[0]}</a>`).join('')
 }
@@ -974,7 +974,7 @@ async function doSignup(){
     }else showError('signup-error',data.error||'Signup failed')
   }catch(e){showError('signup-error','Could not connect to server. Is it running?')}
 }
-// ── DYNAMIC CONTENT SYSTEM ─────────────────────────
+// -- DYNAMIC CONTENT SYSTEM -------------------------
 let websiteSchema = null
 let dynamicContent = {}
 
@@ -1100,7 +1100,7 @@ function renderDynamicField(field, value) {
           ${photos.map((url, idx) => `
             <div style="position:relative;">
               <img src="${url}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;">
-              <button onclick="removePhoto('${id}',${idx})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;">×</button>
+              <button onclick="removePhoto('${id}',${idx})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;">x</button>
             </div>`).join('')}
           <div style="width:80px;height:80px;border:2px dashed var(--border-strong);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-muted);" onclick="addPhotoUrl('${id}')">+</div>
         </div>
@@ -1114,7 +1114,7 @@ function renderDynamicField(field, value) {
 
 function renderRepeaterItem(field, item, idx, id) {
   return `<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:14px;position:relative;" id="${id}-item-${idx}">
-    <button onclick="removeRepeaterItem('${id}',${idx})" style="position:absolute;top:10px;right:10px;background:none;border:none;cursor:pointer;color:var(--ink-muted);font-size:16px;">×</button>
+    <button onclick="removeRepeaterItem('${id}',${idx})" style="position:absolute;top:10px;right:10px;background:none;border:none;cursor:pointer;color:var(--ink-muted);font-size:16px;">x</button>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       ${field.fields.map(f => `
         <div class="${f.type==='textarea'?'':''}">
@@ -1160,7 +1160,7 @@ function addPhotoUrl(id) {
   const div = document.createElement('div')
   div.style.cssText = 'position:relative;'
   const idx = list.querySelectorAll('div[style*="position:relative"]').length
-  div.innerHTML = `<img src="${url}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;"><button onclick="removePhoto('${id}',${idx})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;font-size:11px;">×</button>`
+  div.innerHTML = `<img src="${url}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;"><button onclick="removePhoto('${id}',${idx})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;font-size:11px;">x</button>`
   list.insertBefore(div, addBtn)
 }
 
@@ -1265,7 +1265,7 @@ async function doForgotPassword(){
     const d=await res.json()
     if(d.message){
       document.getElementById('forgot-email').value=''
-      alert('If an account exists for '+email+', a reset link has been sent. Check your inbox and click the link — it opens a page where you can set a new password.')
+      alert('If an account exists for '+email+', a reset link has been sent. Check your inbox and click the link - it opens a page where you can set a new password.')
       switchTab('login')
     }else showError('forgot-error',d.error||'Something went wrong')
   }catch(e){showError('forgot-error','Could not connect to server. Is it running?')}
@@ -1280,7 +1280,7 @@ async function doResetPassword(){
     const res=await fetch(API+'/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,password})})
     const d=await res.json()
     if(d.message){alert('Password reset successfully! You can now log in with your new password.');closeLogin();openLogin();switchTab('login')}
-    else showError('reset-error',d.error||'Reset failed — the link may have expired')
+    else showError('reset-error',d.error||'Reset failed - the link may have expired')
   }catch(e){showError('reset-error','Could not connect to server. Is it running?')}
 }
 
@@ -1338,7 +1338,7 @@ function loadClientDashboard(email,website,plan){
     document.getElementById('biz-tagline').value=website.tagline||''
     const url=website.subdomain?website.subdomain+'.siteflowa.com':''
     document.getElementById('biz-url').value=url
-    document.getElementById('overview-url').textContent=url||'—'
+    document.getElementById('overview-url').textContent=url||'-'
   }
   const isBasic=p==='basic'
   document.getElementById('nav-business').style.display=isBasic?'none':'flex'
@@ -1355,11 +1355,11 @@ function loadClientDashboard(email,website,plan){
 }
 
 const TOUR_STEPS=[
-  {target:'panel-overview',title:'Welcome to your dashboard! 👋',text:'This is your overview — you can see your website status, plan, and URL at a glance.',nav:'Overview'},
+  {target:'panel-overview',title:'Welcome to your dashboard! 👋',text:'This is your overview - you can see your website status, plan, and URL at a glance.',nav:'Overview'},
   {target:'panel-business',title:'Update your business info 🏢',text:'Keep your phone number, address, and description up to date here. Any changes go live on your website instantly.',nav:'Business info'},
   {target:'panel-hours',title:'Set your opening hours 🕐',text:'Update your business hours here. Customers will see these on your website in real time.',nav:'Hours'},
   {target:'panel-billing',title:'Manage your billing 💳',text:'View your subscription status and invoice history here.',nav:'Billing'},
-  {target:'panel-upgrade',title:'Upgrade anytime ⬆️',text:'Want more features or pages? You can upgrade your plan here at any time. Your website content always stays the same.',nav:'Upgrade plan'},
+  {target:'panel-upgrade',title:'Upgrade anytime ️',text:'Want more features or pages? You can upgrade your plan here at any time. Your website content always stays the same.',nav:'Upgrade plan'},
 ]
 
 let tourStep=0
@@ -1388,8 +1388,8 @@ function showTourStep(){
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <button onclick="skipTour()" style="background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;font-family:var(--sans);font-size:13px;">Skip tour</button>
       <div style="display:flex;gap:6px;align-items:center;">
-        ${tourStep>0?`<button onclick="prevTourStep()" style="background:rgba(255,255,255,0.1);border:none;color:white;padding:8px 16px;border-radius:6px;cursor:pointer;font-family:var(--sans);font-size:13px;">← Back</button>`:''}
-        <button onclick="nextTourStep()" style="background:var(--accent);border:none;color:white;padding:8px 20px;border-radius:6px;cursor:pointer;font-family:var(--sans);font-size:14px;font-weight:500;">${tourStep===TOUR_STEPS.length-1?'Finish ✓':'Next →'}</button>
+        ${tourStep>0?`<button onclick="prevTourStep()" style="background:rgba(255,255,255,0.1);border:none;color:white;padding:8px 16px;border-radius:6px;cursor:pointer;font-family:var(--sans);font-size:13px;">&larr; Back</button>`:''}
+        <button onclick="nextTourStep()" style="background:var(--accent);border:none;color:white;padding:8px 20px;border-radius:6px;cursor:pointer;font-family:var(--sans);font-size:14px;font-weight:500;">${tourStep===TOUR_STEPS.length-1?'Finish v':'Next &rarr;'}</button>
       </div>
     </div>
   `
@@ -1423,8 +1423,8 @@ async function fetchClientExtras(plan){
     if(data.referral_code&&plan!=='basic')document.getElementById('my-referral-code').textContent=data.referral_code.code
     if(data.client){
       const s=data.client.subscription_status
-      document.getElementById('billing-status-text').textContent=s==='active'?'Active — Monthly plan':s==='suspended'?'⚠️ Account suspended':'Pending payment'
-      document.getElementById('overview-status').textContent=data.website?.is_active?'Active ✅':'Inactive ❌'
+      document.getElementById('billing-status-text').textContent=s==='active'?'Active - Monthly plan':s==='suspended'?'Account suspended':'Pending payment'
+      document.getElementById('overview-status').textContent=data.website?.is_active?'Active OK':'Inactive No'
     }
     buildUpgradeOptions(data.client?.plan||'standard')
   }catch(e){console.error(e)}
@@ -1442,7 +1442,7 @@ function buildUpgradeOptions(current){
   wrap.innerHTML=available.map(p=>`<div class="upgrade-card" onclick="upgradePlan('${p.id}')"><h4>${p.name}</h4><div class="price">$${p.price}/mo</div><ul>${p.features.map(f=>`<li>${f}</li>`).join('')}</ul></div>`).join('')
 }
 async function upgradePlan(plan){
-  if(!confirm('Upgrade to '+plan+' plan? (Stripe coming soon — activates immediately for testing)'))return
+  if(!confirm('Upgrade to '+plan+' plan? (Stripe coming soon - activates immediately for testing)'))return
   try{
     const currentPlan=document.getElementById('client-plan-badge')?.textContent?.toLowerCase()||'basic'
     const res=await fetch(API+'/upgrade-plan',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({plan})})
@@ -1470,7 +1470,7 @@ async function saveBizInfo(){
 }
 function copyReferral(){
   const code=document.getElementById('my-referral-code').textContent
-  navigator.clipboard.writeText(code).then(()=>{document.getElementById('referral-copy-msg').textContent='✓ Copied!';setTimeout(()=>document.getElementById('referral-copy-msg').textContent='',2000)})
+  navigator.clipboard.writeText(code).then(()=>{document.getElementById('referral-copy-msg').textContent='v Copied!';setTimeout(()=>document.getElementById('referral-copy-msg').textContent='',2000)})
 }
 
 function initDemo(){demoStep=0;demoAnswers={};renderDemoStep()}
@@ -1479,11 +1479,11 @@ function renderDemoStep(){
   document.getElementById('demo-dots').innerHTML=DEMO_QS.map((_,i)=>`<div class="demo-dot ${i===demoStep?'active':i<demoStep?'done':''}"></div>`).join('')
   const q=DEMO_QS[demoStep],container=document.getElementById('demo-questions')
   if(q.isContact){
-    container.innerHTML=`<div class="demo-question active"><h4>${q.q}</h4><p>${q.d}</p><div style="display:grid;gap:12px;"><div><label>Business name</label><input type="text" id="demo-biz-name" placeholder="e.g. Jane's Plumbing"></div><div><label>Your email</label><input type="email" id="demo-email" placeholder="jane@business.com"></div><div><label>Anything else? (optional)</label><textarea id="demo-notes" rows="2" placeholder="Colours, style inspiration, competitors..."></textarea></div></div><div class="demo-nav"><button class="demo-back" onclick="demoStep--;renderDemoStep()">← Back</button><button class="demo-next" onclick="submitDemo()">Get my free demo →</button></div></div>`
+    container.innerHTML=`<div class="demo-question active"><h4>${q.q}</h4><p>${q.d}</p><div style="display:grid;gap:12px;"><div><label>Business name</label><input type="text" id="demo-biz-name" placeholder="e.g. Jane's Plumbing"></div><div><label>Your email</label><input type="email" id="demo-email" placeholder="jane@business.com"></div><div><label>Anything else? (optional)</label><textarea id="demo-notes" rows="2" placeholder="Colours, style inspiration, competitors..."></textarea></div></div><div class="demo-nav"><button class="demo-back" onclick="demoStep--;renderDemoStep()">&larr; Back</button><button class="demo-next" onclick="submitDemo()">Get my free demo -></button></div></div>`
     updateDemoPreview();return
   }
   const sel=demoAnswers[demoStep]||[]
-  container.innerHTML=`<div class="demo-question active"><h4>${q.q}</h4><p>${q.d}</p><div class="demo-options">${q.opts.map(o=>`<div class="demo-option ${sel.includes(o)?'selected':''}" onclick="selectDemoOpt(this,'${o.replace(/'/g,"\\'")}',${!!q.multi})">${o}</div>`).join('')}</div><div class="demo-nav">${demoStep>0?'<button class="demo-back" onclick="demoStep--;renderDemoStep()">← Back</button>':'<span></span>'}<button class="demo-next" onclick="nextDemoStep()">Next →</button></div></div>`
+  container.innerHTML=`<div class="demo-question active"><h4>${q.q}</h4><p>${q.d}</p><div class="demo-options">${q.opts.map(o=>`<div class="demo-option ${sel.includes(o)?'selected':''}" onclick="selectDemoOpt(this,'${o.replace(/'/g,"\\'")}',${!!q.multi})">${o}</div>`).join('')}</div><div class="demo-nav">${demoStep>0?'<button class="demo-back" onclick="demoStep--;renderDemoStep()">&larr; Back</button>':'<span></span>'}<button class="demo-next" onclick="nextDemoStep()">Next &rarr;</button></div></div>`
   updateDemoPreview()
 }
 function selectDemoOpt(el,val,multi){
@@ -1497,7 +1497,7 @@ function updateDemoPreview(){
   if(demoStep<1){wrap.innerHTML='';return}
   const type=(demoAnswers[0]||[])[0]||'',sections=demoAnswers[2]||[],style=(demoAnswers[3]||[])[0]||''
   if(!type){wrap.innerHTML='';return}
-  wrap.innerHTML=`<div class="demo-preview-box"><h4>Your demo will include:</h4><p>${type}${style?' · '+style+' style':''}</p>${sections.length?`<div class="demo-feature-tags">${sections.map(s=>`<span class="demo-tag">${s}</span>`).join('')}</div>`:''}</div>`
+  wrap.innerHTML=`<div class="demo-preview-box"><h4>Your demo will include:</h4><p>${type}${style?' &middot; '+style+' style':''}</p>${sections.length?`<div class="demo-feature-tags">${sections.map(s=>`<span class="demo-tag">${s}</span>`).join('')}</div>`:''}</div>`
 }
 async function submitDemo(){
   const biz=document.getElementById('demo-biz-name')?.value,email=document.getElementById('demo-email')?.value
@@ -1566,7 +1566,7 @@ function renderStaffList(managers){
         <span style="font-size:12px;color:var(--ink-muted);">%</span>
         <button class="action-btn" onclick="updateCommission('${m.id}')">Save %</button>
         <button class="action-btn" style="background:var(--accent-light);border-color:var(--accent);color:var(--accent);" onclick="viewPayHistory('${m.id}','${m.email}')">📋 History</button>
-        <button class="dash-save" style="padding:4px 12px;font-size:12px;background:var(--purple);" onclick="closePeriod('${m.id}','${m.email}')">✓ Close period & pay</button>
+        <button class="dash-save" style="padding:4px 12px;font-size:12px;background:var(--purple);" onclick="closePeriod('${m.id}','${m.email}')">v Close period & pay</button>
         <button class="btn-remove" onclick="removeManager('${m.id}','${m.email}')">Remove</button>
       </div>
     </div>
@@ -1580,15 +1580,15 @@ function renderStaffList(managers){
 async function closePeriod(managerId, email){
   if(!confirm('Close this pay period for '+email+'? This will:
 
-✓ Calculate their earnings
-✓ Send them an email receipt
-✓ Reset their period stats
+v Calculate their earnings
+v Send them an email receipt
+v Reset their period stats
 
 This cannot be undone.'))return
   try{
     const res=await fetch(API+'/admin/close-period',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({manager_id:managerId})})
     const d=await res.json()
-    if(d.message){alert('✅ Period closed! Receipt sent to '+email+'. They earned $'+d.earnings+' from '+d.websites_count+' websites.');loadAdminData()}
+    if(d.message){alert('OK Period closed! Receipt sent to '+email+'. They earned $'+d.earnings+' from '+d.websites_count+' websites.');loadAdminData()}
     else alert(d.error||'Failed')
   }catch(e){alert('Could not connect')}
 }
@@ -1605,8 +1605,8 @@ async function viewPayHistory(managerId, email){
     inner.innerHTML=data.periods.map(p=>`
       <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
         <div>
-          <div style="font-weight:500;">${new Date(p.period_start).toLocaleDateString()} — ${new Date(p.period_end).toLocaleDateString()}</div>
-          <div style="color:var(--ink-muted);">${p.websites_count} website${p.websites_count!==1?'s':''} · ${p.commission_rate}% commission</div>
+          <div style="font-weight:500;">${new Date(p.period_start).toLocaleDateString()} - ${new Date(p.period_end).toLocaleDateString()}</div>
+          <div style="color:var(--ink-muted);">${p.websites_count} website${p.websites_count!==1?'s':''} &middot; ${p.commission_rate}% commission</div>
         </div>
         <div style="font-family:var(--serif);font-size:22px;color:var(--accent);">$${p.total_earned}</div>
       </div>`).join('')
@@ -1650,7 +1650,7 @@ function renderInquiryCard(iq,role){
     }catch(e){}
   }
 
-  const emailDisplay=canSeeEmail?iq.email:'••••••@••••••'
+  const emailDisplay=canSeeEmail?iq.email:'(hidden)'
   const claimedByDisplay=iq.claimed_by_email||(iq.assigned_to?'Someone':'')
 
   return`<div class="inquiry-card ${isClaimed?'claimed':''}">
@@ -1658,16 +1658,16 @@ function renderInquiryCard(iq,role){
       <div>
         <h4>${iq.business_name||((iq.first_name||'')+(iq.last_name?' '+iq.last_name:''))}</h4>
         <div class="iq-meta">
-          ${canSeeEmail?`<strong>${iq.email}</strong>`:'<span title="Claim this inquiry to see contact details">📧 ••••••@•••••• (claim to reveal)</span>'}
-          · ${iq.phone&&canSeeEmail?iq.phone:'No phone'}
-          · ${new Date(iq.created_at).toLocaleDateString()}
-          ${isClaimed?`· <strong style="color:var(--purple);">Claimed by ${claimedByDisplay}</strong>`:''}
+          ${canSeeEmail?`<strong>${iq.email}</strong>`:'<span title="Claim this inquiry to see contact details">📧 (hidden) (claim to reveal)</span>'}
+          &middot; ${iq.phone&&canSeeEmail?iq.phone:'No phone'}
+          &middot; ${new Date(iq.created_at).toLocaleDateString()}
+          ${isClaimed?`. <strong style="color:var(--purple);">Claimed by ${claimedByDisplay}</strong>`:''}
         </div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span class="iq-badge ${iq.is_demo_request?'demo':iq.status||'new'}">${iq.is_demo_request?'Demo request':(iq.status||'new').charAt(0).toUpperCase()+(iq.status||'new').slice(1)}</span>
-        ${isClaimed&&(claimedByMe||isAdmin)?`<button class="action-btn" style="font-size:11px;" onclick="unclaimInquiry('${iq.id}','${role}')">↩ Release</button>`:''}
-        ${claimedByMe||isAdmin?`<button class="action-btn danger" style="font-size:11px;" onclick="closeInquiry('${iq.id}','${role}')">✕ Close</button>`:''}
+        ${isClaimed&&(claimedByMe||isAdmin)?`<button class="action-btn" style="font-size:11px;" onclick="unclaimInquiry('${iq.id}','${role}')">Release</button>`:''}
+        ${claimedByMe||isAdmin?`<button class="action-btn danger" style="font-size:11px;" onclick="closeInquiry('${iq.id}','${role}')">Close</button>`:''}
       </div>
     </div>
     <div class="iq-details">
@@ -1678,7 +1678,7 @@ function renderInquiryCard(iq,role){
     </div>
     ${demoHTML}
     <div class="iq-actions">
-      ${!isClaimed?`<button class="action-btn claim" onclick="claimInquiry('${iq.id}','${role}')">🙋 Claim this client</button>`:''}
+      ${!isClaimed?`<button class="action-btn claim" onclick="claimInquiry('${iq.id}','${role}')">Claim this client</button>`:''}
       ${claimedByMe||isAdmin?`
         <button class="action-btn" onclick="updateIqStatus('${iq.id}','contacted','${role}')">Mark contacted</button>
         <button class="action-btn" onclick="updateIqStatus('${iq.id}','converted','${role}')">Mark converted</button>
@@ -1702,7 +1702,7 @@ async function claimInquiry(id,role){
   try{
     const res=await fetch(API+'/admin/claim-inquiry',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({inquiry_id:id})})
     const d=await res.json()
-    if(d.message){alert('✅ Inquiry claimed! You can now see the contact details.');loadInquiries(role)}
+    if(d.message){alert('OK Inquiry claimed! You can now see the contact details.');loadInquiries(role)}
     else alert(d.error||'Failed to claim')
   }catch(e){alert('Could not connect to server')}
 }
@@ -1764,18 +1764,18 @@ function renderManagerEarningsHistory(current){
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
         <div>
           <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent);margin-bottom:4px;">Current period</div>
-          <div style="font-size:13px;color:var(--ink-muted);">${periodStart} — ${periodEnd}</div>
+          <div style="font-size:13px;color:var(--ink-muted);">${periodStart} - ${periodEnd}</div>
         </div>
         <div style="text-align:right;">
           <div style="font-family:var(--serif);font-size:32px;color:var(--accent);">$${current.total_earnings||0}</div>
-          <div style="font-size:12px;color:var(--ink-muted);">${current.websites_count||0} website${(current.websites_count||0)!==1?'s':''} · ${current.commission_rate||10}% commission</div>
+          <div style="font-size:12px;color:var(--ink-muted);">${current.websites_count||0} website${(current.websites_count||0)!==1?'s':''} &middot; ${current.commission_rate||10}% commission</div>
         </div>
       </div>
       ${current.websites&&current.websites.length?`
         <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(26,107,90,0.2);">
           ${current.websites.map(w=>`
             <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid rgba(26,107,90,0.1);">
-              <span>${w.business_name||'—'} <span style="color:var(--ink-muted);text-transform:capitalize;">(${w.plan||'standard'})</span></span>
+              <span>${w.business_name||'-'} <span style="color:var(--ink-muted);text-transform:capitalize;">(${w.plan||'standard'})</span></span>
               <span style="color:var(--accent);font-weight:600;">$${Math.round((w.setup_fee||299)*(current.commission_rate||10)/100)}</span>
             </div>`).join('')}
         </div>`:'<p style="font-size:13px;color:var(--ink-muted);margin-top:12px;">No websites created this period yet.</p>'}
@@ -1788,25 +1788,25 @@ function renderManagerTable(clients){
   if(!clients.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--ink-muted);padding:32px;">No clients yet.</td></tr>';return}
   tbody.innerHTML=clients.map(c=>`
     <tr>
-      <td><button class="action-btn" onclick="toggleMgrDetail('${c.id}')">▶</button></td>
+      <td><button class="action-btn" onclick="toggleMgrDetail('${c.id}')"></button></td>
       <td>${c.email}</td><td>${c.business_name||'<span style="color:var(--ink-muted)">Not set</span>'}</td>
       <td><span class="plan-pill ${c.plan||'standard'}">${(c.plan||'standard').charAt(0).toUpperCase()+(c.plan||'standard').slice(1)}</span></td>
       <td><span class="status-badge ${c.is_active?'active':c.subscription_status==='pending_payment'?'pending':'inactive'}">${c.is_active?'Active':c.subscription_status==='pending_payment'?'Pending':'Inactive'}</span></td>
-      <td style="font-size:12px;">${c.created_by_email||'—'}</td>
+      <td style="font-size:12px;">${c.created_by_email||'-'}</td>
       <td>${new Date(c.created_at).toLocaleDateString()}</td>
     </tr>
     <tr class="client-detail-row" id="mgr-detail-${c.id}"><td colspan="7"><div class="client-detail-inner">
       <div class="detail-grid">
         <div class="detail-item"><div class="dl">Email</div><div class="dv">${c.email}</div></div>
-        <div class="detail-item"><div class="dl">Subdomain</div><div class="dv">${c.subdomain?c.subdomain+'.siteflowa.com':'—'}</div></div>
+        <div class="detail-item"><div class="dl">Subdomain</div><div class="dv">${c.subdomain?c.subdomain+'.siteflowa.com':'-'}</div></div>
         <div class="detail-item"><div class="dl">Plan</div><div class="dv">${c.plan||'standard'}</div></div>
         <div class="detail-item"><div class="dl">Status</div><div class="dv">${c.subscription_status||'pending'}</div></div>
-        <div class="detail-item"><div class="dl">Business</div><div class="dv">${c.business_name||'—'}</div></div>
-        <div class="detail-item"><div class="dl">Referral code</div><div class="dv" style="font-family:monospace;">${c.referral_code||'—'}</div></div>
-        <div class="detail-item"><div class="dl">Created by</div><div class="dv">${c.created_by_email||'—'}</div></div>
-        <div class="detail-item"><div class="dl">Active</div><div class="dv">${c.is_active?'✅ Yes':'❌ No'}</div></div>
+        <div class="detail-item"><div class="dl">Business</div><div class="dv">${c.business_name||'-'}</div></div>
+        <div class="detail-item"><div class="dl">Referral code</div><div class="dv" style="font-family:monospace;">${c.referral_code||'-'}</div></div>
+        <div class="detail-item"><div class="dl">Created by</div><div class="dv">${c.created_by_email||'-'}</div></div>
+        <div class="detail-item"><div class="dl">Active</div><div class="dv">${c.is_active?'OK Yes':'No No'}</div></div>
       </div>
-      <p class="readonly-notice">ℹ️ Contact admin to change pricing, plan, or delete this account.</p>
+      <p class="readonly-notice">i️ Contact admin to change pricing, plan, or delete this account.</p>
     </div></td></tr>
   `).join('')
 }
@@ -1833,12 +1833,12 @@ function renderClientsTable(clients){
   if(!clients.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--ink-muted);padding:32px;">No clients yet.</td></tr>';return}
   tbody.innerHTML=clients.map(c=>`
     <tr>
-      <td><button class="action-btn" onclick="toggleDetail('${c.id}')">▶</button></td>
+      <td><button class="action-btn" onclick="toggleDetail('${c.id}')"></button></td>
       <td>${c.email}</td><td>${c.business_name||'<span style="color:var(--ink-muted)">Not set</span>'}</td>
       <td><span class="plan-pill ${c.plan||'standard'}">${(c.plan||'standard').charAt(0).toUpperCase()+(c.plan||'standard').slice(1)}</span></td>
       <td><span class="status-badge ${c.is_active?'active':c.subscription_status==='suspended'?'suspended':c.subscription_status==='pending_payment'?'pending':'inactive'}">${c.is_active?'Active':c.subscription_status==='suspended'?'Suspended':c.subscription_status==='pending_payment'?'Pending':'Inactive'}</span></td>
       <td>$${c.setup_fee||299}</td><td>$${c.monthly_fee||49}/mo</td>
-      <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;">${c.created_by_email||'—'}</td>
+      <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;">${c.created_by_email||'-'}</td>
       <td>${new Date(c.created_at).toLocaleDateString()}</td>
       <td>
         <button class="action-btn" onclick="toggleWebsite('${c.website_id}',${!c.is_active})">${c.is_active?'Pause':'Activate'}</button>
@@ -1849,19 +1849,19 @@ function renderClientsTable(clients){
     <tr class="client-detail-row" id="detail-${c.id}"><td colspan="10"><div class="client-detail-inner">
       <div class="detail-grid">
         <div class="detail-item"><div class="dl">Email</div><div class="dv">${c.email}</div></div>
-        <div class="detail-item"><div class="dl">Subdomain</div><div class="dv">${c.subdomain?c.subdomain+'.siteflowa.com':'—'}</div></div>
+        <div class="detail-item"><div class="dl">Subdomain</div><div class="dv">${c.subdomain?c.subdomain+'.siteflowa.com':'-'}</div></div>
         <div class="detail-item"><div class="dl">Plan</div><div class="dv">${c.plan||'standard'}</div></div>
         <div class="detail-item"><div class="dl">Status</div><div class="dv">${c.subscription_status||'pending'}</div></div>
-        <div class="detail-item"><div class="dl">Business</div><div class="dv">${c.business_name||'—'}</div></div>
-        <div class="detail-item"><div class="dl">Referral code</div><div class="dv" style="font-family:monospace;">${c.referral_code||'—'}</div></div>
-        <div class="detail-item"><div class="dl">Created by</div><div class="dv">${c.created_by_email||'—'}</div></div>
-        <div class="detail-item"><div class="dl">Active</div><div class="dv">${c.is_active?'✅ Yes':'❌ No'}</div></div>
+        <div class="detail-item"><div class="dl">Business</div><div class="dv">${c.business_name||'-'}</div></div>
+        <div class="detail-item"><div class="dl">Referral code</div><div class="dv" style="font-family:monospace;">${c.referral_code||'-'}</div></div>
+        <div class="detail-item"><div class="dl">Created by</div><div class="dv">${c.created_by_email||'-'}</div></div>
+        <div class="detail-item"><div class="dl">Active</div><div class="dv">${c.is_active?'OK Yes':'No No'}</div></div>
       </div>
       <div class="pricing-edit">
         <label>Plan</label>
         <select id="pl-${c.id}" style="width:110px;padding:6px 10px;font-size:13px;"><option value="basic" ${c.plan==='basic'?'selected':''}>Basic</option><option value="standard" ${(!c.plan||c.plan==='standard')?'selected':''}>Standard</option><option value="premium" ${c.plan==='premium'?'selected':''}>Premium</option></select>
         <button class="dash-save" onclick="updateClientPlan('${c.id}')" style="padding:8px 14px;font-size:13px;">Update plan</button>
-        <span style="font-size:12px;color:var(--ink-muted);margin-left:8px;">Fees: $${c.setup_fee||299} setup · $${c.monthly_fee||49}/mo</span>
+        <span style="font-size:12px;color:var(--ink-muted);margin-left:8px;">Fees: $${c.setup_fee||299} setup &middot; $${c.monthly_fee||49}/mo</span>
       </div>
       <div class="sections-edit">
         <div class="sections-edit-label">Website sections</div>
@@ -1918,14 +1918,14 @@ async function loadManagerCodes(){
   try{
     const res=await fetch(API+'/admin/manager-codes',{headers:{'Authorization':'Bearer '+getToken()}})
     const data=await res.json()
-    document.getElementById('manager-codes-list').innerHTML=!data.codes||!data.codes.length?'<span style="font-size:13px;color:var(--ink-muted);">No codes yet</span>':data.codes.map(c=>`<div class="manager-code-pill ${c.used?'used':''}">${c.code} ${c.used?'<span style="font-size:10px;">(used by '+(c.assigned_email||'someone')+')</span>':'<span style="font-size:10px;color:var(--accent);">● available</span>'}</div>`).join('')
+    document.getElementById('manager-codes-list').innerHTML=!data.codes||!data.codes.length?'<span style="font-size:13px;color:var(--ink-muted);">No codes yet</span>':data.codes.map(c=>`<div class="manager-code-pill ${c.used?'used':''}">${c.code} ${c.used?'<span style="font-size:10px;">(used by '+(c.assigned_email||'someone')+')</span>':'<span style="font-size:10px;color:var(--accent);">* available</span>'}</div>`).join('')
   }catch(e){console.error(e)}
 }
 async function loadAdminCodes(){
   try{
     const res=await fetch(API+'/admin/admin-codes',{headers:{'Authorization':'Bearer '+getToken()}})
     const data=await res.json()
-    document.getElementById('admin-codes-list').innerHTML=!data.codes||!data.codes.length?'<span style="font-size:13px;color:var(--ink-muted);">No codes yet</span>':data.codes.map(c=>`<div class="manager-code-pill ${c.used?'used':''}">${c.code} ${c.used?'<span style="font-size:10px;">(used)</span>':'<span style="font-size:10px;color:#b71c1c;">● available</span>'}</div>`).join('')
+    document.getElementById('admin-codes-list').innerHTML=!data.codes||!data.codes.length?'<span style="font-size:13px;color:var(--ink-muted);">No codes yet</span>':data.codes.map(c=>`<div class="manager-code-pill ${c.used?'used':''}">${c.code} ${c.used?'<span style="font-size:10px;">(used)</span>':'<span style="font-size:10px;color:#b71c1c;">* available</span>'}</div>`).join('')
   }catch(e){console.error(e)}
 }
 async function createManagerCode(){const code=document.getElementById('new-manager-code').value.trim();if(!code)return alert('Please enter a code');try{const res=await fetch(API+'/admin/create-manager-code',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({code})});const d=await res.json();if(d.message){document.getElementById('new-manager-code').value='';loadManagerCodes()}else alert(d.error||'Failed')}catch(e){alert('Could not connect')}}
