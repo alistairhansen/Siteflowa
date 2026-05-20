@@ -528,7 +528,41 @@ app.delete('/admin/remove-admin/:clientId', authMiddleware, adminMiddleware, asy
     res.json({ message: 'Admin removed' })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
+// ── CLIENT WEBSITE - save content ──────────────────────
+app.post('/my-website/content', authMiddleware, async (req, res) => {
+  const { content } = req.body
+  try {
+    await pool.query('UPDATE websites SET content=$1 WHERE client_id=$2', [JSON.stringify(content), req.user.id])
+    res.json({ message: 'Content saved' })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
 
+// ── SERVE CLIENT WEBSITE ────────────────────────────────
+app.get('/site/:subdomain', async (req, res) => {
+  const { subdomain } = req.params
+  try {
+    const result = await pool.query(`
+      SELECT w.*, c.subscription_status, c.plan,
+             c.update_fee_required
+      FROM websites w
+      LEFT JOIN clients c ON c.id = w.client_id
+      WHERE w.subdomain = $1
+    `, [subdomain])
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Website not found' })
+    }
+    const website = result.rows[0]
+    res.json({
+      is_active: website.is_active && website.subscription_status === 'active',
+      business_name: website.business_name,
+      subdomain: website.subdomain,
+      plan: website.plan || 'standard',
+      sections: website.sections || {},
+      content: website.content || {},
+      schema: website.schema || {}
+    })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
 // ── TEST ────────────────────────────────────────────────
 app.get('/', async (req, res) => {
   try { await pool.query('SELECT 1'); res.json({ message: 'Siteflowa server running!' }) }
