@@ -565,12 +565,14 @@ function loadClientDashboard(email,website,plan){
     const url=website.subdomain?website.subdomain+'.siteflowa.com':''
     document.getElementById('biz-url').value=url
     document.getElementById('overview-url').textContent=url||'-'
+    currentSubdomain=website.subdomain||''
   }
   const isBasic=p==='basic'
   document.getElementById('nav-business').style.display=isBasic?'none':'flex'
   document.getElementById('nav-photos').style.display=isBasic?'none':'flex'
   document.getElementById('nav-hours').style.display=isBasic?'none':'flex'
   document.getElementById('nav-referral').style.display=isBasic?'none':'flex'
+  document.getElementById('nav-analytics').style.display=isBasic?'none':'flex'
   fetchClientExtras(p)
   showPage('dashboard')
   const tourKey='siteflowa_tour_'+email
@@ -641,6 +643,78 @@ function showTourComplete(){
   document.body.appendChild(tooltip)
   setTimeout(()=>{const t=document.getElementById('tour-tooltip');if(t)t.remove()}, 8000)
 }
+let analyticsChart=null
+let currentSubdomain=''
+
+async function loadAnalytics(){
+  const token=getToken()
+  if(!token||!currentSubdomain)return
+  const planBadge=document.getElementById('client-plan-badge')
+  const plan=(planBadge?.textContent||'basic').toLowerCase().trim()
+  const planRank={basic:0,standard:1,premium:2}
+  const rank=planRank[plan]||0
+  if(rank<1)return
+  const period=document.getElementById('analytics-period')?.value||'30'
+  const wrap=document.getElementById('analytics-wrap')
+  if(!wrap)return
+  wrap.innerHTML='<p style="color:var(--ink-muted);font-size:14px;">Loading...</p>'
+  try{
+    const res=await fetch(API+'/analytics/'+currentSubdomain+'?period='+period,{headers:{'Authorization':'Bearer '+token}})
+    const data=await res.json()
+    if(data.error){wrap.innerHTML='<p style="color:var(--red);">'+data.error+'</p>';return}
+    renderAnalytics(data,rank)
+  }catch(e){wrap.innerHTML='<p style="color:var(--red);">Could not load analytics</p>'}
+}
+
+function renderAnalytics(data,rank){
+  const wrap=document.getElementById('analytics-wrap')
+  if(!wrap)return
+  const total=data.total_views||0
+  const mobile=data.devices?data.devices.find(d=>d.device==='Mobile')?.count||0:0
+  const mPct=total>0?Math.round(mobile/total*100):0
+
+  let html='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;">'
+  html+='<div style="background:var(--accent-light);border-radius:var(--radius-lg);padding:20px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent);margin-bottom:8px;">Total views</div><div style="font-family:var(--serif);font-size:36px;color:var(--accent);">'+total.toLocaleString()+'</div></div>'
+  html+='<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Mobile</div><div style="font-family:var(--serif);font-size:36px;">'+mPct+'%</div></div>'
+  html+='<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Desktop</div><div style="font-family:var(--serif);font-size:36px;">'+(100-mPct)+'%</div></div>'
+  html+='</div>'
+  html+='<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;"><div style="font-size:13px;font-weight:600;margin-bottom:14px;">Views over time</div><canvas id="analytics-chart" height="80"></canvas></div>'
+
+  if(rank>=2){
+    if(data.sources&&data.sources.length){
+      html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">'
+      html+='<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;"><div style="font-size:13px;font-weight:600;margin-bottom:12px;">Traffic sources</div>'
+      data.sources.forEach(function(s){
+        var pct=total>0?Math.round(s.count/total*100):0
+        html+='<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>'+s.referrer_source+'</span><span style="font-weight:600;color:var(--accent);">'+pct+'% ('+s.count+')</span></div>'
+      })
+      html+='</div>'
+      html+='<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;"><div style="font-size:13px;font-weight:600;margin-bottom:12px;">Browsers</div>'
+      if(data.browsers)data.browsers.forEach(function(b){
+        var pct=total>0?Math.round(b.count/total*100):0
+        html+='<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>'+b.browser+'</span><span style="font-weight:600;color:var(--accent);">'+pct+'% ('+b.count+')</span></div>'
+      })
+      html+='</div></div>'
+    }
+  }else{
+    html+='<div style="background:var(--gold-light);border:1px solid var(--gold);border-radius:var(--radius-lg);padding:14px 18px;font-size:13px;"><strong>Upgrade to Premium</strong> to unlock traffic sources, browser data, and top pages.</div>'
+  }
+
+  wrap.innerHTML=html
+  var ctx=document.getElementById('analytics-chart')
+  if(ctx&&data.daily){
+    if(analyticsChart)analyticsChart.destroy()
+    analyticsChart=new Chart(ctx,{
+      type:'line',
+      data:{
+        labels:data.daily.map(function(d){return new Date(d.day).toLocaleDateString('en-CA',{month:'short',day:'numeric'})}),
+        datasets:[{label:'Views',data:data.daily.map(function(d){return parseInt(d.views)}),borderColor:'#1a6b5a',backgroundColor:'rgba(26,107,90,0.1)',tension:0.4,fill:true}]
+      },
+      options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+    })
+  }
+}
+
 async function fetchClientExtras(plan){
   const token=getToken();if(!token)return
   try{
