@@ -51,6 +51,8 @@ function applySettings(s){
   if(s.tagline)document.getElementById('hero-tagline').textContent=s.tagline
   if(s.plan_basic_price){
     document.getElementById('home-stat-price').textContent='$'+s.plan_basic_price
+    const svcSetup=document.getElementById('svc-setup-price');if(svcSetup)svcSetup.textContent='$'+(s.plan_basic_setup||199)
+    const svcMonthly=document.getElementById('svc-monthly-price');if(svcMonthly)svcMonthly.textContent='$'+(s.plan_basic_price||29)+'/mo'
     document.getElementById('plan-basic-price').innerHTML='$'+s.plan_basic_price+'<span>/mo</span>'
     document.getElementById('plan-standard-price').innerHTML='$'+s.plan_standard_price+'<span>/mo</span>'
     document.getElementById('plan-premium-price').innerHTML='$'+s.plan_premium_price+'<span>/mo</span>'
@@ -511,6 +513,7 @@ async function doResetPassword(){
 }
 
 function showPaymentPage(website,plan){
+  localStorage.setItem('wc_plan',plan||'standard')
   setupFee=website?website.setup_fee||299:299
   monthlyFee=website?website.monthly_fee||49:49
   discountApplied=false
@@ -536,11 +539,25 @@ function applyReferral(){
   alert('Referral code applied! You saved $'+discount+' off your website build fee.')
 }
 async function simulatePayment(){
+  const token=getToken()
+  if(!token)return alert('Please log in first')
   try{
-    const res=await fetch(API+'/activate-account',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()}})
+    const res=await fetch(API+'/create-checkout',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify({
+        setup_fee:setupFee,
+        monthly_fee:monthlyFee,
+        plan:localStorage.getItem('wc_plan')||'standard',
+        business_name:currentWebsite?.business_name||''
+      })
+    })
     const d=await res.json()
-    if(d.message)loadClientDashboard(localStorage.getItem('wc_email'),currentWebsite,null)
-    else alert('Activation failed: '+(d.error||'Unknown error'))
+    if(d.url){
+      window.location.href=d.url
+    }else{
+      alert(d.error||'Could not create payment session')
+    }
   }catch(e){alert('Could not connect to server')}
 }
 async function payUpdateFee(){
@@ -776,6 +793,14 @@ async function saveBizInfo(){
     const d=await res.json()
     if(d.message){const m=document.getElementById('save-msg-business');m.classList.add('show');setTimeout(()=>m.classList.remove('show'),3000)}
   }catch(e){alert('Save failed')}
+}
+async function openBillingPortal(){
+  try{
+    const res=await fetch(API+'/billing-portal',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()}})
+    const d=await res.json()
+    if(d.url)window.location.href=d.url
+    else alert(d.error||'Could not open billing portal')
+  }catch(e){alert('Could not connect to server')}
 }
 function copyReferral(){
   const code=document.getElementById('my-referral-code').textContent
@@ -1490,10 +1515,31 @@ window.addEventListener('load',()=>{
   const params=new URLSearchParams(window.location.search)
   if(params.get('token')){
     openLogin()
-    // show reset tab
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'))
     document.querySelectorAll('.modal-tab').forEach(t=>t.classList.remove('active'))
     const resetTab=document.getElementById('tab-reset')
     if(resetTab)resetTab.classList.add('active')
+  }
+  if(params.get('payment')==='success'){
+    // Payment confirmed - activate account and load dashboard
+    const token=getToken()
+    if(token){
+      fetch(API+'/activate-account',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}})
+        .then(r=>r.json())
+        .then(d=>{
+          if(d.message){
+            const email=localStorage.getItem('wc_email')
+            alert('Payment successful! Welcome to Siteflowa.')
+            loadClientDashboard(email,currentWebsite,localStorage.getItem('wc_plan')||'standard')
+          }
+        }).catch(()=>{})
+    }
+    // Clean URL
+    window.history.replaceState({},'',window.location.pathname)
+  }
+  if(params.get('payment')==='cancelled'){
+    alert('Payment was cancelled. You can try again from your account.')
+    window.history.replaceState({},'',window.location.pathname)
+    openLogin()
   }
 })

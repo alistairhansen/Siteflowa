@@ -57,8 +57,8 @@
     <h2 style="font-family:var(--serif);font-size:clamp(34px,4vw,52px);letter-spacing:-0.025em;line-height:1.1;margin-bottom:16px;">Everything your business website needs</h2>
     <p class="section-sub">One setup fee. One monthly subscription. We handle everything else.</p>
     <div class="services-grid">
-      <div class="service-card"><div class="service-icon">🎨</div><h3>Custom design</h3><p>A professionally designed website built around your brand. Mobile-friendly and fast-loading from day one.</p><div class="service-price">One-time setup from <strong>$199</strong></div></div>
-      <div class="service-card"><div class="service-icon">🖥️</div><h3>Hosting & maintenance</h3><p>Your website stays live, secure, and up to date. We handle servers, backups, and software updates.</p><div class="service-price">Monthly from <strong>$29/mo</strong></div></div>
+      <div class="service-card"><div class="service-icon">🎨</div><h3>Custom design</h3><p>A professionally designed website built around your brand. Mobile-friendly and fast-loading from day one.</p><div class="service-price">One-time setup from <strong id="svc-setup-price">$199</strong></div></div>
+      <div class="service-card"><div class="service-icon">🖥️</div><h3>Hosting & maintenance</h3><p>Your website stays live, secure, and up to date. We handle servers, backups, and software updates.</p><div class="service-price">Monthly from <strong id="svc-monthly-price">$29/mo</strong></div></div>
       <div class="service-card"><div class="service-icon">⚡</div><h3>Live content dashboard</h3><p>Log in anytime to update your business info, upload photos, or change your hours. Changes go live instantly.</p><div class="service-price">Included in <strong>Standard+</strong></div></div>
       <div class="service-card"><div class="service-icon">📞</div><h3>Ongoing support</h3><p>Something not right? Real support from real people — no bots, no ticket queues.</p><div class="service-price">Included in <strong>all plans</strong></div></div>
       <div class="service-card"><div class="service-icon">🔍</div><h3>SEO foundations</h3><p>Every website is built with proper search engine foundations — page titles, meta descriptions, fast load times.</p><div class="service-price">Included in <strong>setup</strong></div></div>
@@ -216,8 +216,8 @@
     <div style="background:var(--accent-light);border:1px solid rgba(26,107,90,0.2);border-radius:var(--radius);padding:14px 18px;margin-bottom:16px;font-size:13px;color:var(--accent);">
       🎉 <strong>First month free</strong> — your subscription starts one month from today. You won't be charged monthly until <strong id="billing-start-date"></strong>.
     </div>
-    <button class="pay-btn" onclick="simulatePayment()">🔒 Pay setup fee and activate my website</button>
-    <p class="payment-notice">Stripe payments coming soon — clicking this activates your account for testing.</p>
+    <button class="pay-btn" onclick="simulatePayment()">🔒 Pay securely with Stripe</button>
+    <p class="payment-notice">You will be redirected to Stripe's secure checkout. Your card details are never stored on our servers.</p>
   </div>
 </div>
 

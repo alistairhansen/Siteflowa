@@ -761,4 +761,135 @@ app.get('/health', async (req, res) => {
 })
 
 const PORT = process.env.PORT || 3000
+
+// ── STRIPE ───────────────────────────────────────────────
+const Stripe = require('stripe')
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY)
+
+// Create checkout session for setup fee
+app.post('/create-checkout', authMiddleware, async (req, res) => {
+  const { setup_fee, monthly_fee, plan, business_name } = req.body
+  try {
+    const client = await pool.query('SELECT * FROM clients WHERE id=$1', [req.user.id])
+    const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.user.id])
+    const clientData = client.rows[0]
+    const websiteData = website.rows[0]
+
+    // Create or get Stripe customer
+    let customerId = clientData.stripe_customer_id
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: clientData.email,
+        name: business_name || clientData.email,
+        metadata: { client_id: req.user.id }
+      })
+      customerId = customer.id
+      await pool.query('UPDATE clients SET stripe_customer_id=$1 WHERE id=$2', [customerId, req.user.id])
+    }
+
+    const planNames = { basic: 'Basic', standard: 'Standard', premium: 'Premium' }
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'cad',
+            product_data: {
+              name: 'Siteflowa ' + (planNames[plan] || 'Standard') + ' Plan — Website Setup',
+              description: 'One-time website build fee for ' + (business_name || 'your business'),
+            },
+            unit_amount: Math.round(setup_fee * 100),
+          },
+          quantity: 1,
+        },
+        {
+          price_data: {
+            currency: 'cad',
+            product_data: {
+              name: 'Siteflowa Monthly Subscription',
+              description: 'First month free — billing starts 30 days from today',
+            },
+            unit_amount: 0,
+            recurring: { interval: 'month' },
+          },
+          quantity: 1,
+        }
+      ],
+      mode: 'subscription',
+      subscription_data: {
+        trial_period_days: 30,
+        metadata: { client_id: req.user.id, plan: plan }
+      },
+      success_url: 'https://siteflowa.onrender.com?payment=success&session_id={CHECKOUT_SESSION_ID}',
+      cancel_url: 'https://siteflowa.onrender.com?payment=cancelled',
+      metadata: { client_id: req.user.id, plan: plan }
+    })
+
+    res.json({ url: session.url, session_id: session.id })
+  } catch (err) {
+    console.error('Stripe error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Stripe webhook - handle payment confirmation
+app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature']
+  let event
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET)
+  } catch (err) {
+    console.error('Webhook error:', err.message)
+    return res.status(400).send('Webhook Error: ' + err.message)
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object
+    const clientId = session.metadata?.client_id
+    if (clientId) {
+      await pool.query('UPDATE clients SET subscription_status=$1, stripe_session_id=$2 WHERE id=$3',
+        ['active', session.id, clientId])
+      await pool.query('UPDATE websites SET is_active=TRUE WHERE client_id=$1', [clientId])
+      console.log('Payment confirmed for client:', clientId)
+    }
+  }
+
+  if (event.type === 'invoice.payment_failed') {
+    const invoice = event.data.object
+    const customerId = invoice.customer
+    const client = await pool.query('SELECT id FROM clients WHERE stripe_customer_id=$1', [customerId])
+    if (client.rows[0]) {
+      await pool.query('UPDATE clients SET subscription_status=$1 WHERE id=$2', ['suspended', client.rows[0].id])
+      await pool.query('UPDATE websites SET is_active=FALSE WHERE client_id=$1', [client.rows[0].id])
+    }
+  }
+
+  if (event.type === 'customer.subscription.deleted') {
+    const sub = event.data.object
+    const customerId = sub.customer
+    const client = await pool.query('SELECT id FROM clients WHERE stripe_customer_id=$1', [customerId])
+    if (client.rows[0]) {
+      await pool.query('UPDATE clients SET subscription_status=$1 WHERE id=$2', ['cancelled', client.rows[0].id])
+      await pool.query('UPDATE websites SET is_active=FALSE WHERE client_id=$1', [client.rows[0].id])
+    }
+  }
+
+  res.json({ received: true })
+})
+
+// Get Stripe customer portal link
+app.post('/billing-portal', authMiddleware, async (req, res) => {
+  try {
+    const client = await pool.query('SELECT stripe_customer_id FROM clients WHERE id=$1', [req.user.id])
+    const customerId = client.rows[0]?.stripe_customer_id
+    if (!customerId) return res.status(400).json({ error: 'No billing account found' })
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: 'https://siteflowa.onrender.com'
+    })
+    res.json({ url: session.url })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
