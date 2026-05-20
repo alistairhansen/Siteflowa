@@ -753,7 +753,49 @@ app.get('/client/:subdomain', async (req, res) => {
     res.status(500).send('<h1>Error loading website</h1>')
   }
 })
-
+// ── CANCEL SUBSCRIPTION ─────────────────────────────────
+app.post('/cancel-subscription', authMiddleware, async (req, res) => {
+  try {
+    const client = await pool.query('SELECT * FROM clients WHERE id=$1', [req.user.id])
+    const clientData = client.rows[0]
+    // Cancel in Stripe if they have a subscription
+    if (clientData.stripe_customer_id) {
+      try {
+        const subscriptions = await stripe.subscriptions.list({ customer: clientData.stripe_customer_id })
+        for (const sub of subscriptions.data) {
+          await stripe.subscriptions.cancel(sub.id)
+        }
+      } catch(stripeErr) { console.error('Stripe cancel error:', stripeErr) }
+    }
+    // Deactivate in our system
+    await pool.query('UPDATE clients SET subscription_status=$1 WHERE id=$2', ['cancelled', req.user.id])
+    await pool.query('UPDATE websites SET is_active=FALSE WHERE client_id=$1', [req.user.id])
+    // Notify all staff
+    const staff = await pool.query("SELECT email FROM clients WHERE role IN ('admin','manager') AND subscription_status='active'")
+    const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.user.id])
+    if (staff.rows.length > 0) {
+      await resend.emails.send({
+        from: 'Siteflowa <onboarding@resend.dev>',
+        to: staff.rows.map(s => s.email),
+        subject: 'Subscription cancelled - ' + (website.rows[0]?.business_name || clientData.email),
+        html: `
+          <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;">
+            <h2 style="font-family:Georgia,serif;color:#e53935;">Subscription cancelled</h2>
+            <p style="color:#4a4f5e;">A client has cancelled their subscription and their website has been taken offline.</p>
+            <div style="background:#ffebee;border:1px solid #e53935;border-radius:10px;padding:20px;margin:20px 0;">
+              <strong>${website.rows[0]?.business_name || 'Unknown'}</strong><br>
+              <span style="color:#4a4f5e;">${clientData.email}</span><br>
+              <span style="color:#4a4f5e;">Plan: ${clientData.plan || 'standard'}</span><br>
+              <span style="color:#4a4f5e;">Cancelled: ${new Date().toLocaleDateString()}</span>
+            </div>
+            <p style="color:#8b909e;font-size:12px;">Their website is now offline and their account has been deactivated.</p>
+          </div>
+        `
+      })
+    }
+    res.json({ message: 'Subscription cancelled successfully' })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
 // ── HEALTH CHECK ────────────────────────────────────────
 app.get('/health', async (req, res) => {
   try { await pool.query('SELECT 1'); res.json({ message: 'Siteflowa server running!' }) }
@@ -771,9 +813,7 @@ app.post('/create-checkout', authMiddleware, async (req, res) => {
   const { setup_fee, monthly_fee, plan, business_name } = req.body
   try {
     const client = await pool.query('SELECT * FROM clients WHERE id=$1', [req.user.id])
-    const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.user.id])
     const clientData = client.rows[0]
-    const websiteData = website.rows[0]
 
     // Create or get Stripe customer
     let customerId = clientData.stripe_customer_id
@@ -797,28 +837,15 @@ app.post('/create-checkout', authMiddleware, async (req, res) => {
             currency: 'cad',
             product_data: {
               name: 'Siteflowa ' + (planNames[plan] || 'Standard') + ' Plan — Website Setup',
-              description: 'One-time website build fee for ' + (business_name || 'your business'),
+              description: 'One-time website build fee for ' + (business_name || 'your business') + '. Your monthly subscription of $' + monthly_fee + '/mo begins one month from today.',
             },
             unit_amount: Math.round(setup_fee * 100),
           },
           quantity: 1,
-        },
-        {
-          price_data: {
-            currency: 'cad',
-            product_data: {
-              name: 'Siteflowa Monthly Subscription',
-              description: 'First month free — billing starts 30 days from today',
-            },
-            unit_amount: 0,
-            recurring: { interval: 'month' },
-          },
-          quantity: 1,
         }
       ],
-      mode: 'subscription',
-      subscription_data: {
-        trial_period_days: 30,
+      mode: 'payment',
+      payment_intent_data: {
         metadata: { client_id: req.user.id, plan: plan }
       },
       success_url: 'https://siteflowa.onrender.com?payment=success&session_id={CHECKOUT_SESSION_ID}',
@@ -832,7 +859,6 @@ app.post('/create-checkout', authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message })
   }
 })
-
 // Stripe webhook - handle payment confirmation
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature']
@@ -844,16 +870,16 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
     return res.status(400).send('Webhook Error: ' + err.message)
   }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object
-    const clientId = session.metadata?.client_id
-    if (clientId) {
-      await pool.query('UPDATE clients SET subscription_status=$1, stripe_session_id=$2 WHERE id=$3',
-        ['active', session.id, clientId])
-      await pool.query('UPDATE websites SET is_active=TRUE WHERE client_id=$1', [clientId])
-      console.log('Payment confirmed for client:', clientId)
-    }
+if (event.type === 'checkout.session.completed' || event.type === 'payment_intent.succeeded') {
+  const obj = event.data.object
+  const clientId = obj.metadata?.client_id
+  if (clientId) {
+    await pool.query('UPDATE clients SET subscription_status=$1, stripe_session_id=$2 WHERE id=$3',
+      ['active', obj.id, clientId])
+    await pool.query('UPDATE websites SET is_active=TRUE WHERE client_id=$1', [clientId])
+    console.log('Payment confirmed for client:', clientId)
   }
+}
 
   if (event.type === 'invoice.payment_failed') {
     const invoice = event.data.object
