@@ -718,7 +718,7 @@ app.post('/notify-downgrade', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 // ── TEST ────────────────────────────────────────────────
-app.get('/', async (req, res) => {
+app.get('/health', async (req, res) => {
   try { await pool.query('SELECT 1'); res.json({ message: 'Siteflowa server running!' }) }
   catch (err) { res.status(500).json({ error: 'DB connection failed' }) }
 })
