@@ -306,7 +306,10 @@
   <section style="padding-top:100px;padding-bottom:60px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
       <div><h2 style="font-family:var(--serif);font-size:clamp(28px,3vw,42px);letter-spacing:-0.02em;">Manager View</h2><p style="font-size:13px;color:var(--purple);font-weight:500;margin-top:6px;">Contact admin to change pricing or delete accounts</p></div>
-      <button class="dash-save" onclick="doLogout()">Log out</button>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button class="dash-save" onclick="doLogout()">Log out</button>
+        <button onclick="viewTOS()" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:9px 16px;font-family:var(--sans);font-size:12px;cursor:pointer;color:var(--ink-muted);">View Terms</button>
+      </div>
     </div>
     <div class="admin-stats-grid">
       <div class="admin-stat-card"><div class="stat-label">My websites this period</div><div class="stat-value" id="mgr-stat-mine">—</div></div>
@@ -355,7 +358,10 @@
   <section style="padding-top:100px;padding-bottom:60px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
       <div><h2 style="font-family:var(--serif);font-size:clamp(28px,3vw,42px);letter-spacing:-0.02em;">Admin Dashboard</h2><span class="role-badge admin" style="margin-top:6px;display:inline-block;">Admin</span></div>
-      <button class="dash-save" onclick="doLogout()">Log out</button>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button class="dash-save" onclick="doLogout()">Log out</button>
+        <button onclick="viewTOS()" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:9px 16px;font-family:var(--sans);font-size:12px;cursor:pointer;color:var(--ink-muted);">View Terms</button>
+      </div>
     </div>
     <div class="admin-stats-grid">
       <div class="admin-stat-card"><div class="stat-label">Total clients</div><div class="stat-value" id="stat-clients">—</div></div>
@@ -470,7 +476,7 @@
       </div>
       <div style="padding:24px;overflow-x:auto;">
         <table class="clients-table">
-          <thead><tr><th></th><th>Email</th><th>Business</th><th>Plan</th><th>Status</th><th>Setup</th><th>Monthly</th><th>Created by</th><th>Joined</th><th>Actions</th></tr></thead>
+          <thead><tr><th></th><th>Email</th><th>Business</th><th>Plan</th><th>Status</th><th>Setup</th><th>Monthly</th><th>Total charged</th><th>Created by</th><th>Joined</th><th>Actions</th></tr></thead>
           <tbody id="clients-table-body"><tr><td colspan="10" style="text-align:center;color:var(--ink-muted);padding:32px;">Loading clients...</td></tr></tbody>
         </table>
       </div>
