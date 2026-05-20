@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Siteflowa — Professional Websites for Small Business</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+</head>
+<body><nav>
+  <div class="nav-logo" onclick="showPage('home')">
+    <svg class="nav-flower" viewBox="0 0 28 28" fill="none"><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(60 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(120 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(180 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(240 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(300 14 14)"/><circle cx="14" cy="14" r="4" fill="#f9e4ff"/><circle cx="14" cy="14" r="2.5" fill="#ce93d8"/></svg>
+    <div class="nav-logo-text">Siteflowa<span>.</span></div>
+  </div>
+  <div class="nav-links">
+    <a onclick="showPage('home')">Home</a>
+    <a onclick="showPage('services')">Services</a>
+    <a onclick="showPage('plans')">Pricing</a>
+    <a onclick="showPage('inquiry')">Get a Website</a>
+    <a class="nav-cta" onclick="openLogin()">Client Login</a>
+  </div>
+</nav>
+
+<!-- HOME -->
+<div id="page-home" class="page-section active">
+  <section id="home">
+    <div class="hero-eyebrow">Professional websites for small business</div>
+    <h1 class="fade-up">Your business deserves a <em>beautiful</em> website.</h1>
+    <p class="hero-sub fade-up delay-1" id="hero-tagline">We build, host, and maintain your website — and hand you a simple dashboard so you're always in control.</p>
+    <div class="hero-actions fade-up delay-2">
+      <button class="btn-primary" onclick="showPage('inquiry')">Get started today</button>
+      <button class="btn-secondary" onclick="showPage('plans')">See pricing</button>
+    </div>
+    <div class="hero-stats fade-up delay-3">
+      <div><div class="stat-num" id="home-stat-price">$29</div><div class="stat-label">Starting per month</div></div>
+      <div><div class="stat-num">48hr</div><div class="stat-label">Average launch time</div></div>
+      <div><div class="stat-num">100%</div><div class="stat-label">Managed for you</div></div>
+    </div>
+  </section>
+  <section style="padding-top:0;">
+    <h2 style="font-family:var(--serif);font-size:clamp(34px,4vw,52px);letter-spacing:-0.025em;line-height:1.1;margin-bottom:16px;">How it works</h2>
+    <p class="section-sub">Three steps from inquiry to a live website in your name.</p>
+    <div class="steps">
+      <div class="step"><div class="step-num">01</div><div class="step-content"><h3>Submit an inquiry</h3><p>Tell us about your business and choose your plan. We'll follow up within one business day.</p></div></div>
+      <div class="step"><div class="step-num">02</div><div class="step-content"><h3>We build your site</h3><p>We design and build a professional website tailored to your business and chosen plan.</p></div></div>
+      <div class="step"><div class="step-num">03</div><div class="step-content"><h3>You stay in control</h3><p>Log into your dashboard to update your info, upload photos, and more. Changes go live instantly.</p></div></div>
+    </div>
+  </section>
+</div>
+
+<!-- SERVICES -->
+<div id="page-services" class="page-section">
+  <section style="padding-top:120px;">
+    <div class="hero-eyebrow">What we offer</div>
+    <h2 style="font-family:var(--serif);font-size:clamp(34px,4vw,52px);letter-spacing:-0.025em;line-height:1.1;margin-bottom:16px;">Everything your business website needs</h2>
+    <p class="section-sub">One setup fee. One monthly subscription. We handle everything else.</p>
+    <div class="services-grid">
+      <div class="service-card"><div class="service-icon">🎨</div><h3>Custom design</h3><p>A professionally designed website built around your brand. Mobile-friendly and fast-loading from day one.</p><div class="service-price">One-time setup from <strong>$199</strong></div></div>
+      <div class="service-card"><div class="service-icon">🖥️</div><h3>Hosting & maintenance</h3><p>Your website stays live, secure, and up to date. We handle servers, backups, and software updates.</p><div class="service-price">Monthly from <strong>$29/mo</strong></div></div>
+      <div class="service-card"><div class="service-icon">⚡</div><h3>Live content dashboard</h3><p>Log in anytime to update your business info, upload photos, or change your hours. Changes go live instantly.</p><div class="service-price">Included in <strong>Standard+</strong></div></div>
+      <div class="service-card"><div class="service-icon">📞</div><h3>Ongoing support</h3><p>Something not right? Real support from real people — no bots, no ticket queues.</p><div class="service-price">Included in <strong>all plans</strong></div></div>
+      <div class="service-card"><div class="service-icon">🔍</div><h3>SEO foundations</h3><p>Every website is built with proper search engine foundations — page titles, meta descriptions, fast load times.</p><div class="service-price">Included in <strong>setup</strong></div></div>
+      <div class="service-card"><div class="service-icon">📈</div><h3>Analytics & stats</h3><p>See how many people visit your website, where they come from, and what they look at.</p><div class="service-price">All plans · <strong>more in Standard+</strong></div></div>
+    </div>
+    <div style="text-align:center;margin-top:52px;"><button class="btn-primary" onclick="showPage('plans')">See our plans & pricing →</button></div>
+  </section>
+</div>
+
+<!-- PLANS -->
+<div id="page-plans" class="page-section">
+  <section style="padding-top:120px;">
+    <div class="hero-eyebrow">Pricing</div>
+    <h2 style="font-family:var(--serif);font-size:clamp(34px,4vw,52px);letter-spacing:-0.025em;line-height:1.1;margin-bottom:16px;">Choose your plan</h2>
+    <p class="section-sub">All plans include your website live online, hosting, and email support. Upgrade your dashboard access anytime.</p>
+    <div class="plans-grid">
+      <div class="plan-card">
+        <h3>Basic</h3>
+        <div class="plan-price" id="plan-basic-price">$29<span>/mo</span></div>
+        <div class="plan-setup" id="plan-basic-setup">One-time payment — no monthly fees</div>
+        <div class="plan-limits"><strong>1 page</strong> · Up to <strong>2 photos</strong> · Free subdomain</div>
+        <div class="plan-features">
+          <div class="plan-feature">Your website live online</div>
+          <div class="plan-feature">1 page website</div>
+          <div class="plan-feature">Up to 2 photos on your site</div>
+          <div class="plan-feature">Free subdomain (yourname.siteflowa.com)</div>
+          <div class="plan-feature">Basic traffic stats (page views)</div>
+          <div class="plan-feature">Hosting & maintenance included</div>
+          <div class="plan-feature">Email support</div>
+          <div class="plan-feature no">Dashboard editing</div>
+          <div class="plan-feature no">Custom domain name</div>
+          <div class="plan-feature no">Referral code</div>
+        </div>
+        <button class="plan-btn" onclick="showPage('inquiry')">Get started</button>
+      </div>
+      <div class="plan-card featured">
+        <div class="plan-badge">Most popular</div>
+        <h3>Standard</h3>
+        <div class="plan-price" id="plan-standard-price">$49<span>/mo</span></div>
+        <div class="plan-setup" id="plan-standard-setup">+ $299 one-time setup</div>
+        <div class="plan-limits"><strong>4 pages</strong> · Up to <strong>8 photos</strong> · Custom domain</div>
+        <div class="plan-features">
+          <div class="plan-feature">Everything in Basic</div>
+          <div class="plan-feature">4 page website</div>
+          <div class="plan-feature">Up to 8 photo uploads</div>
+          <div class="plan-feature">Your own custom domain name</div>
+          <div class="plan-feature">Full dashboard editing</div>
+          <div class="plan-feature">Update business info & hours</div>
+          <div class="plan-feature">Referral code (10% off for friends)</div>
+          <div class="plan-feature">Detailed analytics</div>
+        </div>
+        <button class="plan-btn" onclick="showPage('inquiry')">Get started</button>
+      </div>
+      <div class="plan-card">
+        <h3>Premium</h3>
+        <div class="plan-price" id="plan-premium-price">$79<span>/mo</span></div>
+        <div class="plan-setup" id="plan-premium-setup">+ $499 one-time setup</div>
+        <div class="plan-limits"><strong>Unlimited pages</strong> · <strong>Unlimited photos</strong> · Custom domain</div>
+        <div class="plan-features">
+          <div class="plan-feature">Everything in Standard</div>
+          <div class="plan-feature">Unlimited pages</div>
+          <div class="plan-feature">Unlimited photo uploads</div>
+          <div class="plan-feature">Your own custom domain name</div>
+          <div class="plan-feature">Priority support</div>
+          <div class="plan-feature">Blog or news section</div>
+          <div class="plan-feature">Monthly performance report</div>
+        </div>
+        <button class="plan-btn" onclick="showPage('inquiry')">Get started</button>
+      </div>
+    </div>
+    <div style="background:var(--accent-light);border:1px solid rgba(26,107,90,0.2);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:24px;">
+  <h4 style="font-family:var(--serif);font-size:18px;color:var(--accent);margin-bottom:8px;">🌐 We handle your domain name — hassle free</h4>
+  <p style="font-size:14px;color:var(--ink-light);line-height:1.7;">We'll find the perfect domain name for your business and show you the available options. The cost is <strong>covered in your setup fee</strong> as long as it's under $50/year. If your chosen domain costs more than that, the difference will be added as a small yearly charge to your account — we'll always let you know the price before anything is confirmed. Either way, <strong>we renew it automatically every year</strong> for as long as you're on any of our plans. One less thing on your plate.</p>
+</div>
+<p class="plan-desc-note">All plans include your website built and hosted by us. <strong>Upgrading your plan</strong> unlocks more dashboard features and pages — your website content always stays exactly as built. Downgrading simply hides dashboard features; nothing is removed from your site.</p>
+  </section>
+</div>
+
+<!-- INQUIRY + DEMO -->
+<div id="page-inquiry" class="page-section">
+  <section style="padding-top:120px;">
+    <div class="hero-eyebrow">Get in touch</div>
+    <h2 style="font-family:var(--serif);font-size:clamp(34px,4vw,52px);letter-spacing:-0.025em;line-height:1.1;margin-bottom:24px;">Let's build your website</h2>
+    <div class="inquiry-panel active" id="inquiry-contact">
+      <div class="form-wrap">
+        <div class="form-card">
+          <div id="inquiry-form-wrap">
+            <form id="inquiry-form" onsubmit="submitInquiry(event)">
+              <div class="form-grid">
+                <div class="form-row"><div><label>First name</label><input type="text" id="if-fname" placeholder="Jane" required></div><div><label>Last name</label><input type="text" id="if-lname" placeholder="Smith" required></div></div>
+                <div><label>Business name</label><input type="text" id="if-biz" placeholder="Jane's Plumbing Co." required></div>
+                <div><label>Email address</label><input type="email" id="if-email" placeholder="jane@business.com" required></div>
+                <div><label>Phone number</label><input type="tel" id="if-phone" placeholder="+1 (604) 555-0100"></div>
+                <div><label>Type of business</label><select id="if-type"><option value="">Select one...</option><option>Trades (plumber, electrician, etc.)</option><option>Restaurant / café</option><option>Retail shop</option><option>Health & beauty</option><option>Professional services</option><option>Other</option></select></div>
+                <div><label>Existing website?</label><select id="if-existing"><option>No — starting fresh</option><option>Yes — looking to replace it</option><option>Yes — just want to improve it</option></select></div>
+                <div><label>Which plan are you interested in?</label><select id="if-plan"><option value="basic">Basic — 1 page, 2 photos, free subdomain (one-time payment)</option><option value="standard" selected>Standard — 4 pages, 8 photos, custom domain, $49/mo</option><option value="premium">Premium — unlimited pages & photos, custom domain, $79/mo</option></select></div>
+                <div><label>Your current website or social media link (optional)</label><input type="url" id="if-website" placeholder="https://yourwebsite.com or instagram.com/yourbusiness"></div>
+                <div><label>Tell us about your business</label><textarea id="if-msg" placeholder="What do you do, who are your customers, any specific needs?"></textarea></div>
+                <button type="submit" class="form-submit">Send my inquiry →</button>
+              </div>
+            </form>
+          </div>
+          <div class="form-success" id="form-success"><div class="success-icon">✓</div><h3>We've received your inquiry!</h3><p>We'll be in touch within one business day.</p></div>
+        </div>
+        <div class="form-aside">
+          <h3>We'd love to work with you</h3>
+          <p>Whether starting from scratch or replacing an outdated website, we'll build something you're proud of.</p>
+          <div id="contact-email-item" style="display:none;" class="contact-item"><div class="contact-icon">📧</div><div><strong>Email us</strong><span id="contact-email-val"></span></div></div>
+          <div id="contact-phone-item" style="display:none;" class="contact-item"><div class="contact-icon">📞</div><div><strong>Call us</strong><span id="contact-phone-val"></span></div></div>
+          <div id="contact-address-item" style="display:none;" class="contact-item"><div class="contact-icon">📍</div><div><strong>Find us</strong><span id="contact-address-val"></span></div></div>
+          <div class="contact-item"><div class="contact-icon">🕐</div><div><strong>Response time</strong><span>Within one business day</span></div></div>
+          <div id="social-links-wrap" class="social-links"></div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+</div>
+
+<!-- PAYMENT -->
+<div id="page-payment" class="page-section">
+  <div class="payment-page">
+    <div class="hero-eyebrow">One last step</div>
+    <h2>Activate your website</h2>
+    <p style="font-size:15px;color:var(--ink-muted);margin-bottom:36px;">Pay the one-time build fee and start your subscription to go live.</p>
+    <div class="payment-card">
+      <h3>Order summary</h3>
+      <div class="price-line"><span>Website build fee (one-time)</span><span class="amount" id="pay-setup-fee">$299</span></div>
+      <div class="price-line"><span>Monthly subscription</span><span class="amount" id="pay-monthly-fee">$49/mo</span></div>
+      <div class="price-line"><span>Plan</span><span id="pay-plan-badge"></span></div>
+      <div class="price-line" style="font-size:13px;color:var(--ink-muted);"><span>First month</span><span style="color:var(--accent);font-weight:600;">FREE</span></div>
+      <div class="price-line" id="discount-line" style="display:none;"><span>Referral discount (10% off launch fee)</span><span class="amount" id="discount-amount" style="color:var(--accent);">-$29.90</span></div>
+      <div class="price-line total"><span>Due today</span><span class="amount" id="pay-total">$348</span></div>
+      <div class="referral-input-row">
+        <input type="text" id="referral-code-input" placeholder="Have a referral code? Enter it here" style="text-transform:uppercase;">
+        <button onclick="applyReferral()">Apply</button>
+      </div>
+    </div>
+    <div style="background:var(--accent-light);border:1px solid rgba(26,107,90,0.2);border-radius:var(--radius);padding:14px 18px;margin-bottom:16px;font-size:13px;color:var(--accent);">
+      🎉 <strong>First month free</strong> — your subscription starts one month from today. You won't be charged monthly until <strong id="billing-start-date"></strong>.
+    </div>
+    <button class="pay-btn" onclick="simulatePayment()">🔒 Pay setup fee and activate my website</button>
+    <p class="payment-notice">Stripe payments coming soon — clicking this activates your account for testing.</p>
+  </div>
+</div>
+
+<!-- UPDATE FEE PAGE -->
+<div id="page-update-fee" class="page-section">
+  <div class="payment-page">
+    <div class="hero-eyebrow" style="background:var(--orange-light);color:var(--orange);">Action required</div>
+    <h2>Dashboard update fee</h2>
+    <p style="font-size:15px;color:var(--ink-muted);margin-bottom:36px;">A one-time fee has been applied to your account before you can access your dashboard again.</p>
+    <div class="payment-card">
+      <h3>Fee details</h3>
+      <div class="price-line"><span>Dashboard update fee</span><span class="amount" id="update-fee-amount">$0</span></div>
+      <div class="price-line total"><span>Due now</span><span class="amount" id="update-fee-total">$0</span></div>
+    </div>
+    <button class="pay-btn" onclick="payUpdateFee()">🔒 Pay fee and unlock dashboard</button>
+    <p class="payment-notice">Stripe payments coming soon — clicking this clears the fee for testing.</p>
+  </div>
+</div>
+
+<!-- CLIENT DASHBOARD -->
+<div id="page-dashboard" class="page-section">
+  <section style="padding-top:100px;padding-bottom:60px;">
+    <div class="dashboard-wrap">
+      <div class="dashboard-header">
+        <div class="logo"><svg class="logo-flower-sm" viewBox="0 0 28 28" fill="none"><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(60 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(120 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(180 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(240 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(300 14 14)"/><circle cx="14" cy="14" r="4" fill="#f9e4ff"/><circle cx="14" cy="14" r="2.5" fill="#ce93d8"/></svg>Siteflowa<span>.</span> Dashboard</div>
+        <div class="user-badge"><div class="avatar" id="client-avatar">JD</div><span id="client-email-display">Client</span><span id="client-plan-badge" class="plan-pill standard" style="margin-left:6px;">Standard</span>&nbsp;·&nbsp;<a onclick="doLogout()" style="color:rgba(255,255,255,0.4);font-size:12px;text-decoration:none;cursor:pointer;">Log out</a></div>
+      </div>
+      <div class="dashboard-body">
+        <div class="dash-sidebar">
+          <div class="dash-nav-item active" onclick="switchPanel('overview',this)"><span>📊</span> Overview</div>
+          <div class="dash-nav-item" id="nav-business" onclick="switchPanel('business',this)"><span>🏢</span> Business info</div>
+          <div class="dash-nav-item" id="nav-content" onclick="switchPanel('content',this);loadDynamicContent()"><span>✏️</span> Website content</div>
+          <div class="dash-nav-item" id="nav-photos" onclick="switchPanel('photos',this)"><span>🖼️</span> Photos</div>
+          <div class="dash-nav-item" id="nav-hours" onclick="switchPanel('hours',this)"><span>🕐</span> Hours</div>
+          <div class="dash-nav-divider"></div>
+          <div class="dash-nav-item" onclick="switchPanel('billing',this)"><span>💳</span> Billing</div>
+          <div class="dash-nav-item" id="nav-referral" onclick="switchPanel('referral',this)"><span>🎁</span> Referral code</div>
+          <div class="dash-nav-item" onclick="switchPanel('upgrade',this)"><span>⬆️</span> Upgrade plan</div>
+          <div class="dash-nav-item" onclick="switchPanel('support',this)"><span>💬</span> Support</div>
+        </div>
+        <div class="dash-main">
+          <div class="dash-panel active" id="panel-overview">
+            <div class="dash-section-title">Overview</div>
+            <div class="dash-section-sub">Your website at a glance.</div>
+            <div class="dash-grid">
+              <div style="background:var(--accent-light);border-radius:var(--radius-lg);padding:20px;"><div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent);margin-bottom:8px;">Website status</div><div style="font-size:24px;font-family:var(--serif);" id="overview-status">Active ✅</div></div>
+              <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;"><div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Your plan</div><div style="font-size:24px;font-family:var(--serif);" id="overview-plan">Standard</div></div>
+              <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;"><div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Website URL</div><div style="font-size:14px;font-family:monospace;color:var(--accent);" id="overview-url">—</div></div>
+              <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;"><div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Views this month</div><div style="font-size:32px;font-family:var(--serif);">—</div></div>
+            </div>
+          </div>
+          <div class="dash-panel" id="panel-business"><div class="dash-section-title">Business info</div><div class="dash-section-sub">Changes go live on your website instantly.</div><div class="dash-grid"><div class="dash-field"><label>Business name</label><input type="text" id="biz-name"></div><div class="dash-field"><label>Phone number</label><input type="text" id="biz-phone"></div><div class="dash-field full"><label>Address</label><input type="text" id="biz-address"></div><div class="dash-field full"><label>Tagline / description</label><textarea id="biz-tagline" rows="3"></textarea></div><div class="dash-field"><label>Email (shown on site)</label><input type="email" id="biz-email"></div><div class="dash-field"><label>Your website URL</label><input type="text" id="biz-url" readonly style="color:var(--ink-muted);"></div></div><button class="dash-save" onclick="saveBizInfo()">Save changes</button><span class="save-msg" id="save-msg-business">✓ Saved</span></div>
+          <!-- DYNAMIC CONTENT PANELS - auto-generated from website schema -->
+          <div class="dash-panel" id="panel-content">
+            <div class="dash-section-title">Website content</div>
+            <div class="dash-section-sub">Edit everything on your website. Changes go live instantly.</div>
+            <div id="dynamic-content-panels"><p style="color:var(--ink-muted);font-size:14px;">Loading your website settings...</p></div>
+            <button class="dash-save" style="margin-top:24px;" onclick="saveDynamicContent()">Save all changes</button>
+            <span class="save-msg" id="save-msg-content">✓ Saved — your website has been updated</span>
+          </div>
+          <div class="dash-panel" id="panel-photos"><div class="dash-section-title">Photos</div><div class="dash-section-sub">Upload photos that appear in your website gallery.</div><div class="upload-zone" onclick="alert('Photo uploads coming soon!')"><div style="font-size:32px;">📁</div><p><strong>Click to upload photos</strong><br>JPG, PNG or WebP · Up to 10MB each</p></div><div class="photo-thumbs"><div class="photo-thumb" onclick="this.remove()">🔧</div><div class="photo-thumb" onclick="this.remove()">🚿</div><div class="photo-thumb thumb-add" onclick="alert('Coming soon!')">+</div></div></div>
+          <div class="dash-panel" id="panel-hours"><div class="dash-section-title">Business hours</div><div class="dash-section-sub">Leave blank for closed.</div><div style="display:grid;gap:10px;max-width:460px;"><div style="display:grid;grid-template-columns:100px 1fr 1fr;gap:10px;align-items:center;font-size:13px;font-weight:600;color:var(--ink-muted);"><span>Day</span><span>Open</span><span>Close</span></div><div style="display:grid;grid-template-columns:100px 1fr 1fr;gap:10px;align-items:center;"><span style="font-size:13px;font-weight:500;">Monday</span><input type="time" value="08:00"><input type="time" value="17:00"></div><div style="display:grid;grid-template-columns:100px 1fr 1fr;gap:10px;align-items:center;"><span style="font-size:13px;font-weight:500;">Tuesday</span><input type="time" value="08:00"><input type="time" value="17:00"></div><div style="display:grid;grid-template-columns:100px 1fr 1fr;gap:10px;align-items:center;"><span style="font-size:13px;font-weight:500;">Wednesday</span><input type="time" value="08:00"><input type="time" value="17:00"></div><div style="display:grid;grid-template-columns:100px 1fr 1fr;gap:10px;align-items:center;"><span style="font-size:13px;font-weight:500;">Thursday</span><input type="time" value="08:00"><input type="time" value="17:00"></div><div style="display:grid;grid-template-columns:100px 1fr 1fr;gap:10px;align-items:center;"><span style="font-size:13px;font-weight:500;">Friday</span><input type="time" value="08:00"><input type="time" value="16:00"></div><div style="display:grid;grid-template-columns:100px 1fr 1fr;gap:10px;align-items:center;"><span style="font-size:13px;font-weight:500;">Saturday</span><input type="time" placeholder="Closed"><input type="time" placeholder="Closed"></div><div style="display:grid;grid-template-columns:100px 1fr 1fr;gap:10px;align-items:center;"><span style="font-size:13px;font-weight:500;">Sunday</span><input type="time" placeholder="Closed"><input type="time" placeholder="Closed"></div></div><div style="margin-top:20px;"><button class="dash-save" onclick="savePanel(this)">Save hours</button><span class="save-msg" id="save-msg-hours">✓ Saved</span></div></div>
+          <div class="dash-panel" id="panel-billing"><div class="dash-section-title">Billing</div><div class="dash-section-sub">Your subscription and payment history.</div><div class="billing-status"><div class="status-dot"></div><span id="billing-status-text">Active — Monthly plan</span></div><div style="margin-bottom:24px;"><button class="dash-save" onclick="alert('Stripe customer portal coming soon!')">Manage payment method</button></div><div style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:12px;">Invoice history</div><div id="invoice-history"><div class="invoice-row"><span style="color:var(--ink-muted);">No invoices yet</span></div></div></div>
+          <div class="dash-panel" id="panel-referral"><div class="dash-section-title">Your referral code</div><div class="dash-section-sub">Share this with other businesses. They get 10% off their one-time launch fee when they sign up.</div><div class="referral-box"><h4>Your unique code</h4><p>Click to copy. Share it with anyone who needs a website.</p><div class="referral-code-display" id="my-referral-code" onclick="copyReferral()">——</div><p style="font-size:12px;color:var(--accent);margin-top:12px;font-weight:500;">⚡ One use per new customer</p><p style="font-size:13px;color:var(--ink-muted);margin-top:6px;line-height:1.5;">This discount applies to the <strong>one-time website build fee only</strong> — not the monthly subscription.</p><p style="font-size:12px;color:var(--ink-muted);margin-top:4px;" id="referral-copy-msg"></p></div></div>
+          <div class="dash-panel" id="panel-upgrade">
+            <div class="dash-section-title">Manage your plan</div>
+            <div class="dash-section-sub">Upgrade to unlock more features. Your website content always stays exactly as built.</div>
+            <div class="upgrade-options" id="upgrade-options"></div>
+            <div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--border);">
+              <div style="font-size:13px;font-weight:600;color:var(--ink-muted);margin-bottom:12px;">Want to downgrade?</div>
+              <p style="font-size:13px;color:var(--ink-light);line-height:1.6;margin-bottom:14px;">Downgrading hides dashboard features but never removes content from your website. If you have a custom domain our team will be in touch to help you switch to a free subdomain.</p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn-secondary" style="padding:9px 18px;font-size:13px;" onclick="requestDowngrade('standard')">Downgrade to Standard</button>
+                <button class="btn-secondary" style="padding:9px 18px;font-size:13px;" onclick="requestDowngrade('basic')">Downgrade to Basic</button>
+              </div>
+            </div>
+          </div>
+          <div class="dash-panel" id="panel-support"><div class="dash-section-title">Support</div><div class="dash-section-sub">Need help? We'll get back to you within one business day.</div><div class="dash-grid"><div class="dash-field full"><label>What do you need help with?</label><select><option>I need a content change I can't make myself</option><option>Something looks wrong on my website</option><option>Billing question</option><option>I want to downgrade my plan</option><option>Other</option></select></div><div class="dash-field full"><label>Describe the issue or request</label><textarea rows="5" placeholder="Tell us what you need..."></textarea></div></div><button class="dash-save" onclick="alert('Message sent! We\'ll be in touch within one business day.')">Send message</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+<!-- MANAGER DASHBOARD -->
+<div id="page-manager" class="page-section">
+  <section style="padding-top:100px;padding-bottom:60px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+      <div><h2 style="font-family:var(--serif);font-size:clamp(28px,3vw,42px);letter-spacing:-0.02em;">Manager View</h2><p style="font-size:13px;color:var(--purple);font-weight:500;margin-top:6px;">Contact admin to change pricing or delete accounts</p></div>
+      <button class="dash-save" onclick="doLogout()">Log out</button>
+    </div>
+    <div class="admin-stats-grid">
+      <div class="admin-stat-card"><div class="stat-label">My websites this period</div><div class="stat-value" id="mgr-stat-mine">—</div></div>
+      <div class="admin-stat-card"><div class="stat-label">My earnings this period</div><div class="stat-value green" id="mgr-stat-earnings">—</div></div>
+      <div class="admin-stat-card"><div class="stat-label">My commission rate</div><div class="stat-value" id="mgr-stat-rate">—</div></div>
+      <div class="admin-stat-card"><div class="stat-label">Total clients on platform</div><div class="stat-value" id="mgr-stat-clients">—</div></div>
+    </div>
+    <div class="admin-section" style="margin-bottom:24px;">
+      <h3>💰 My earnings history</h3>
+      <p class="section-desc">Your past pay periods — sent to your email at the end of each period.</p>
+      <div id="mgr-earnings-history"><p style="color:var(--ink-muted);font-size:14px;">Loading earnings history...</p></div>
+    </div>
+    <div class="admin-section">
+      <h3>📩 Inquiries</h3>
+      <p class="section-desc">Claim an inquiry to make it your client. Once claimed, others can't take it.</p>
+      <div class="inquiries-list" id="mgr-inquiries-list"><p style="color:var(--ink-muted);font-size:14px;">Loading inquiries...</p></div>
+    </div>
+    <div class="admin-section" style="margin-top:24px;">
+      <h3>➕ Create new client website</h3>
+      <p class="section-desc">Pricing is set automatically based on plan. Admin can override per client.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 120px auto;gap:10px;align-items:end;">
+        <div class="dash-field"><label>Business name</label><input type="text" id="mgr-new-biz" placeholder="Jane's Plumbing Co."></div>
+        <div class="dash-field"><label>Subdomain</label><input type="text" id="mgr-new-sub" placeholder="janesplumbing"></div>
+        <div class="dash-field"><label>Plan</label><select id="mgr-new-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
+        <button class="dash-save" onclick="mgrCreateWebsite()" style="height:42px;white-space:nowrap;align-self:end;">Create + get code</button>
+      </div>
+      <div class="invite-code-result" id="mgr-invite-result"><p>✅ Website created! Send this invite code to your client:</p><div class="code" id="mgr-invite-code-display">——</div><small>They enter this when creating their account.</small></div>
+    </div>
+    <div class="dashboard-wrap" style="margin-top:24px;">
+      <div class="dashboard-header">
+        <div class="logo"><svg class="logo-flower-sm" viewBox="0 0 28 28" fill="none"><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(60 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(120 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(180 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(240 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(300 14 14)"/><circle cx="14" cy="14" r="4" fill="#f9e4ff"/><circle cx="14" cy="14" r="2.5" fill="#ce93d8"/></svg>Siteflowa<span>.</span> Clients</div>
+        <div class="user-badge"><div class="avatar manager" id="mgr-avatar">MG</div><span id="mgr-email-display">Manager</span><span class="role-badge manager">Manager</span></div>
+      </div>
+      <div style="padding:24px;overflow-x:auto;">
+        <table class="clients-table">
+          <thead><tr><th></th><th>Client</th><th>Business</th><th>Plan</th><th>Status</th><th>Created by</th><th>Joined</th></tr></thead>
+          <tbody id="mgr-clients-table-body"><tr><td colspan="7" style="text-align:center;color:var(--ink-muted);padding:32px;">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ADMIN DASHBOARD -->
+<div id="page-admin" class="page-section">
+  <section style="padding-top:100px;padding-bottom:60px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+      <div><h2 style="font-family:var(--serif);font-size:clamp(28px,3vw,42px);letter-spacing:-0.02em;">Admin Dashboard</h2><span class="role-badge admin" style="margin-top:6px;display:inline-block;">Admin</span></div>
+      <button class="dash-save" onclick="doLogout()">Log out</button>
+    </div>
+    <div class="admin-stats-grid">
+      <div class="admin-stat-card"><div class="stat-label">Total clients</div><div class="stat-value" id="stat-clients">—</div></div>
+      <div class="admin-stat-card"><div class="stat-label">Active websites</div><div class="stat-value" id="stat-active">—</div></div>
+      <div class="admin-stat-card"><div class="stat-label">Monthly revenue</div><div class="stat-value green" id="stat-monthly">—</div></div>
+      <div class="admin-stat-card"><div class="stat-label">Total revenue</div><div class="stat-value green" id="stat-total">—</div></div>
+    </div>
+    <div class="chart-wrap"><h4>📈 Revenue over time</h4><canvas id="revenue-chart" height="80"></canvas></div>
+    <div class="admin-section">
+      <h3>⚙️ Site settings</h3>
+      <p class="section-desc">Controls what appears on your public website. Leave blank to hide.</p>
+      <div class="site-settings-grid">
+        <div class="settings-section-label">Company & pricing</div>
+        <div class="dash-field"><label>Company name</label><input type="text" id="ss-name" placeholder="Siteflowa"></div>
+        <div class="dash-field"><label>Tagline</label><input type="text" id="ss-tagline"></div>
+        <div class="settings-section-label">Plan monthly prices ($)</div>
+        <div class="dash-field"><label>Basic /mo</label><input type="number" id="ss-basic-price" value="29"></div>
+        <div class="dash-field"><label>Standard /mo</label><input type="number" id="ss-std-price" value="49"></div>
+        <div class="dash-field"><label>Premium /mo</label><input type="number" id="ss-prem-price" value="79"></div>
+        <div class="dash-field"><label>Basic setup</label><input type="number" id="ss-basic-setup" value="199"></div>
+        <div class="dash-field"><label>Standard setup</label><input type="number" id="ss-std-setup" value="299"></div>
+        <div class="dash-field"><label>Premium setup</label><input type="number" id="ss-prem-setup" value="499"></div>
+        <div class="dash-field" style="grid-column:1/-1;">
+          <label>When saving plan price changes, apply to:</label>
+          <select id="ss-price-apply">
+            <option value="new_only">New clients only (existing clients keep their current price)</option>
+            <option value="all">All clients including existing ones</option>
+          </select>
+          <p style="font-size:12px;color:var(--ink-muted);margin-top:6px;">⚠️ Choosing "all clients" will update the monthly fee for every active subscription. Use with caution if you've promised clients a locked-in rate.</p>
+        </div>
+        <div class="settings-section-label">Contact info</div>
+        <div class="dash-field"><label>Email</label><input type="email" id="ss-email"></div>
+        <div class="dash-field"><label>Phone</label><input type="text" id="ss-phone"></div>
+        <div class="dash-field" style="grid-column:1/-1;"><label>Address</label><input type="text" id="ss-address"></div>
+        <div class="settings-section-label">Social media</div>
+        <div class="dash-field"><label>Instagram</label><div class="social-input-wrap"><span class="social-prefix">instagram.com/</span><input type="text" id="ss-instagram"></div></div>
+        <div class="dash-field"><label>Facebook</label><div class="social-input-wrap"><span class="social-prefix">facebook.com/</span><input type="text" id="ss-facebook"></div></div>
+        <div class="dash-field"><label>TikTok</label><div class="social-input-wrap"><span class="social-prefix">tiktok.com/@</span><input type="text" id="ss-tiktok"></div></div>
+        <div class="dash-field"><label>X / Twitter</label><div class="social-input-wrap"><span class="social-prefix">x.com/</span><input type="text" id="ss-twitter"></div></div>
+        <div class="dash-field"><label>LinkedIn</label><div class="social-input-wrap"><span class="social-prefix">linkedin.com/company/</span><input type="text" id="ss-linkedin"></div></div>
+        <div class="dash-field"><label>YouTube</label><div class="social-input-wrap"><span class="social-prefix">youtube.com/@</span><input type="text" id="ss-youtube"></div></div>
+      </div>
+      <div style="margin-top:20px;"><button class="dash-save" onclick="saveSiteSettings()">Save settings</button><span class="save-msg" id="save-msg-settings">✓ Saved</span></div>
+    </div>
+    <div class="admin-section">
+      <h3>➕ Add new client website</h3>
+      <p class="section-desc">Create a website record and get an invite code to send to your client.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 140px auto;gap:10px;align-items:end;">
+        <div class="dash-field"><label>Business name</label><input type="text" id="new-biz-name" placeholder="Jane's Plumbing Co."></div>
+        <div class="dash-field"><label>Subdomain</label><input type="text" id="new-subdomain" placeholder="janesplumbing"></div>
+        <div class="dash-field"><label>Plan</label><select id="new-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
+        <button class="dash-save" onclick="createWebsite()" style="height:42px;white-space:nowrap;align-self:end;">Create + get code</button>
+      </div>
+      <p style="font-size:12px;color:var(--ink-muted);margin-top:10px;">Pricing is set automatically based on the plan rates in Site Settings above.</p>
+      <p style="font-size:12px;color:var(--ink-muted);margin-top:10px;">Sections are defined by the client's website template — no manual selection needed.</p>
+      <div class="invite-code-result" id="invite-result"><p>✅ Website created! Send this invite code to your client:</p><div class="code" id="invite-code-display">——</div><small>They enter this when creating their account.</small></div>
+    </div>
+    <div class="admin-section">
+      <h3>📩 Inquiries</h3>
+      <p class="section-desc">All website requests. Claim an inquiry to assign it to yourself as the account manager.</p>
+      <div class="inquiries-list" id="admin-inquiries-list"><p style="color:var(--ink-muted);font-size:14px;">Loading inquiries...</p></div>
+    </div>
+    <div class="manager-section">
+      <h3>👥 Staff access</h3>
+      <p class="section-desc">Create invite codes for managers and additional admins.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div><div style="font-size:13px;font-weight:600;color:var(--purple);margin-bottom:10px;">Manager codes</div>
+          <div class="manager-code-row"><div class="dash-field"><label>New manager code</label><input type="text" id="new-manager-code" placeholder="e.g. Staff2026"></div><button class="btn-purple" onclick="createManagerCode()">Create</button></div>
+          <div class="manager-codes-list" id="manager-codes-list"><span style="font-size:13px;color:var(--ink-muted);">Loading...</span></div>
+        </div>
+        <div><div style="font-size:13px;font-weight:600;color:#b71c1c;margin-bottom:10px;">Admin codes</div>
+          <div class="manager-code-row"><div class="dash-field"><label>New admin code</label><input type="text" id="new-admin-code" placeholder="e.g. AdminInvite2026"></div><button class="btn-red" onclick="createAdminCode()">Create</button></div>
+          <div class="manager-codes-list" id="admin-codes-list"><span style="font-size:13px;color:var(--ink-muted);">Loading...</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="admin-section">
+      <h3>📅 Pay period settings</h3>
+      <p class="section-desc">Control the payment cycle for managers. Closing a period sends them their earnings receipt by email and resets their period stats.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-bottom:20px;">
+        <div class="dash-field"><label>Pay cycle (days)</label><input type="number" id="pay-cycle-days" value="7" min="1" max="365"></div>
+        <div class="dash-field"><label>Current period started</label><input type="date" id="period-start-date"></div>
+        <button class="dash-save" onclick="savePaySettings()" style="height:42px;align-self:end;">Save settings</button>
+      </div>
+      <span class="save-msg" id="save-msg-pay">✓ Saved</span>
+    </div>
+    <div class="admin-section">
+      <h3>👤 Staff performance</h3>
+      <p class="section-desc">Managers, websites created, revenue brought in, and commission. Click "Close period" to pay a manager and send their receipt.</p>
+      <div id="staff-list"><p style="color:var(--ink-muted);font-size:14px;">Loading staff...</p></div>
+    </div>
+    <div class="dashboard-wrap">
+      <div class="dashboard-header">
+        <div class="logo"><svg class="logo-flower-sm" viewBox="0 0 28 28" fill="none"><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(60 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(120 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(180 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(240 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(300 14 14)"/><circle cx="14" cy="14" r="4" fill="#f9e4ff"/><circle cx="14" cy="14" r="2.5" fill="#ce93d8"/></svg>Siteflowa<span>.</span> All Clients</div>
+        <div class="user-badge"><div class="avatar admin-av" id="admin-avatar">AD</div><span id="admin-email-display">Admin</span><span class="role-badge admin">Admin</span></div>
+      </div>
+      <div style="padding:24px;overflow-x:auto;">
+        <table class="clients-table">
+          <thead><tr><th></th><th>Email</th><th>Business</th><th>Plan</th><th>Status</th><th>Setup</th><th>Monthly</th><th>Created by</th><th>Joined</th><th>Actions</th></tr></thead>
+          <tbody id="clients-table-body"><tr><td colspan="10" style="text-align:center;color:var(--ink-muted);padding:32px;">Loading clients...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- LOGIN MODAL -->
+<div class="modal-overlay" id="login-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeLogin()">×</button>
+    <h2>Welcome back</h2>
+    <div class="modal-desc">Log in or create a new account with your invite code.</div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" onclick="switchTab('login')">Log in</button>
+      <button class="modal-tab" onclick="switchTab('signup')">Create account</button>
+    </div>
+    <div class="tab-panel active" id="tab-login">
+      <div><label>Email address</label><input type="email" id="login-email" placeholder="jane@business.com"></div>
+      <div><label>Password</label>
+        <div style="position:relative;">
+          <input type="password" id="login-password" placeholder="••••••••" style="padding-right:44px;">
+          <button type="button" onclick="togglePw('login-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--ink-muted);">👁</button>
+        </div>
+      </div>
+      <div class="error-msg" id="login-error"></div>
+      <button class="form-submit" onclick="doLogin()">Log in to dashboard</button>
+      <div class="modal-footer"><a onclick="switchTab('forgot')">Forgot your password?</a></div>
+    </div>
+    <div class="tab-panel" id="tab-signup">
+      <div><label>Email address</label><input type="email" id="signup-email" placeholder="jane@business.com"></div>
+      <div><label>Choose a password</label>
+        <div style="position:relative;">
+          <input type="password" id="signup-password" placeholder="At least 8 characters" style="padding-right:44px;">
+          <button type="button" onclick="togglePw('signup-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--ink-muted);">👁</button>
+        </div>
+      </div>
+      <div><label>Invite code (from Siteflowa)</label><input type="text" id="signup-code" placeholder="e.g. ABC123"></div>
+      <div class="error-msg" id="signup-error"></div>
+      <button class="form-submit" onclick="doSignup()">Create my account →</button>
+    </div>
+    <div class="tab-panel" id="tab-forgot">
+      <p style="font-size:13px;color:var(--ink-muted);">Enter your email and we'll send a reset link.</p>
+      <div><label>Email address</label><input type="email" id="forgot-email" placeholder="jane@business.com"></div>
+      <div class="error-msg" id="forgot-error"></div>
+      <button class="form-submit" onclick="doForgotPassword()">Send reset link</button>
+      <div class="modal-footer"><a onclick="switchTab('login')">← Back to login</a></div>
+    </div>
+    <div class="tab-panel" id="tab-reset">
+      <p style="font-size:13px;color:var(--ink-muted);">Enter your new password below.</p>
+      <div><label>New password</label>
+        <div style="position:relative;">
+          <input type="password" id="reset-password" placeholder="At least 8 characters" style="padding-right:44px;">
+          <button type="button" onclick="togglePw('reset-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--ink-muted);">👁</button>
+        </div>
+      </div>
+      <div class="error-msg" id="reset-error"></div>
+      <button class="form-submit" onclick="doResetPassword()">Set new password</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo"><svg width="22" height="22" viewBox="0 0 28 28" fill="none"><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.7"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.7" transform="rotate(60 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.7" transform="rotate(120 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.5" transform="rotate(180 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.5" transform="rotate(240 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.5" transform="rotate(300 14 14)"/><circle cx="14" cy="14" r="4" fill="#f9e4ff" opacity="0.4"/><circle cx="14" cy="14" r="2.5" fill="#ce93d8" opacity="0.6"/></svg><div class="footer-logo-text">Siteflowa<span>.</span></div></div>
+  <p id="footer-copy">© 2026 Siteflowa. All rights reserved.</p>
+  <div class="footer-links"><a onclick="showPage('services')">Services</a><a onclick="showPage('plans')">Pricing</a><a onclick="showPage('inquiry')">Get started</a><a onclick="openLogin()">Client login</a></div>
+  <div class="footer-socials" id="footer-socials"></div>
+</footer>
+<script src="/app.js"></script>
+</body>
+</html>
