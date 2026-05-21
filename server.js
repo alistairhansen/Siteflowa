@@ -483,7 +483,7 @@ app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
 // ── ADMIN - create website ──────────────────────────────
 app.post('/admin/create-website', authMiddleware, staffMiddleware, async (req, res) => {
   try {
-    const { business_name, subdomain, setup_fee, monthly_fee, plan, sections, website_type, site_html } = req.body
+    const { business_name, subdomain, setup_fee, monthly_fee, plan, sections, website_type, site_html, domain_name, domain_cost, domain_yearly_fee } = req.body
     const website = await pool.query(
       'INSERT INTO websites (business_name,subdomain,is_active,setup_fee,monthly_fee,created_by,sections,website_type) VALUES ($1,$2,FALSE,$3,$4,$5,$6,$7) RETURNING id',
       [business_name, subdomain, setup_fee||299, monthly_fee||49, req.user.id, JSON.stringify(sections||{gallery:true,hours:true,contact:true}), website_type||'general']
@@ -492,6 +492,10 @@ app.post('/admin/create-website', authMiddleware, staffMiddleware, async (req, r
     await pool.query('INSERT INTO invite_codes (code,website_id) VALUES ($1,$2)', [code, website.rows[0].id])
     if (site_html) {
       await pool.query('UPDATE websites SET site_html=$1 WHERE id=$2', [site_html, website.rows[0].id])
+    }
+    // Save domain info if provided - will be linked to client when they sign up
+    if (domain_name || domain_cost) {
+      await pool.query('UPDATE websites SET domain_name=$1 WHERE id=$2', [domain_name||'', website.rows[0].id])
     }
     res.json({ message: 'Website created', invite_code: code, website_id: website.rows[0].id })
   } catch (err) { res.status(500).json({ error: err.message }) }

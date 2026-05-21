@@ -1288,12 +1288,24 @@ async function mgrCreateWebsite(){
   const s=siteSettings
   const setup_fee=plan==='basic'?s.plan_basic_setup||199:plan==='premium'?s.plan_premium_setup||499:s.plan_standard_setup||299
   const monthly_fee=plan==='basic'?s.plan_basic_price||29:plan==='premium'?s.plan_premium_price||79:s.plan_standard_price||49
+  const domain_name=document.getElementById('mgr-new-domain-name')?.value||''
+  const domain_cost=parseFloat(document.getElementById('mgr-new-domain-cost')?.value)||0
+  const domain_yearly_fee=parseFloat(document.getElementById('mgr-new-domain-fee')?.value)||0
   if(!business_name||!subdomain)return alert('Please fill in business name and subdomain')
   try{
-    const res=await fetch(API+'/admin/create-website',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({business_name,subdomain,setup_fee,monthly_fee,plan,sections:{gallery:true,hours:true,contact:true}})})
+    const body={business_name,subdomain,setup_fee,monthly_fee,plan,sections:{gallery:true,hours:true,contact:true},domain_name,domain_cost,domain_yearly_fee}
+    if(mgrPendingHtml)body.site_html=mgrPendingHtml
+    const res=await fetch(API+'/admin/create-website',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify(body)})
     const d=await res.json()
-    if(d.invite_code){document.getElementById('mgr-invite-code-display').textContent=d.invite_code;document.getElementById('mgr-invite-result').style.display='block';document.getElementById('mgr-new-biz').value='';document.getElementById('mgr-new-sub').value=''}
-    else alert(d.error||'Failed')
+    if(d.invite_code){
+      document.getElementById('mgr-invite-code-display').textContent=d.invite_code
+      document.getElementById('mgr-invite-result').style.display='block'
+      document.getElementById('mgr-new-biz').value=''
+      document.getElementById('mgr-new-sub').value=''
+      const nEl=document.getElementById('mgr-html-file-name');if(nEl)nEl.textContent='No file selected'
+      const zEl=document.getElementById('mgr-html-drop-zone');if(zEl){zEl.style.borderColor='var(--border-strong)';zEl.style.background=''}
+      mgrPendingHtml=null
+    } else alert(d.error||'Failed')
   }catch(e){alert('Could not connect to server')}
 }
 
@@ -1433,6 +1445,51 @@ function showUpdateFeeModal(cid){
 async function chargeUpdateFee(cid,amount){
   try{const res=await fetch(API+'/admin/charge-update-fee',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({client_id:cid,amount})});const d=await res.json();if(d.message){alert('Update fee of $'+amount+' set. Client will be prompted to pay before accessing their dashboard.');loadAdminData()}else alert(d.error||'Failed')}catch(e){alert('Could not connect')}
 }
+function calcMgrDomainFee(){
+  const cost = parseFloat(document.getElementById('mgr-new-domain-cost')?.value)||0
+  const plan = document.getElementById('mgr-new-plan')?.value||'standard'
+  const feeEl = document.getElementById('mgr-new-domain-fee')
+  const notice = document.getElementById('mgr-domain-fee-notice')
+  if(!feeEl)return
+  let covered = plan==='premium'?80:plan==='standard'?30:0
+  let yearlyFee = cost>covered && plan!=='basic' ? Math.round((cost-covered)*100)/100 : 0
+  feeEl.value = yearlyFee
+  if(notice){
+    if(cost>0 && plan!=='basic'){
+      notice.style.display='block'
+      notice.textContent = 'Domain $'+cost.toFixed(2)+'/yr — $'+Math.min(cost,covered).toFixed(2)+' covered — client charged $'+yearlyFee.toFixed(2)+'/yr'
+    } else {
+      notice.style.display='none'
+    }
+  }
+}
+
+let mgrPendingHtml = null
+function handleMgrHtmlDrop(e){
+  e.preventDefault()
+  const zone=document.getElementById('mgr-html-drop-zone')
+  if(zone){zone.style.borderColor='var(--border-strong)';zone.style.background=''}
+  const file=e.dataTransfer.files[0]
+  if(!file||!file.name.endsWith('.html')){alert('Please drop an HTML file');return}
+  readMgrHtmlFile(file)
+}
+function handleMgrHtmlSelect(e){
+  const file=e.target.files[0]
+  if(!file)return
+  readMgrHtmlFile(file)
+}
+function readMgrHtmlFile(file){
+  const reader=new FileReader()
+  reader.onload=function(e){
+    mgrPendingHtml=e.target.result
+    const nameEl=document.getElementById('mgr-html-file-name')
+    const zone=document.getElementById('mgr-html-drop-zone')
+    if(nameEl)nameEl.textContent='Ready: '+file.name
+    if(zone){zone.style.borderColor='var(--accent)';zone.style.background='var(--accent-light)'}
+  }
+  reader.readAsText(file)
+}
+
 function calcNewDomainFee(){
   const cost = parseFloat(document.getElementById('new-domain-cost')?.value)||0
   const plan = document.getElementById('new-plan')?.value||'standard'
