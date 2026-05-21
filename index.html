@@ -205,9 +205,9 @@
         <div class="form-aside">
           <h3>We'd love to work with you</h3>
           <p>Whether starting from scratch or replacing an outdated website, we'll build something you're proud of.</p>
-          <div id="contact-email-item" style="display:none;" class="contact-item"><div class="contact-icon">📧</div><div><strong>Email us</strong><span id="contact-email-val"></span></div></div>
-          <div id="contact-phone-item" style="display:none;" class="contact-item"><div class="contact-icon">📞</div><div><strong>Call us</strong><span id="contact-phone-val"></span></div></div>
-          <div id="contact-address-item" style="display:none;" class="contact-item"><div class="contact-icon">📍</div><div><strong>Find us</strong><span id="contact-address-val"></span></div></div>
+          <div id="contact-email-item" class="contact-item"><div class="contact-icon">📧</div><div><strong>Email us</strong><span id="contact-email-val"></span></div></div>
+          <div id="contact-phone-item" class="contact-item"><div class="contact-icon">📞</div><div><strong>Call us</strong><span id="contact-phone-val"></span></div></div>
+          <div id="contact-address-item" class="contact-item"><div class="contact-icon">📍</div><div><strong>Find us</strong><span id="contact-address-val"></span></div></div>
           <div class="contact-item"><div class="contact-icon">🕐</div><div><strong>Response time</strong><span>Within one business day</span></div></div>
           <div id="social-links-wrap" class="social-links"></div>
         </div>
@@ -230,7 +230,7 @@
       <div class="price-line"><span>Monthly subscription</span><span class="amount" id="pay-monthly-fee">$49/mo</span></div>
       <div class="price-line"><span>Plan</span><span id="pay-plan-badge"></span></div>
       <div class="price-line" style="font-size:13px;color:var(--ink-muted);"><span>First month</span><span style="color:var(--accent);font-weight:600;">FREE</span></div>
-      <div class="price-line" id="discount-line" style="display:none;"><span>Referral discount (10% off launch fee)</span><span class="amount" id="discount-amount" style="color:var(--accent);">-$29.90</span></div>
+      <div class="price-line" id="discount-line"><span>Referral discount (10% off launch fee)</span><span class="amount" id="discount-amount" style="color:var(--accent);">-$29.90</span></div>
       <div class="price-line total"><span>Due today</span><span class="amount" id="pay-total">$348</span></div>
       <div class="referral-input-row">
         <input type="text" id="referral-code-input" placeholder="Have a referral code? Enter it here" style="text-transform:uppercase;">
@@ -277,7 +277,7 @@
           <div class="dash-nav-item" id="nav-photos" onclick="switchPanel('photos',this)"><span>🖼️</span> Photos</div>
           <div class="dash-nav-item" id="nav-hours" onclick="switchPanel('hours',this)"><span>🕐</span> Hours</div>
           <div class="dash-nav-divider"></div>
-          <div class="dash-nav-item" id="nav-analytics" style="display:none;" onclick="switchPanel('analytics',this);loadAnalytics()"><span>📈</span> Analytics</div>
+          <div class="dash-nav-item" id="nav-analytics" onclick="switchPanel('analytics',this);loadAnalytics()"><span>📈</span> Analytics</div>
           <div class="dash-nav-item" onclick="switchPanel('billing',this)"><span>💳</span> Billing</div>
           <div class="dash-nav-item" id="nav-referral" onclick="switchPanel('referral',this)"><span>🎁</span> Referral code</div>
           <div class="dash-nav-item" onclick="switchPanel('upgrade',this)"><span>⬆️</span> Upgrade plan</div>
@@ -335,8 +335,8 @@
           </div>
           <div class="dash-panel" id="panel-support"><div class="dash-section-title">Support</div><div class="dash-section-sub">We're here to help — reach out anytime and we'll get back to you within one business day.</div>
             <div style="display:grid;gap:12px;margin-bottom:28px;">
-              <div class="contact-item" id="support-email-item" style="display:none;"><div class="contact-icon">📧</div><div><strong>Email us</strong><a id="support-email-link" href="" style="display:block;font-size:14px;color:var(--accent);text-decoration:none;"></a><span>We respond within one business day</span></div></div>
-              <div class="contact-item" id="support-phone-item" style="display:none;"><div class="contact-icon">📞</div><div><strong>Call us</strong><a id="support-phone-link" href="" style="display:block;font-size:14px;color:var(--accent);text-decoration:none;"></a></div></div>
+              <div class="contact-item" id="support-email-item"><div class="contact-icon">📧</div><div><strong>Email us</strong><a id="support-email-link" href="" style="display:block;font-size:14px;color:var(--accent);text-decoration:none;"></a><span>We respond within one business day</span></div></div>
+              <div class="contact-item" id="support-phone-item"><div class="contact-icon">📞</div><div><strong>Call us</strong><a id="support-phone-link" href="" style="display:block;font-size:14px;color:var(--accent);text-decoration:none;"></a></div></div>
               <div class="contact-item"><div class="contact-icon">🕐</div><div><strong>Response time</strong><span>Within one business day</span></div></div>
             </div>
             <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:24px;">
@@ -359,7 +359,7 @@
   </section>
 </div>
 
-    <div id="admin-section-chats" style="display:none;">
+    <div id="admin-section-chats">
       <div class="admin-section">
         <h3>💬 Live client chats</h3>
         <p class="section-desc">Active conversations between clients and contractors during the build process. Unread messages are highlighted.</p>
@@ -379,18 +379,7 @@
       </div>
     </div>
 
-    <!-- ADMIN MENU TABS -->
-    <div style="display:flex;gap:2px;background:var(--cream);border-radius:var(--radius-lg);padding:4px;margin-bottom:28px;flex-wrap:wrap;" id="admin-tabs">
-      <button class="admin-tab active" id="admin-tab-stats" onclick="switchAdminTab('stats')">📊 Overview</button>
-      <button class="admin-tab" id="admin-tab-clients" onclick="switchAdminTab('clients')">👥 Clients</button>
-      <button class="admin-tab" id="admin-tab-contractors" onclick="switchAdminTab('contractors')">💼 Contractors</button>
-      <button class="admin-tab" id="admin-tab-pipeline" onclick="switchAdminTab('pipeline')">🎯 Pipeline</button>
-      <button class="admin-tab" id="admin-tab-chats" onclick="switchAdminTab('chats');loadAllChats()">💬 Live chats</button>
-      <button class="admin-tab" id="admin-tab-company" onclick="switchAdminTab('company')">⚙️ Company</button>
-    </div>
-
     <!-- TAB CONTENT WRAPPERS -->
-    <div id="admin-section-stats">
     <div class="admin-stats-grid">
       <div class="admin-stat-card"><div class="stat-label">Total clients</div><div class="stat-value" id="stat-clients">—</div></div>
       <div class="admin-stat-card"><div class="stat-label">Active websites</div><div class="stat-value" id="stat-active">—</div></div>
@@ -402,9 +391,6 @@
     </div>
     <div class="chart-wrap"><h4>📈 Revenue over time</h4><canvas id="revenue-chart" height="80"></canvas></div>
     <div class="chart-wrap" style="margin-top:20px;"><h4>💼 Contractor earnings vs my net (per pay period)</h4><p style="font-size:13px;color:var(--ink-muted);margin-bottom:12px;">Green = your net revenue &middot; Blue = contractor commissions paid out</p><canvas id="contractor-chart" height="80"></canvas></div>
-    </div><!-- end admin-section-stats -->
-
-    <div id="admin-section-clients" style="display:none;">
     <div class="admin-section" id="shared-pipeline-section">
       <h3>🎯 Sales Pipeline</h3>
       <p class="section-desc">Track potential clients. Claim a lead to take ownership and update its stage.</p>
@@ -472,7 +458,7 @@
         <div class="dash-field"><label>Plan</label><select id="new-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
         <div class="dash-field"><label>Domain name <span style="font-weight:400;font-size:11px;color:var(--ink-muted);">(optional)</span></label><input type="text" id="new-domain-name" placeholder="e.g. janeplumbing.com"></div>
         <div class="dash-field"><label>Domain cost per year ($) <span style="font-weight:400;font-size:11px;color:var(--ink-muted);">added to launch fee</span></label><input type="number" id="new-domain-cost" placeholder="0" oninput="calcNewDomainFee()" min="0" step="0.01"></div>
-        <div class="dash-field full" id="new-domain-fee-notice" style="display:none;"><div style="background:var(--accent-light);border-radius:var(--radius);padding:10px 14px;font-size:13px;color:var(--accent);" id="new-domain-fee-text"></div></div>
+        <div class="dash-field full" id="new-domain-fee-notice"><div style="background:var(--accent-light);border-radius:var(--radius);padding:10px 14px;font-size:13px;color:var(--accent);" id="new-domain-fee-text"></div></div>
         <button class="dash-save" onclick="createWebsite()" style="height:42px;white-space:nowrap;align-self:end;">Create + get code</button>
       </div>
       <p style="font-size:12px;color:var(--ink-muted);margin-top:10px;">Pricing is set automatically based on the plan rates in Site Settings above.</p>
@@ -487,14 +473,14 @@
           <div style="font-size:28px;margin-bottom:8px;">📄</div>
           <p style="font-size:14px;color:var(--ink-muted);">Drag and drop the client website HTML here<br><strong style="color:var(--accent);">or click to browse</strong></p>
           <p style="font-size:12px;color:var(--ink-muted);margin-top:6px;" id="html-file-name">No file selected</p>
-          <input type="file" id="html-file-input" accept=".html" style="display:none;" onchange="handleHtmlFileSelect(event)">
+          <input type="file" id="html-file-input" accept=".html" onchange="handleHtmlFileSelect(event)">
         </div>
       </div>
       <div class="invite-code-result" id="invite-result"><p>Website created! Send this invite code to your client:</p><div class="code" id="invite-code-display">——</div><small>They enter this when creating their account.</small></div>
     </div>
     </div><!-- end admin-section-pipeline -->
 
-    <div id="admin-section-chats" style="display:none;">
+    <div id="admin-section-chats">
       <div class="admin-section">
         <h3 id="as-chats">💬 Live client chats</h3>
         <p class="section-desc">Active conversations between clients and contractors during the build process.</p>
@@ -502,7 +488,7 @@
       </div>
     </div><!-- end admin-section-chats -->
 
-    <div id="admin-section-company" style="display:none;">
+    <div id="admin-section-company">
     <div class="admin-section">
       <h3 id="as-company2">📩 Inquiries</h3>
       <p class="section-desc">All website requests. Claim an inquiry to assign it to yourself as the account manager.</p>
@@ -522,9 +508,6 @@
         </div>
       </div>
     </div>
-    </div><!-- end admin-section-clients -->
-
-    <div id="admin-section-contractors" style="display:none;">
     <div class="admin-section">
       <h3 id="as-contractors2">📅 Pay period settings</h3>
       <p class="section-desc">Control the payment cycle for managers. Closing a period sends them their earnings receipt by email and resets their period stats.</p>
@@ -630,18 +613,6 @@
       </div>
     </div>
 
-    <!-- ADMIN MENU TABS -->
-    <div style="display:flex;gap:2px;background:var(--cream);border-radius:var(--radius-lg);padding:4px;margin-bottom:28px;flex-wrap:wrap;" id="admin-tabs">
-      <button class="admin-tab active" id="admin-tab-stats" onclick="switchAdminTab('stats')">📊 Overview</button>
-      <button class="admin-tab" id="admin-tab-clients" onclick="switchAdminTab('clients')">👥 Clients</button>
-      <button class="admin-tab" id="admin-tab-contractors" onclick="switchAdminTab('contractors')">💼 Contractors</button>
-      <button class="admin-tab" id="admin-tab-pipeline" onclick="switchAdminTab('pipeline')">🎯 Pipeline</button>
-      <button class="admin-tab" id="admin-tab-chats" onclick="switchAdminTab('chats');loadAllChats()">💬 Live chats</button>
-      <button class="admin-tab" id="admin-tab-company" onclick="switchAdminTab('company')">⚙️ Company</button>
-    </div>
-
-    <!-- TAB CONTENT WRAPPERS -->
-    <div id="admin-section-stats">
     <div class="admin-stats-grid">
       <div class="admin-stat-card"><div class="stat-label">My websites this period</div><div class="stat-value" id="mgr-stat-mine">—</div></div>
       <div class="admin-stat-card"><div class="stat-label">My earnings this period</div><div class="stat-value green" id="mgr-stat-earnings">—</div></div>
@@ -720,7 +691,7 @@
           <div style="font-size:24px;margin-bottom:6px;">📄</div>
           <p style="font-size:13px;color:var(--ink-muted);">Drag & drop client HTML here or <strong style="color:var(--accent);">click to browse</strong></p>
           <p style="font-size:11px;color:var(--ink-muted);margin-top:4px;" id="mgr-html-file-name">No file selected</p>
-          <input type="file" id="mgr-html-file-input" accept=".html" style="display:none;" onchange="handleMgrHtmlSelect(event)">
+          <input type="file" id="mgr-html-file-input" accept=".html" onchange="handleMgrHtmlSelect(event)">
         </div>
       </div>
       <div class="invite-code-result" id="mgr-invite-result"><p>Website created! Send this invite code to your client:</p><div class="code" id="mgr-invite-code-display">——</div><small>They enter this when creating their account.</small></div>
