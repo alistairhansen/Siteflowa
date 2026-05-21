@@ -368,115 +368,6 @@
       </div>
     </div>
 
-<!-- MANAGER DASHBOARD -->
-<div id="page-manager" class="page-section">
-  <section style="padding-top:100px;padding-bottom:60px;">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
-      <div><h2 style="font-family:var(--serif);font-size:clamp(28px,3vw,42px);letter-spacing:-0.02em;">Manager View</h2><p style="font-size:13px;color:var(--purple);font-weight:500;margin-top:6px;">Contact admin to change pricing or delete accounts</p></div>
-      <div style="display:flex;gap:10px;align-items:center;">
-        <button class="dash-save" onclick="doLogout()">Log out</button>
-        <button onclick="viewTOS()" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:9px 16px;font-family:var(--sans);font-size:12px;cursor:pointer;color:var(--ink-muted);">View Terms</button>
-      </div>
-    </div>
-
-    <div class="admin-stats-grid">
-      <div class="admin-stat-card"><div class="stat-label">My websites this period</div><div class="stat-value" id="mgr-stat-mine">—</div></div>
-      <div class="admin-stat-card"><div class="stat-label">My earnings this period</div><div class="stat-value green" id="mgr-stat-earnings">—</div></div>
-      <div class="admin-stat-card"><div class="stat-label">My commission rate</div><div class="stat-value" id="mgr-stat-rate">—</div></div>
-      <div class="admin-stat-card"><div class="stat-label">Total clients on platform</div><div class="stat-value" id="mgr-stat-clients">—</div></div>
-    </div>
-    <div class="admin-section" style="margin-bottom:24px;">
-      <h3>💰 My earnings history</h3>
-      <p class="section-desc">Your past pay periods — sent to your email at the end of each period.</p>
-      <div id="mgr-earnings-history"><p style="color:var(--ink-muted);font-size:14px;">Loading earnings history...</p></div>
-    </div>
-    <div class="admin-section">
-      <h3>📩 Inquiries</h3>
-      <p class="section-desc">Claim an inquiry to make it your client. Once claimed, others can't take it.</p>
-      <div class="inquiries-list" id="mgr-inquiries-list"><p style="color:var(--ink-muted);font-size:14px;">Loading inquiries...</p></div>
-    </div>
-        <div class="admin-section">
-      <h3>🎯 Sales Pipeline</h3>
-      <p class="section-desc">Track potential clients. Claim a lead to take ownership and update its stage.</p>
-      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-        <button class="dash-save" onclick="showAddLeadModal()">+ Add lead</button>
-        <button onclick="loadPipeline()" style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;">Refresh</button>
-        <select id="mgr-pipeline-filter" onchange="filterPipelineMgr()" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;background:var(--cream);">
-          <option value="all">All stages</option>
-          <option value="new">New lead</option>
-          <option value="contacted">Contacted</option>
-          <option value="interested">Interested</option>
-          <option value="demo_sent">Demo sent</option>
-          <option value="deposit_paid">Deposit paid</option>
-          <option value="building">Building</option>
-          <option value="ready">Ready to launch</option>
-          <option value="live">Live</option>
-          <option value="not_interested">Not interested</option>
-        </select>
-      </div>
-      <div id="mgr-pipeline-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading...</p></div>
-    </div>
-    <div class="admin-section">
-      <h3>📋 Website Briefs</h3>
-      <p class="section-desc">Send clients a website brief form. You'll only see forms you have sent.</p>
-      <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:16px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
-          <div class="dash-field"><label>Client email</label><input type="email" id="mgr-brief-email" placeholder="client@email.com"></div>
-          <div class="dash-field"><label>Plan</label><select id="mgr-brief-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
-          <button class="dash-save" onclick="sendAssetFormMgr()" style="height:42px;">Send form</button>
-        </div>
-        <span class="save-msg" id="save-msg-mgr-brief">Form sent!</span>
-      </div>
-      <div id="mgr-asset-forms-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading submitted briefs...</p></div>
-    </div>
-    <div class="admin-section" style="margin-top:24px;">
-      <h3>➕ Create new client website</h3>
-      <p class="section-desc">Pricing is set automatically based on plan. Admin can override per client.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr 120px auto;gap:10px;align-items:end;">
-        <div class="dash-field"><label>Business name</label><input type="text" id="mgr-new-biz" placeholder="Jane's Plumbing Co."></div>
-        <div class="dash-field"><label>Subdomain</label><input type="text" id="mgr-new-sub" placeholder="janesplumbing"></div>
-        <div class="dash-field"><label>Plan</label><select id="mgr-new-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
-        <button class="dash-save" onclick="mgrCreateWebsite()" style="height:42px;white-space:nowrap;align-self:end;">Create + get code</button>
-      </div>
-      <div style="margin-top:16px;">
-        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Domain & yearly fee (optional)</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
-          <div class="dash-field"><label>Domain name</label><input type="text" id="mgr-new-domain-name" placeholder="e.g. janeplumbing.com"></div>
-          <div class="dash-field"><label>Domain cost/year ($)</label><input type="number" id="mgr-new-domain-cost" placeholder="0" oninput="calcMgrDomainFee()" min="0" step="0.01"></div>
-          <div class="dash-field"><label>Yearly charge to client ($)</label><input type="number" id="mgr-new-domain-fee" placeholder="0" readonly style="background:var(--cream);color:var(--ink-muted);" title="Auto-calculated"></div>
-        </div>
-        <div id="mgr-domain-fee-notice" style="display:none;background:var(--accent-light);border-radius:var(--radius);padding:8px 14px;font-size:12px;color:var(--accent);margin-bottom:12px;" id="mgr-domain-fee-text"></div>
-      </div>
-      <div style="margin-top:12px;">
-        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Upload client website HTML (optional)</div>
-        <div id="mgr-html-drop-zone" style="border:2px dashed var(--border-strong);border-radius:var(--radius-lg);padding:24px;text-align:center;cursor:pointer;transition:all 0.2s;"
-          ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='var(--accent-light)'"
-          ondragleave="this.style.borderColor='var(--border-strong)';this.style.background=''"
-          ondrop="handleMgrHtmlDrop(event)"
-          onclick="document.getElementById('mgr-html-file-input').click()">
-          <div style="font-size:24px;margin-bottom:6px;">📄</div>
-          <p style="font-size:13px;color:var(--ink-muted);">Drag & drop client HTML here or <strong style="color:var(--accent);">click to browse</strong></p>
-          <p style="font-size:11px;color:var(--ink-muted);margin-top:4px;" id="mgr-html-file-name">No file selected</p>
-          <input type="file" id="mgr-html-file-input" accept=".html" style="display:none;" onchange="handleMgrHtmlSelect(event)">
-        </div>
-      </div>
-      <div class="invite-code-result" id="mgr-invite-result"><p>Website created! Send this invite code to your client:</p><div class="code" id="mgr-invite-code-display">——</div><small>They enter this when creating their account.</small></div>
-    </div>
-    <div class="dashboard-wrap" style="margin-top:24px;">
-      <div class="dashboard-header">
-        <div class="logo"><svg class="logo-flower-sm" viewBox="0 0 28 28" fill="none"><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(60 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(120 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(180 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(240 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(300 14 14)"/><circle cx="14" cy="14" r="4" fill="#f9e4ff"/><circle cx="14" cy="14" r="2.5" fill="#ce93d8"/></svg>Sitefloa<span>.</span> Clients</div>
-        <div class="user-badge"><div class="avatar manager" id="mgr-avatar">MG</div><span id="mgr-email-display">Contractor</span><span class="role-badge contractor">Contractor</span></div>
-      </div>
-      <div style="padding:24px;overflow-x:auto;">
-        <table class="clients-table">
-          <thead><tr><th></th><th>Client</th><th>Business</th><th>Plan</th><th>Status</th><th>Created by</th><th>Joined</th></tr></thead>
-          <tbody id="mgr-clients-table-body"><tr><td colspan="7" style="text-align:center;color:var(--ink-muted);padding:32px;">Loading...</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-</div>
-
 <!-- ADMIN DASHBOARD -->
 <div id="page-admin" class="page-section">
   <section style="padding-top:100px;padding-bottom:60px;">
@@ -710,6 +601,116 @@
   <div class="footer-socials" id="footer-socials"></div>
 </footer>
 <script src="/app.js"></script>
+
+<!-- MANAGER DASHBOARD -->
+<div id="page-manager" class="page-section">
+  <section style="padding-top:100px;padding-bottom:60px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
+      <div><h2 style="font-family:var(--serif);font-size:clamp(28px,3vw,42px);letter-spacing:-0.02em;">Manager View</h2><p style="font-size:13px;color:var(--purple);font-weight:500;margin-top:6px;">Contact admin to change pricing or delete accounts</p></div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button class="dash-save" onclick="doLogout()">Log out</button>
+        <button onclick="viewTOS()" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:9px 16px;font-family:var(--sans);font-size:12px;cursor:pointer;color:var(--ink-muted);">View Terms</button>
+      </div>
+    </div>
+
+    <div class="admin-stats-grid">
+      <div class="admin-stat-card"><div class="stat-label">My websites this period</div><div class="stat-value" id="mgr-stat-mine">—</div></div>
+      <div class="admin-stat-card"><div class="stat-label">My earnings this period</div><div class="stat-value green" id="mgr-stat-earnings">—</div></div>
+      <div class="admin-stat-card"><div class="stat-label">My commission rate</div><div class="stat-value" id="mgr-stat-rate">—</div></div>
+      <div class="admin-stat-card"><div class="stat-label">Total clients on platform</div><div class="stat-value" id="mgr-stat-clients">—</div></div>
+    </div>
+    <div class="admin-section" style="margin-bottom:24px;">
+      <h3>💰 My earnings history</h3>
+      <p class="section-desc">Your past pay periods — sent to your email at the end of each period.</p>
+      <div id="mgr-earnings-history"><p style="color:var(--ink-muted);font-size:14px;">Loading earnings history...</p></div>
+    </div>
+    <div class="admin-section">
+      <h3>📩 Inquiries</h3>
+      <p class="section-desc">Claim an inquiry to make it your client. Once claimed, others can't take it.</p>
+      <div class="inquiries-list" id="mgr-inquiries-list"><p style="color:var(--ink-muted);font-size:14px;">Loading inquiries...</p></div>
+    </div>
+        <div class="admin-section">
+      <h3>🎯 Sales Pipeline</h3>
+      <p class="section-desc">Track potential clients. Claim a lead to take ownership and update its stage.</p>
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+        <button class="dash-save" onclick="showAddLeadModal()">+ Add lead</button>
+        <button onclick="loadPipeline()" style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;">Refresh</button>
+        <select id="mgr-pipeline-filter" onchange="filterPipelineMgr()" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;background:var(--cream);">
+          <option value="all">All stages</option>
+          <option value="new">New lead</option>
+          <option value="contacted">Contacted</option>
+          <option value="interested">Interested</option>
+          <option value="demo_sent">Demo sent</option>
+          <option value="deposit_paid">Deposit paid</option>
+          <option value="building">Building</option>
+          <option value="ready">Ready to launch</option>
+          <option value="live">Live</option>
+          <option value="not_interested">Not interested</option>
+        </select>
+      </div>
+      <div id="mgr-pipeline-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading...</p></div>
+    </div>
+    <div class="admin-section">
+      <h3>📋 Website Briefs</h3>
+      <p class="section-desc">Send clients a website brief form. You'll only see forms you have sent.</p>
+      <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
+          <div class="dash-field"><label>Client email</label><input type="email" id="mgr-brief-email" placeholder="client@email.com"></div>
+          <div class="dash-field"><label>Plan</label><select id="mgr-brief-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
+          <button class="dash-save" onclick="sendAssetFormMgr()" style="height:42px;">Send form</button>
+        </div>
+        <span class="save-msg" id="save-msg-mgr-brief">Form sent!</span>
+      </div>
+      <div id="mgr-asset-forms-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading submitted briefs...</p></div>
+    </div>
+    <div class="admin-section" style="margin-top:24px;">
+      <h3>➕ Create new client website</h3>
+      <p class="section-desc">Pricing is set automatically based on plan. Admin can override per client.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 120px auto;gap:10px;align-items:end;">
+        <div class="dash-field"><label>Business name</label><input type="text" id="mgr-new-biz" placeholder="Jane's Plumbing Co."></div>
+        <div class="dash-field"><label>Subdomain</label><input type="text" id="mgr-new-sub" placeholder="janesplumbing"></div>
+        <div class="dash-field"><label>Plan</label><select id="mgr-new-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
+        <button class="dash-save" onclick="mgrCreateWebsite()" style="height:42px;white-space:nowrap;align-self:end;">Create + get code</button>
+      </div>
+      <div style="margin-top:16px;">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Domain & yearly fee (optional)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div class="dash-field"><label>Domain name</label><input type="text" id="mgr-new-domain-name" placeholder="e.g. janeplumbing.com"></div>
+          <div class="dash-field"><label>Domain cost/year ($)</label><input type="number" id="mgr-new-domain-cost" placeholder="0" oninput="calcMgrDomainFee()" min="0" step="0.01"></div>
+          <div class="dash-field"><label>Yearly charge to client ($)</label><input type="number" id="mgr-new-domain-fee" placeholder="0" readonly style="background:var(--cream);color:var(--ink-muted);" title="Auto-calculated"></div>
+        </div>
+        <div id="mgr-domain-fee-notice" style="display:none;background:var(--accent-light);border-radius:var(--radius);padding:8px 14px;font-size:12px;color:var(--accent);margin-bottom:12px;" id="mgr-domain-fee-text"></div>
+      </div>
+      <div style="margin-top:12px;">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Upload client website HTML (optional)</div>
+        <div id="mgr-html-drop-zone" style="border:2px dashed var(--border-strong);border-radius:var(--radius-lg);padding:24px;text-align:center;cursor:pointer;transition:all 0.2s;"
+          ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='var(--accent-light)'"
+          ondragleave="this.style.borderColor='var(--border-strong)';this.style.background=''"
+          ondrop="handleMgrHtmlDrop(event)"
+          onclick="document.getElementById('mgr-html-file-input').click()">
+          <div style="font-size:24px;margin-bottom:6px;">📄</div>
+          <p style="font-size:13px;color:var(--ink-muted);">Drag & drop client HTML here or <strong style="color:var(--accent);">click to browse</strong></p>
+          <p style="font-size:11px;color:var(--ink-muted);margin-top:4px;" id="mgr-html-file-name">No file selected</p>
+          <input type="file" id="mgr-html-file-input" accept=".html" style="display:none;" onchange="handleMgrHtmlSelect(event)">
+        </div>
+      </div>
+      <div class="invite-code-result" id="mgr-invite-result"><p>Website created! Send this invite code to your client:</p><div class="code" id="mgr-invite-code-display">——</div><small>They enter this when creating their account.</small></div>
+    </div>
+    <div class="dashboard-wrap" style="margin-top:24px;">
+      <div class="dashboard-header">
+        <div class="logo"><svg class="logo-flower-sm" viewBox="0 0 28 28" fill="none"><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(60 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(120 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(180 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(240 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(300 14 14)"/><circle cx="14" cy="14" r="4" fill="#f9e4ff"/><circle cx="14" cy="14" r="2.5" fill="#ce93d8"/></svg>Sitefloa<span>.</span> Clients</div>
+        <div class="user-badge"><div class="avatar manager" id="mgr-avatar">MG</div><span id="mgr-email-display">Contractor</span><span class="role-badge contractor">Contractor</span></div>
+      </div>
+      <div style="padding:24px;overflow-x:auto;">
+        <table class="clients-table">
+          <thead><tr><th></th><th>Client</th><th>Business</th><th>Plan</th><th>Status</th><th>Created by</th><th>Joined</th></tr></thead>
+          <tbody id="mgr-clients-table-body"><tr><td colspan="7" style="text-align:center;color:var(--ink-muted);padding:32px;">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
 <!-- NEW CLIENT ONBOARDING - HOLDING PAGE -->
 <div id="page-holding" class="page-section">
   <section style="padding-top:100px;padding-bottom:80px;min-height:80vh;display:flex;align-items:center;">
