@@ -856,8 +856,8 @@ app.post('/admin/send-asset-form', authMiddleware, staffMiddleware, async (req, 
   try {
     const token = require('crypto').randomBytes(24).toString('hex')
     await pool.query(
-      'INSERT INTO asset_forms (email, plan, token, status) VALUES ($1,$2,$3,$4)',
-      [email, plan||'standard', token, 'sent']
+      'INSERT INTO asset_forms (email, plan, token, status, sent_by, sent_by_email) VALUES ($1,$2,$3,$4,$5,$6)',
+      [email, plan||'standard', token, 'sent', req.user.id, req.user.email]
     )
     const formUrl = 'https://siteflowa.onrender.com?assetform=' + token
     await resend.emails.send({
@@ -1009,6 +1009,42 @@ app.get('/client-domain/:domain', async (req, res) => {
     }
     res.status(404).send('<h1>Website not found</h1>')
   } catch(err) { res.status(500).send('<h1>Error</h1>') }
+})
+
+// ── SEND ACTIVATION EMAIL ───────────────────────────────
+app.post('/admin/send-activation-email', authMiddleware, staffMiddleware, async (req, res) => {
+  const { email, activation_code } = req.body
+  try {
+    const siteSettings = await pool.query('SELECT * FROM site_settings LIMIT 1')
+    const s = siteSettings.rows[0] || {}
+    const companyName = s.company_name || 'Siteflowa'
+    await resend.emails.send({
+      from: 'Siteflowa <onboarding@resend.dev>',
+      to: email,
+      subject: 'Your website is ready — create your account',
+      html: `
+        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
+          <h2 style="font-family:Georgia,serif;color:#1a6b5a;">Your website is ready to preview!</h2>
+          <p style="color:#4a4f5e;line-height:1.6;">Great news — we've finished building your website and it's ready for you to review. Here's how to access it:</p>
+          <div style="background:#f0f7f5;border-radius:12px;padding:24px;margin:24px 0;">
+            <div style="font-size:13px;font-weight:700;color:#1a6b5a;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:16px;">How to view your website</div>
+            <ol style="color:#4a4f5e;font-size:14px;line-height:2;padding-left:20px;">
+              <li>Go to <a href="https://siteflowa.onrender.com" style="color:#1a6b5a;">siteflowa.onrender.com</a></li>
+              <li>Click the <strong>Client Login</strong> button in the top right</li>
+              <li>Click <strong>Create account</strong> and enter your email and a password</li>
+              <li>When asked for your activation code, enter: <strong style="font-size:18px;letter-spacing:0.1em;color:#1a6b5a;">${activation_code}</strong></li>
+              <li>You'll be able to see a live preview of your website</li>
+            </ol>
+          </div>
+          <p style="color:#4a4f5e;font-size:14px;line-height:1.6;">Once you've had a look, you can approve it to go live or request any changes directly from your account.</p>
+          <a href="https://siteflowa.onrender.com" style="display:inline-block;margin:20px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">View my website preview</a>
+          <hr style="border:none;border-top:1px solid #e5e3de;margin:24px 0;">
+          <p style="color:#8b909e;font-size:12px;">${companyName} — Professional websites for small business</p>
+        </div>
+      `
+    })
+    res.json({ message: 'Activation email sent to ' + email })
+  } catch(err) { res.status(500).json({ error: err.message }) }
 })
 
 // ── HEALTH CHECK ────────────────────────────────────────

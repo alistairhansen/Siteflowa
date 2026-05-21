@@ -1977,33 +1977,83 @@ async function loadAssetForms() {
     })
     const data = await res.json()
     renderAssetForms(data.forms || [])
+    // update stat
+    const statEl = document.getElementById('stat-forms-sent')
+    if (statEl && data.forms) statEl.textContent = data.forms.length
   } catch(e) { console.error(e) }
 }
 
 function renderAssetForms(forms) {
   const wrap = document.getElementById('asset-forms-wrap')
   if (!wrap) return
-  if (!forms.length) {
+  const role = getRole()
+  const myEmail = localStorage.getItem('wc_email') || ''
+  const filtered = role === 'admin' ? forms : forms.filter(function(f){ return f.sent_by_email === myEmail })
+  const submitted = filtered.filter(function(f){ return f.status === 'submitted' }).length
+  const statEl = document.getElementById('stat-forms-sent')
+  if (statEl) statEl.textContent = forms.length
+  if (!filtered.length) {
     wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No website briefs sent yet.</p>'
     return
   }
-  wrap.innerHTML = forms.map(f => `
-    <div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
-      <div>
-        <div style="font-weight:600;font-size:14px;">${f.email}</div>
-        <div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">
-          ${f.plan} plan &middot; Sent ${new Date(f.created_at).toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric'})}
-          ${f.submitted_at ? ' &middot; <strong style="color:var(--accent);">Submitted '+new Date(f.submitted_at).toLocaleDateString('en-CA',{month:'short',day:'numeric'})+'</strong>' : ''}
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:${f.status==='submitted'?'var(--accent-light)':'var(--cream)'};color:${f.status==='submitted'?'var(--accent)':'var(--ink-muted)'};">
-          ${f.status === 'submitted' ? 'Submitted' : 'Awaiting'}
-        </span>
-        ${f.status === 'submitted' ? '<button class="action-btn" onclick="viewBriefAndGenerate(\''+f.id+'\')">View & generate prompt</button>' : ''}
-      </div>
-    </div>`).join('')
+  wrap.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><div style="font-size:13px;color:var(--ink-muted);">'+filtered.length+' sent &middot; '+submitted+' submitted</div><button onclick="toggleBriefsList()" id="briefs-toggle-btn" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:5px 12px;font-size:12px;cursor:pointer;font-family:var(--sans);">Collapse</button></div><div id="briefs-list">'+filtered.map(function(f){
+    var statusBg = f.status==='submitted' ? 'var(--accent-light)' : 'var(--cream)'
+    var statusColor = f.status==='submitted' ? 'var(--accent)' : 'var(--ink-muted)'
+    var statusLabel = f.status==='submitted' ? 'Submitted' : 'Awaiting'
+    var submittedDate = f.submitted_at ? ' &middot; <strong style="color:var(--accent);">Submitted '+new Date(f.submitted_at).toLocaleDateString('en-CA',{month:'short',day:'numeric'})+'</strong>' : ''
+    var sentBy = (f.sent_by_email && role==='admin') ? ' &middot; by '+f.sent_by_email : ''
+    var viewBtn = f.status==='submitted' ? '<button class="action-btn" onclick="viewBriefAndGenerate(\'' + f.id + '\')">' + 'View & generate prompt</button>' : ''
+    return '<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:8px;"><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;"><div><div style="font-weight:600;font-size:14px;">'+f.email+'</div><div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">'+f.plan+' plan &middot; Sent '+new Date(f.created_at).toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric'})+sentBy+submittedDate+'</div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;"><span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:'+statusBg+';color:'+statusColor+';">'+statusLabel+'</span>'+viewBtn+'<button class="action-btn" style="background:var(--blue-light);border-color:var(--blue);color:var(--blue);" onclick="showFollowUpModal(\'' + f.email + '\')">' + 'Send activation</button></div></div></div>'
+  }).join('')+'</div>'
 }
+
+function toggleBriefsList() {
+  const list = document.getElementById('briefs-list')
+  const btn = document.getElementById('briefs-toggle-btn')
+  if (!list || !btn) return
+  if (list.style.display === 'none') { list.style.display = 'block'; btn.textContent = 'Collapse' }
+  else { list.style.display = 'none'; btn.textContent = 'Expand' }
+}
+
+function showFollowUpModal(email) {
+  const existing = document.getElementById('followup-modal')
+  if (existing) existing.remove()
+  const modal = document.createElement('div')
+  modal.id = 'followup-modal'
+  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.75);display:flex;align-items:center;justify-content:center;padding:20px;'
+  const box = document.createElement('div')
+  box.style.cssText = 'background:white;border-radius:16px;max-width:480px;width:100%;padding:32px;box-shadow:0 24px 60px rgba(0,0,0,0.25);'
+  box.innerHTML = '<h3 style="font-family:var(--serif);font-size:20px;margin-bottom:8px;">Send activation code</h3>' +
+    '<p style="font-size:13px;color:var(--ink-muted);margin-bottom:20px;">This will email <strong>' + email + '</strong> with their activation code and step-by-step instructions to create their account.</p>' +
+    '<div class="dash-field" style="margin-bottom:16px;"><label>Activation code</label>' +
+    '<input type="text" id="followup-code" placeholder="e.g. ABC123XY" style="font-family:monospace;font-size:16px;letter-spacing:0.08em;text-transform:uppercase;">' +
+    '<div style="font-size:11px;color:var(--ink-muted);margin-top:4px;">The invite code from the create website form for this client.</div></div>' +
+    '<div style="display:flex;gap:10px;">' +
+    '<button class="dash-save" id="followup-send-btn">Send email</button>' +
+    '<button id="followup-cancel-btn" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:10px 20px;font-family:var(--sans);font-size:14px;cursor:pointer;">Cancel</button>' +
+    '</div>'
+  modal.appendChild(box)
+  document.body.appendChild(modal)
+  document.getElementById('followup-send-btn').onclick = function() { sendFollowUpEmail(email) }
+  document.getElementById('followup-cancel-btn').onclick = function() { modal.remove() }
+}
+
+
+async function sendFollowUpEmail(email) {
+  const code = document.getElementById('followup-code')?.value?.trim().toUpperCase()
+  if (!code) { alert('Please enter an activation code'); return }
+  try {
+    const res = await fetch(API + '/admin/send-activation-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ email, activation_code: code })
+    })
+    const d = await res.json()
+    if (d.message) { document.getElementById('followup-modal')?.remove(); alert('Activation email sent to ' + email) }
+    else alert(d.error || 'Failed to send')
+  } catch(e) { alert('Could not connect') }
+}
+
 
 function viewBriefAndGenerate(formId) {
   // Find form in loaded data - reload and show
