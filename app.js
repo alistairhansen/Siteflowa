@@ -936,7 +936,15 @@ async function loadAdminData(){
   try{
     const res=await fetch(API+'/admin/stats',{headers:{'Authorization':'Bearer '+token}})
     const data=await res.json()
-    if(data.stats){document.getElementById('stat-clients').textContent=data.stats.total_clients;document.getElementById('stat-active').textContent=data.stats.active_websites;document.getElementById('stat-monthly').textContent='$'+data.stats.monthly_revenue;document.getElementById('stat-total').textContent='$'+data.stats.total_revenue}
+    if(data.stats){
+      document.getElementById('stat-clients').textContent=data.stats.total_clients
+      document.getElementById('stat-active').textContent=data.stats.active_websites
+      document.getElementById('stat-monthly').textContent='$'+data.stats.monthly_revenue.toLocaleString()
+      document.getElementById('stat-total').textContent='$'+data.stats.total_revenue.toLocaleString()
+      const commEl=document.getElementById('stat-commissions');if(commEl)commEl.textContent='$'+data.stats.total_commissions.toLocaleString()
+      const netEl=document.getElementById('stat-net');if(netEl)netEl.textContent='$'+data.stats.net_revenue.toLocaleString()
+    }
+    if(data.manager_earnings_chart)renderContractorChart(data.manager_earnings_chart,data.stats)
     if(data.clients)renderClientsTable(data.clients.filter(c=>c.role==='client'||(!c.role&&!c.is_admin)))
     if(data.managers)renderStaffList(data.managers)
     if(data.monthly_chart)renderChart(data.monthly_chart)
@@ -955,6 +963,36 @@ async function loadPaySettings(){
     const depEl=document.getElementById('deposit-percent');if(depEl&&s.deposit_percent)depEl.value=s.deposit_percent
   }catch(e){console.error(e)}
 }
+let contractorChart = null
+function renderContractorChart(earnings, stats) {
+  const ctx = document.getElementById('contractor-chart')
+  if (!ctx) return
+  if (contractorChart) contractorChart.destroy()
+  const weeks = {}
+  earnings.forEach(function(e) {
+    const w = new Date(e.week).toLocaleDateString('en-CA',{month:'short',day:'numeric'})
+    if (!weeks[w]) weeks[w] = { contractor: 0 }
+    weeks[w].contractor += parseFloat(e.earned) || 0
+  })
+  const totalGross = stats && stats.total_revenue ? stats.total_revenue : 0
+  const totalComm = stats && stats.total_commissions ? stats.total_commissions : 0
+  const netRatio = totalGross > 0 ? (totalGross - totalComm) / totalGross : 0.8
+  const labels = Object.keys(weeks)
+  const contractorData = labels.map(function(w){ return Math.round(weeks[w].contractor) })
+  const netData = labels.map(function(w){ return Math.round(weeks[w].contractor * netRatio / (1-netRatio+0.001)) })
+  contractorChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'My net revenue', data: netData, backgroundColor: 'rgba(26,107,90,0.7)', borderColor: '#1a6b5a', borderWidth: 1 },
+        { label: 'Contractor commissions', data: contractorData, backgroundColor: 'rgba(59,130,246,0.6)', borderColor: '#3b82f6', borderWidth: 1 }
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { callback: function(v){ return '$'+v } } } } }
+  })
+}
+
 function renderChart(rows){
   const ctx=document.getElementById('revenue-chart');if(!ctx)return
   if(revenueChart)revenueChart.destroy()

@@ -388,9 +388,10 @@ app.post('/admin/site-settings', authMiddleware, adminMiddleware, async (req, re
 
 // ── ADMIN - stats ───────────────────────────────────────
 app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
+  const isManager = req.user.role === 'manager'
   try {
-    const clients = await pool.query(`
-      SELECT c.id, c.email, c.created_at, c.is_admin, c.role, c.subscription_status, c.plan,
+    const clientsQuery = isManager
+      ? `SELECT c.id, c.email, c.created_at, c.is_admin, c.role, c.subscription_status, c.plan,
              c.update_fee_required, c.update_fee_amount, c.commission_rate,
              c.domain_name, c.domain_cost, c.domain_yearly_fee,
              w.id as website_id, w.business_name, w.subdomain, w.is_active,
@@ -401,12 +402,36 @@ app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
       LEFT JOIN websites w ON w.client_id = c.id
       LEFT JOIN clients cb ON cb.id = w.created_by
       LEFT JOIN referral_codes r ON r.owner_client_id = c.id
-      ORDER BY c.created_at DESC
-    `)
+      WHERE w.created_by = $1
+      ORDER BY c.created_at DESC`
+      : `SELECT c.id, c.email, c.created_at, c.is_admin, c.role, c.subscription_status, c.plan,
+             c.update_fee_required, c.update_fee_amount, c.commission_rate,
+             c.domain_name, c.domain_cost, c.domain_yearly_fee,
+             w.id as website_id, w.business_name, w.subdomain, w.is_active,
+             w.setup_fee, w.monthly_fee, w.client_email, w.sections, w.website_type,
+             w.created_by, cb.email as created_by_email,
+             r.code as referral_code, r.times_used as referral_uses
+      FROM clients c
+      LEFT JOIN websites w ON w.client_id = c.id
+      LEFT JOIN clients cb ON cb.id = w.created_by
+      LEFT JOIN referral_codes r ON r.owner_client_id = c.id
+      ORDER BY c.created_at DESC`
+    const clients = await pool.query(clientsQuery, isManager ? [req.user.id] : [])
     const nonStaff = clients.rows.filter(c => c.role === 'client' || (!c.role && !c.is_admin))
     const activeCount = nonStaff.filter(c => c.is_active).length
     const monthlyRevenue = nonStaff.filter(c => c.is_active).reduce((sum,c) => sum + (c.monthly_fee||49), 0)
-    const totalRevenue = nonStaff.reduce((sum,c) => sum + (c.is_active ? (c.setup_fee||299)+(c.monthly_fee||49) : 0), 0)
+    // True total net revenue: all setup fees ever paid + monthly fees since joining
+    const totalRevenue = nonStaff.reduce((sum,c) => {
+      const setup = parseFloat(c.setup_fee)||299
+      const monthly = parseFloat(c.monthly_fee)||49
+      const joined = new Date(c.created_at)
+      const months = Math.max(1, Math.round((Date.now()-joined)/(1000*60*60*24*30)))
+      return sum + setup + (c.is_active ? monthly*months : 0)
+    }, 0)
+    // Commission paid out to managers
+    const commissionsResult = await pool.query('SELECT COALESCE(SUM(total_earned),0) as total FROM pay_periods')
+    const totalCommissions = parseFloat(commissionsResult.rows[0]?.total)||0
+    const netRevenue = Math.round(totalRevenue - totalCommissions)
     const managers = await pool.query(`
       SELECT c.id, c.email, c.commission_rate,
         COUNT(w.id) as websites_created,
@@ -426,11 +451,31 @@ app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
       GROUP BY DATE_TRUNC('month', c.created_at)
       ORDER BY month DESC LIMIT 6
     `)
+    // Manager earnings chart data
+    const managerEarnings = await pool.query(`
+      SELECT p.manager_id, c.email, 
+             DATE_TRUNC('week', p.period_end) as week,
+             SUM(p.total_earned) as earned,
+             SUM(p.websites_count) as sites
+      FROM pay_periods p
+      LEFT JOIN clients c ON c.id = p.manager_id
+      GROUP BY p.manager_id, c.email, DATE_TRUNC('week', p.period_end)
+      ORDER BY week DESC LIMIT 20
+    `)
+
     res.json({
       clients: clients.rows,
-      stats: { total_clients: nonStaff.length, active_websites: activeCount, monthly_revenue: monthlyRevenue, total_revenue: totalRevenue },
+      stats: { 
+        total_clients: nonStaff.length, 
+        active_websites: activeCount, 
+        monthly_revenue: monthlyRevenue, 
+        total_revenue: Math.round(totalRevenue),
+        net_revenue: netRevenue,
+        total_commissions: Math.round(totalCommissions)
+      },
       managers: managers.rows,
-      monthly_chart: monthlyChart.rows.reverse()
+      monthly_chart: monthlyChart.rows.reverse(),
+      manager_earnings_chart: managerEarnings.rows
     })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
