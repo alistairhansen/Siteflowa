@@ -2574,40 +2574,29 @@ function routeClientAfterLogin(clientData, websiteData, plan) {
 }
 
 // ══════════════════════════════════════════════════════
-// ADMIN TAB SYSTEM
+// ADMIN TAB SYSTEM - Simple ID-based approach
 // ══════════════════════════════════════════════════════
 let currentAdminTab = 'stats'
 
-// Each section gets a data-tab attribute via JS on init
-const SECTION_TAB_MAP = [
-  { keywords: ['clients-table-body', 'Create new client'], tab: 'clients' },
-  { keywords: ['shared-pipeline-section', 'admin-briefs-section'], tab: 'clients' },
-  { keywords: ['Pay period settings', 'Contractor performance', 'Staff performance', 'Contractor code', 'Admin code', 'pay-cycle'], tab: 'contractors' },
-  { keywords: ['admin-pipeline-section'], tab: 'pipeline' },
-  { keywords: ['admin-section-chats', 'all-chats-wrap'], tab: 'chats' },
-  { keywords: ['Site settings', 'Inquiries', 'site-settings-form', 'admin-inquiries'], tab: 'company' },
-]
+// Map of tab name -> array of element IDs/selectors to show
+const TAB_SHOW = {
+  stats: ['admin-section-stats'],
+  clients: ['shared-pipeline-section', 'shared-briefs-section', 'admin-clients-table-wrap', 'as-clients'],
+  contractors: ['as-contractors', 'as-contractors2', 'as-contractors3'],
+  pipeline: ['admin-pipeline-section', 'admin-briefs-section'],
+  chats: ['admin-section-chats'],
+  company: ['as-company', 'as-company2']
+}
+
+// All possible IDs across all tabs
+const ALL_TAB_IDS = Object.values(TAB_SHOW).flat()
+
+function findSectionByH3Id(id) {
+  const h3 = document.getElementById(id)
+  return h3 ? h3.closest('.admin-section') || h3.closest('[class*="admin"]') || h3.parentElement : null
+}
 
 function initAdminTabs() {
-  const adminPage = document.getElementById('page-admin')
-  if (!adminPage) return
-
-  // Tag all sections with their tab
-  adminPage.querySelectorAll('.admin-section, .admin-section-chats-wrap, #admin-section-chats').forEach(section => {
-    const html = section.innerHTML + section.id
-    let assigned = 'stats'
-    for (const rule of SECTION_TAB_MAP) {
-      if (rule.keywords.some(k => html.includes(k) || section.id === k.replace('#',''))) {
-        assigned = rule.tab
-        break
-      }
-    }
-    section.setAttribute('data-tab', assigned)
-  })
-
-  // Stats grid and charts always show in stats
-  adminPage.querySelectorAll('.admin-stats-grid, .chart-wrap').forEach(s => s.setAttribute('data-tab', 'stats'))
-
   switchAdminTab('stats')
 }
 
@@ -2616,27 +2605,57 @@ function switchAdminTab(tab) {
 
   // Update buttons
   document.querySelectorAll('.admin-tab').forEach(btn => btn.classList.remove('active'))
-  const btn = document.getElementById('admin-tab-' + tab)
-  if (btn) btn.classList.add('active')
+  const activeBtn = document.getElementById('admin-tab-' + tab)
+  if (activeBtn) activeBtn.classList.add('active')
 
-  const adminPage = document.getElementById('page-admin')
-  if (!adminPage) return
-
-  // Show/hide everything
-  adminPage.querySelectorAll('[data-tab]').forEach(el => {
-    el.style.display = el.getAttribute('data-tab') === tab ? '' : 'none'
+  // Hide everything first
+  ALL_TAB_IDS.forEach(id => {
+    // Try direct ID
+    const direct = document.getElementById(id)
+    if (direct) {
+      const section = direct.closest('.admin-section') || direct
+      section.style.display = 'none'
+    }
   })
 
-  // Special: chats section
-  const chatsSection = document.getElementById('admin-section-chats')
-  if (chatsSection) {
-    chatsSection.style.display = tab === 'chats' ? '' : 'none'
+  // Hide stats and table
+  const statsEl = document.getElementById('admin-section-stats')
+  if (statsEl) statsEl.style.display = 'none'
+  const tableEl = document.getElementById('admin-clients-table-wrap')
+  if (tableEl) tableEl.style.display = 'none'
+  document.querySelectorAll('.chart-wrap').forEach(el => el.style.display = 'none')
+  const chatsEl = document.getElementById('admin-section-chats')
+  if (chatsEl) chatsEl.style.display = 'none'
+
+  // Show tab content
+  const toShow = TAB_SHOW[tab] || []
+  toShow.forEach(id => {
+    const el = document.getElementById(id)
+    if (el) {
+      // If it's an h3 marker, show the parent section
+      const section = el.tagName === 'H3' ? el.closest('.admin-section') : el
+      if (section) section.style.display = ''
+    }
+  })
+
+  // Stats tab also shows charts
+  if (tab === 'stats') {
+    const statsEl = document.getElementById('admin-section-stats')
+    if (statsEl) statsEl.style.display = ''
+    document.querySelectorAll('.chart-wrap').forEach(el => el.style.display = '')
   }
 
-  // clients table wrap has no data-tab - show in clients tab
-  adminPage.querySelectorAll('.clients-table-wrap').forEach(el => {
-    el.style.display = tab === 'clients' ? '' : 'none'
-  })
+  // Clients tab also shows table
+  if (tab === 'clients') {
+    const tableEl = document.getElementById('admin-clients-table-wrap')
+    if (tableEl) tableEl.style.display = ''
+  }
+
+  // Chats tab
+  if (tab === 'chats') {
+    const chatsEl = document.getElementById('admin-section-chats')
+    if (chatsEl) chatsEl.style.display = ''
+  }
 }
 
 // ══════════════════════════════════════════════════════
