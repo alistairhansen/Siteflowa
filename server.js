@@ -151,7 +151,7 @@ app.post('/forgot-password', async (req, res) => {
           <a href="${resetLink}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">Reset my password</a>
           <p style="color:#8b909e;font-size:13px;">This link expires in 1 hour. If you did not request this, you can safely ignore this email.</p>
           <hr style="border:none;border-top:1px solid #e5e3de;margin:24px 0;">
-          <p style="color:#8b909e;font-size:12px;">Sitefloa - Professional websites for small business</p>
+          <p style="color:#8b909e;font-size:12px;">Sitefloa - Professional websites for small business</p><p style="color:#b0b0b0;font-size:11px;">Please do not reply to this email. To get in touch, visit sitefloa.com.</p>
         </div>
       `
     })
@@ -1048,6 +1048,81 @@ app.post('/admin/send-activation-email', authMiddleware, staffMiddleware, async 
       `
     })
     res.json({ message: 'Activation email sent to ' + email })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+
+// ── MESSAGES ─────────────────────────────────────────────
+app.get('/messages/:clientId', authMiddleware, async (req, res) => {
+  try {
+    const { clientId } = req.params
+    // clients can only get their own messages
+    if (req.user.role === 'client' && req.user.id !== clientId) {
+      return res.status(403).json({ error: 'Access denied' })
+    }
+    const msgs = await pool.query(
+      'SELECT * FROM messages WHERE client_id=$1 ORDER BY created_at ASC',
+      [clientId]
+    )
+    // mark as read
+    if (req.user.role === 'client') {
+      await pool.query('UPDATE messages SET read_by_client=TRUE WHERE client_id=$1', [clientId])
+    } else {
+      await pool.query('UPDATE messages SET read_by_staff=TRUE WHERE client_id=$1', [clientId])
+    }
+    res.json({ messages: msgs.rows })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.post('/messages/:clientId', authMiddleware, async (req, res) => {
+  const { clientId } = req.params
+  const { content, image_url } = req.body
+  try {
+    // verify client exists and chat is still open
+    const client = await pool.query('SELECT * FROM clients WHERE id=$1', [clientId])
+    if (!client.rows[0]) return res.status(404).json({ error: 'Client not found' })
+    // chat only available while deposit paid but launch fee not yet paid
+    const stage = client.rows[0].onboarding_stage
+    if (req.user.role === 'client' && !['deposit_paid','building','preview_ready'].includes(stage)) {
+      return res.status(400).json({ error: 'Chat is not available at this stage' })
+    }
+    const msg = await pool.query(
+      'INSERT INTO messages (client_id,sender_id,sender_email,sender_role,content,image_url) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [clientId, req.user.id, req.user.email, req.user.role, content||'', image_url||null]
+    )
+    res.json({ message: msg.rows[0] })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/admin/all-chats', authMiddleware, staffMiddleware, async (req, res) => {
+  try {
+    const chats = await pool.query(`
+      SELECT 
+        c.id as client_id, c.email as client_email, c.plan, c.onboarding_stage,
+        w.business_name, w.subdomain, w.created_by,
+        cb.email as contractor_email,
+        COUNT(m.id) as message_count,
+        MAX(m.created_at) as last_message,
+        SUM(CASE WHEN m.read_by_staff=FALSE AND m.sender_role='client' THEN 1 ELSE 0 END) as unread
+      FROM clients c
+      LEFT JOIN websites w ON w.client_id = c.id
+      LEFT JOIN clients cb ON cb.id = w.created_by
+      LEFT JOIN messages m ON m.client_id = c.id
+      WHERE c.role = 'client' 
+        AND c.onboarding_stage IN ('deposit_paid','building','preview_ready')
+      GROUP BY c.id, c.email, c.plan, c.onboarding_stage, w.business_name, w.subdomain, w.created_by, cb.email
+      ORDER BY last_message DESC NULLS LAST
+    `)
+    res.json({ chats: chats.rows })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── REASSIGN CONTRACTOR ──────────────────────────────────
+app.post('/admin/reassign-contractor', authMiddleware, adminMiddleware, async (req, res) => {
+  const { website_id, contractor_id } = req.body
+  try {
+    await pool.query('UPDATE websites SET created_by=$1 WHERE id=$2', [contractor_id, website_id])
+    res.json({ message: 'Contractor reassigned' })
   } catch(err) { res.status(500).json({ error: err.message }) }
 })
 

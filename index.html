@@ -358,6 +358,16 @@
     </div>
   </section>
 </div>
+
+    <div id="admin-section-chats" style="display:none;">
+      <div class="admin-section">
+        <h3>💬 Live client chats</h3>
+        <p class="section-desc">Active conversations between clients and contractors during the build process. Unread messages are highlighted.</p>
+        <button onclick="loadAllChats()" style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;margin-bottom:16px;">Refresh</button>
+        <div id="all-chats-wrap"><p style="color:var(--ink-muted);font-size:14px;">Click refresh to load active chats.</p></div>
+      </div>
+    </div>
+
 <!-- MANAGER DASHBOARD -->
 <div id="page-manager" class="page-section">
   <section style="padding-top:100px;padding-bottom:60px;">
@@ -368,6 +378,19 @@
         <button onclick="viewTOS()" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:9px 16px;font-family:var(--sans);font-size:12px;cursor:pointer;color:var(--ink-muted);">View Terms</button>
       </div>
     </div>
+
+    <!-- ADMIN MENU TABS -->
+    <div style="display:flex;gap:2px;background:var(--cream);border-radius:var(--radius-lg);padding:4px;margin-bottom:28px;flex-wrap:wrap;" id="admin-tabs">
+      <button class="admin-tab active" id="admin-tab-stats" onclick="switchAdminTab('stats')">📊 Overview</button>
+      <button class="admin-tab" id="admin-tab-clients" onclick="switchAdminTab('clients')">👥 Clients</button>
+      <button class="admin-tab" id="admin-tab-contractors" onclick="switchAdminTab('contractors')">💼 Contractors</button>
+      <button class="admin-tab" id="admin-tab-pipeline" onclick="switchAdminTab('pipeline')">🎯 Pipeline</button>
+      <button class="admin-tab" id="admin-tab-chats" onclick="switchAdminTab('chats');loadAllChats()">💬 Live chats</button>
+      <button class="admin-tab" id="admin-tab-company" onclick="switchAdminTab('company')">⚙️ Company</button>
+    </div>
+
+    <!-- TAB CONTENT WRAPPERS -->
+    <div id="admin-section-stats">
     <div class="admin-stats-grid">
       <div class="admin-stat-card"><div class="stat-label">My websites this period</div><div class="stat-value" id="mgr-stat-mine">—</div></div>
       <div class="admin-stat-card"><div class="stat-label">My earnings this period</div><div class="stat-value green" id="mgr-stat-earnings">—</div></div>
@@ -476,6 +499,19 @@
         <button onclick="viewTOS()" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:9px 16px;font-family:var(--sans);font-size:12px;cursor:pointer;color:var(--ink-muted);">View Terms</button>
       </div>
     </div>
+
+    <!-- ADMIN MENU TABS -->
+    <div style="display:flex;gap:2px;background:var(--cream);border-radius:var(--radius-lg);padding:4px;margin-bottom:28px;flex-wrap:wrap;" id="admin-tabs">
+      <button class="admin-tab active" id="admin-tab-stats" onclick="switchAdminTab('stats')">📊 Overview</button>
+      <button class="admin-tab" id="admin-tab-clients" onclick="switchAdminTab('clients')">👥 Clients</button>
+      <button class="admin-tab" id="admin-tab-contractors" onclick="switchAdminTab('contractors')">💼 Contractors</button>
+      <button class="admin-tab" id="admin-tab-pipeline" onclick="switchAdminTab('pipeline')">🎯 Pipeline</button>
+      <button class="admin-tab" id="admin-tab-chats" onclick="switchAdminTab('chats');loadAllChats()">💬 Live chats</button>
+      <button class="admin-tab" id="admin-tab-company" onclick="switchAdminTab('company')">⚙️ Company</button>
+    </div>
+
+    <!-- TAB CONTENT WRAPPERS -->
+    <div id="admin-section-stats">
     <div class="admin-stats-grid">
       <div class="admin-stat-card"><div class="stat-label">Total clients</div><div class="stat-value" id="stat-clients">—</div></div>
       <div class="admin-stat-card"><div class="stat-label">Active websites</div><div class="stat-value" id="stat-active">—</div></div>
@@ -487,6 +523,9 @@
     </div>
     <div class="chart-wrap"><h4>📈 Revenue over time</h4><canvas id="revenue-chart" height="80"></canvas></div>
     <div class="chart-wrap" style="margin-top:20px;"><h4>💼 Contractor earnings vs my net (per pay period)</h4><p style="font-size:13px;color:var(--ink-muted);margin-bottom:12px;">Green = your net revenue &middot; Blue = contractor commissions paid out</p><canvas id="contractor-chart" height="80"></canvas></div>
+    </div><!-- end admin-section-stats -->
+
+    <div id="admin-section-clients" style="display:none;">
     <div class="admin-section" id="shared-pipeline-section">
       <h3>🎯 Sales Pipeline</h3>
       <p class="section-desc">Track potential clients. Claim a lead to take ownership and update its stage.</p>
@@ -574,6 +613,17 @@
       </div>
       <div class="invite-code-result" id="invite-result"><p>Website created! Send this invite code to your client:</p><div class="code" id="invite-code-display">——</div><small>They enter this when creating their account.</small></div>
     </div>
+    </div><!-- end admin-section-pipeline -->
+
+    <div id="admin-section-chats" style="display:none;">
+      <div class="admin-section">
+        <h3>💬 Live client chats</h3>
+        <p class="section-desc">Active conversations between clients and contractors during the build process.</p>
+        <div id="all-chats-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading chats...</p></div>
+      </div>
+    </div><!-- end admin-section-chats -->
+
+    <div id="admin-section-company" style="display:none;">
     <div class="admin-section">
       <h3>📩 Inquiries</h3>
       <p class="section-desc">All website requests. Claim an inquiry to assign it to yourself as the account manager.</p>
@@ -593,6 +643,9 @@
         </div>
       </div>
     </div>
+    </div><!-- end admin-section-clients -->
+
+    <div id="admin-section-contractors" style="display:none;">
     <div class="admin-section">
       <h3>📅 Pay period settings</h3>
       <p class="section-desc">Control the payment cycle for managers. Closing a period sends them their earnings receipt by email and resets their period stats.</p>

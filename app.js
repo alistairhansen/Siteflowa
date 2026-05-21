@@ -938,6 +938,7 @@ let revenueChart=null
 async function loadAdminData(){
   loadSiteSettingsForm()
   loadPaySettings()
+  setTimeout(initAdminTabs, 100)
   const token=getToken();if(!token)return
   try{
     const res=await fetch(API+'/admin/stats',{headers:{'Authorization':'Bearer '+token}})
@@ -1327,6 +1328,7 @@ function renderClientsTable(clients){
           <button class="action-btn" onclick="toggleWebsite('${c.website_id}',${!c.is_active})">${c.is_active?'Pause':'Activate'}</button>
           ${c.subdomain?'<a class="action-btn" href="/client/'+c.subdomain+'" target="_blank" style="text-decoration:none;">View site</a>':''}
           <button class="action-btn" style="background:var(--blue-light);border-color:var(--blue);color:var(--blue);" onclick="previewClientDashboard('${c.id}','${c.email}','${c.website_id||''}')">Preview</button>
+          <button class="action-btn" style="background:#f0f9ff;border-color:#0ea5e9;color:#0ea5e9;" onclick="openClientChat('${c.id}','${c.email}')">Chat</button>
           <button class="action-btn warn" onclick="showUpdateFeeModal('${c.id}')">Update Fee</button>
           <button class="action-btn danger" onclick="deleteClient('${c.id}','${c.email}')">Delete</button>
         </div>
@@ -2468,19 +2470,20 @@ async function loadHoldingPage(clientData, websiteData) {
       </div>`
 
   } else if (stage === 'deposit_paid' || stage === 'building') {
-    // Stage 2: Deposit paid, waiting for website
-    wrap.innerHTML = `
-      <div style="font-size:52px;margin-bottom:20px;">🔨</div>
-      <h2 style="font-family:var(--serif);font-size:clamp(26px,4vw,38px);letter-spacing:-0.025em;margin-bottom:14px;">We're building your website!</h2>
-      <p style="font-size:16px;color:var(--ink-light);line-height:1.7;margin-bottom:28px;">Your deposit has been received. Our team is now working on your website. We'll email you as soon as it's ready to preview.</p>
-      <div style="background:var(--accent-light);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:24px;">
-        <div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:4px;">What happens next</div>
-        <p style="font-size:13px;color:var(--ink-light);line-height:1.6;">Once your website is built we'll send you an email with a link to preview it right here in your account. You'll be able to check everything looks perfect before paying the remaining launch fee.</p>
-      </div>
-      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-        ${window._siteEmail ? '<a href="mailto:'+window._siteEmail+'" style="display:inline-flex;align-items:center;gap:6px;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:14px;color:var(--ink);text-decoration:none;">📧 Email us</a>' : ''}
-        ${window._sitePhone ? '<a href="tel:'+window._sitePhone.replace(/\\D/g,'')+'" style="display:inline-flex;align-items:center;gap:6px;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:14px;color:var(--ink);text-decoration:none;">📞 Call us</a>' : ''}
-      </div>`
+    var chatClientId = JSON.parse(atob(getToken().split('.')[1])).id
+    wrap.innerHTML = '<div style="font-size:52px;margin-bottom:20px;">🔨</div>'
+      + '<h2 style="font-family:var(--serif);font-size:clamp(26px,4vw,38px);margin-bottom:14px;">We\'re building your website!</h2>'
+      + '<p style="font-size:16px;color:var(--ink-light);line-height:1.7;margin-bottom:24px;">Your deposit has been received. Our team is now working on your website. We\'ll be in touch as soon as it\'s ready to preview.</p>'
+      + '<div style="background:white;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto;">'
+      + '<div style="background:var(--cream);padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;">💬 Chat with us</div>'
+      + '<div id="client-chat-messages" style="height:220px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;"></div>'
+      + '<div style="padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:8px;">'
+      + '<input type="text" id="client-chat-input" placeholder="Ask us anything about your website..." style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">'
+      + '<button onclick="sendClientMessage(\'' + chatClientId + '\')" style="background:var(--accent);color:white;border:none;padding:8px 16px;border-radius:var(--radius);font-family:var(--sans);font-size:13px;cursor:pointer;">Send</button>'
+      + '</div></div>'
+    document.getElementById('client-chat-input').addEventListener('keydown', function(e){ if(e.key==='Enter'){ sendClientMessage(chatClientId) } })
+    loadClientMessages()
+    setInterval(loadClientMessages, 8000)
 
   } else if (stage === 'preview_ready') {
     // Stage 3: Preview ready - show website in iframe + pay launch fee
@@ -2568,4 +2571,334 @@ function routeClientAfterLogin(clientData, websiteData, plan) {
     // Still in onboarding
     loadHoldingPage(clientData, websiteData)
   }
+}
+
+// ══════════════════════════════════════════════════════
+// ADMIN TAB SYSTEM
+// ══════════════════════════════════════════════════════
+const ADMIN_TAB_SECTIONS = {
+  stats: ['.admin-stats-grid', '.chart-wrap', '#admin-section-stats'],
+  clients: ['#shared-pipeline-section', '#admin-briefs-section', '.clients-table-wrap', '.admin-section:has(#clients-table-body)', '#admin-section-clients'],
+  contractors: ['#admin-section-contractors'],
+  pipeline: ['#admin-pipeline-section', '#admin-section-pipeline'],
+  chats: ['#admin-section-chats'],
+  company: ['#admin-section-company']
+}
+
+let currentAdminTab = 'stats'
+
+function switchAdminTab(tab) {
+  currentAdminTab = tab
+  // Update tab buttons
+  document.querySelectorAll('.admin-tab').forEach(btn => btn.classList.remove('active'))
+  const activeBtn = document.getElementById('admin-tab-' + tab)
+  if (activeBtn) activeBtn.classList.add('active')
+
+  // Show/hide sections based on tab
+  const adminPage = document.getElementById('page-admin')
+  if (!adminPage) return
+
+  // Get all admin sections
+  const allSections = adminPage.querySelectorAll('.admin-section, .admin-stats-grid, .chart-wrap, .clients-table-wrap')
+
+  // Define which sections belong to which tab by their content
+  allSections.forEach(section => {
+    section.style.display = 'none'
+  })
+
+  // Show relevant sections
+  if (tab === 'stats') {
+    adminPage.querySelectorAll('.admin-stats-grid, .chart-wrap').forEach(s => s.style.display = '')
+  } else if (tab === 'clients') {
+    const sections = adminPage.querySelectorAll('.admin-section')
+    sections.forEach(s => {
+      const h3 = s.querySelector('h3')
+      if (h3 && (h3.textContent.includes('client') || h3.textContent.includes('Client') ||
+          h3.textContent.includes('Create new') || h3.id === 'shared-pipeline-section' ||
+          s.id === 'shared-pipeline-section' || s.id === 'admin-briefs-section' ||
+          s.querySelector('#clients-table-body') || s.querySelector('.clients-table-wrap') ||
+          s.querySelector('#admin-inquiries-list'))) {
+        s.style.display = ''
+      }
+    })
+    adminPage.querySelectorAll('.clients-table-wrap').forEach(s => s.style.display = '')
+  } else if (tab === 'contractors') {
+    const sections = adminPage.querySelectorAll('.admin-section')
+    sections.forEach(s => {
+      const h3 = s.querySelector('h3')
+      if (h3 && (h3.textContent.includes('Pay period') || h3.textContent.includes('Contractor') ||
+          h3.textContent.includes('Staff') || h3.textContent.includes('contractor') ||
+          h3.textContent.includes('admin code') || h3.textContent.includes('Admin code') ||
+          h3.textContent.includes('Contractor code') || h3.textContent.includes('contractor code'))) {
+        s.style.display = ''
+      }
+    })
+  } else if (tab === 'pipeline') {
+    const sections = adminPage.querySelectorAll('.admin-section')
+    sections.forEach(s => {
+      if (s.id === 'shared-pipeline-section' || s.id === 'admin-pipeline-section' ||
+          s.id === 'admin-briefs-section') {
+        s.style.display = ''
+      }
+    })
+  } else if (tab === 'chats') {
+    const chatsSection = document.getElementById('admin-section-chats')
+    if (chatsSection) chatsSection.style.display = ''
+  } else if (tab === 'company') {
+    const sections = adminPage.querySelectorAll('.admin-section')
+    sections.forEach(s => {
+      const h3 = s.querySelector('h3')
+      if (h3 && (h3.textContent.includes('Site settings') || h3.textContent.includes('Inquiries') ||
+          h3.textContent.includes('Pay period') || h3.textContent.includes('Admin codes') ||
+          h3.textContent.includes('Company'))) {
+        s.style.display = ''
+      }
+    })
+  }
+}
+
+function initAdminTabs() {
+  // Hide all sections initially except stats
+  switchAdminTab('stats')
+}
+
+// ══════════════════════════════════════════════════════
+// MESSAGING SYSTEM
+// ══════════════════════════════════════════════════════
+let messagePollingInterval = null
+let currentChatClientId = null
+
+function openClientChat(clientId, clientEmail) {
+  currentChatClientId = clientId
+  const existing = document.getElementById('chat-modal')
+  if (existing) existing.remove()
+
+  const modal = document.createElement('div')
+  modal.id = 'chat-modal'
+  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.8);display:flex;align-items:center;justify-content:center;padding:20px;'
+
+  const box = document.createElement('div')
+  box.style.cssText = 'background:white;border-radius:16px;width:100%;max-width:560px;height:80vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.3);'
+  box.innerHTML = `
+    <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-family:var(--serif);font-size:18px;">Chat with ${clientEmail}</div>
+        <div style="font-size:12px;color:var(--ink-muted);">Messages are only available during the build process</div>
+      </div>
+      <button id="chat-close-btn" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-muted);">x</button>
+    </div>
+    <div id="chat-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;">
+      <p style="color:var(--ink-muted);font-size:13px;text-align:center;">Loading messages...</p>
+    </div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);">
+      <div style="display:flex;gap:8px;align-items:flex-end;">
+        <textarea id="chat-input" rows="2" placeholder="Type a message..." style="flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:14px;resize:none;outline:none;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage('${clientId}')}"></textarea>
+        <button onclick="sendChatMessage('${clientId}')" style="background:var(--accent);color:white;border:none;padding:10px 18px;border-radius:var(--radius);font-family:var(--sans);font-size:13px;cursor:pointer;white-space:nowrap;">Send</button>
+      </div>
+      <div style="font-size:11px;color:var(--ink-muted);margin-top:6px;">Press Enter to send &middot; Shift+Enter for new line</div>
+    </div>`
+
+  modal.appendChild(box)
+  document.body.appendChild(modal)
+
+  document.getElementById('chat-close-btn').onclick = function() {
+    clearInterval(messagePollingInterval)
+    modal.remove()
+    currentChatClientId = null
+  }
+
+  loadMessages(clientId)
+  messagePollingInterval = setInterval(() => loadMessages(clientId), 5000)
+}
+
+async function loadMessages(clientId) {
+  try {
+    const res = await fetch(API + '/messages/' + clientId, {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    const data = await res.json()
+    renderMessages(data.messages || [], clientId)
+  } catch(e) { console.error(e) }
+}
+
+function renderMessages(messages, clientId) {
+  const wrap = document.getElementById('chat-messages')
+  if (!wrap) return
+  const myId = getToken() ? JSON.parse(atob(getToken().split('.')[1])).id : null
+  const wasAtBottom = wrap.scrollHeight - wrap.scrollTop <= wrap.clientHeight + 50
+
+  if (!messages.length) {
+    wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:13px;text-align:center;margin-top:20px;">No messages yet. Start the conversation!</p>'
+    return
+  }
+
+  wrap.innerHTML = messages.map(m => {
+    const isMe = m.sender_id === myId
+    return `<div style="display:flex;flex-direction:column;align-items:${isMe?'flex-end':'flex-start'};">
+      <div style="max-width:80%;background:${isMe?'var(--accent)':'var(--cream)'};color:${isMe?'white':'var(--ink)'};border-radius:${isMe?'14px 14px 4px 14px':'14px 14px 14px 4px'};padding:10px 14px;font-size:14px;line-height:1.5;">
+        ${m.image_url ? '<img src="'+m.image_url+'" style="max-width:200px;border-radius:8px;margin-bottom:6px;display:block;">' : ''}
+        ${m.content}
+      </div>
+      <div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">${m.sender_email} &middot; ${new Date(m.created_at).toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit'})}</div>
+    </div>`
+  }).join('')
+
+  if (wasAtBottom) wrap.scrollTop = wrap.scrollHeight
+}
+
+async function sendChatMessage(clientId) {
+  const input = document.getElementById('chat-input')
+  const content = input?.value?.trim()
+  if (!content) return
+  try {
+    const res = await fetch(API + '/messages/' + clientId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ content })
+    })
+    const d = await res.json()
+    if (d.message) {
+      if (input) input.value = ''
+      loadMessages(clientId)
+    }
+  } catch(e) { alert('Could not send message') }
+}
+
+// Client-side chat (in holding page)
+async function loadClientMessages() {
+  const clientId = JSON.parse(atob(getToken().split('.')[1])).id
+  if (!clientId) return
+  try {
+    const res = await fetch(API + '/messages/' + clientId, {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    const data = await res.json()
+    renderClientMessages(data.messages || [], clientId)
+  } catch(e) { console.error(e) }
+}
+
+function renderClientMessages(messages, clientId) {
+  const wrap = document.getElementById('client-chat-messages')
+  if (!wrap) return
+  const myId = JSON.parse(atob(getToken().split('.')[1])).id
+  if (!messages.length) {
+    wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:13px;text-align:center;">No messages yet. Ask us anything about your website!</p>'
+    return
+  }
+  wrap.innerHTML = messages.map(m => {
+    const isMe = m.sender_id === myId
+    return `<div style="display:flex;flex-direction:column;align-items:${isMe?'flex-end':'flex-start'};">
+      <div style="max-width:80%;background:${isMe?'var(--accent)':'var(--cream)'};color:${isMe?'white':'var(--ink)'};border-radius:${isMe?'14px 14px 4px 14px':'14px 14px 14px 4px'};padding:10px 14px;font-size:14px;line-height:1.5;">${m.content}</div>
+      <div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">${isMe?'You':m.sender_email} &middot; ${new Date(m.created_at).toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit'})}</div>
+    </div>`
+  }).join('')
+  wrap.scrollTop = wrap.scrollHeight
+}
+
+async function sendClientMessage(clientId) {
+  const input = document.getElementById('client-chat-input')
+  const content = input?.value?.trim()
+  if (!content) return
+  try {
+    const res = await fetch(API + '/messages/' + clientId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ content })
+    })
+    if (input) input.value = ''
+    loadClientMessages()
+  } catch(e) { alert('Could not send') }
+}
+
+// ══════════════════════════════════════════════════════
+// ALL CHATS OVERVIEW (admin)
+// ══════════════════════════════════════════════════════
+async function loadAllChats() {
+  const wrap = document.getElementById('all-chats-wrap')
+  if (!wrap) return
+  try {
+    const res = await fetch(API + '/admin/all-chats', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    const data = await res.json()
+    const chats = data.chats || []
+    if (!chats.length) {
+      wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No active chats right now.</p>'
+      return
+    }
+    wrap.innerHTML = chats.map(c => `
+      <div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;${parseInt(c.unread)>0?'background:var(--accent-light);border-color:var(--accent);':''}">
+        <div>
+          <div style="font-weight:600;font-size:14px;">${c.business_name||c.client_email} ${parseInt(c.unread)>0?'<span style="background:var(--accent);color:white;border-radius:20px;padding:1px 8px;font-size:11px;margin-left:6px;">'+c.unread+' new</span>':''}</div>
+          <div style="font-size:12px;color:var(--ink-muted);margin-top:3px;">
+            Client: ${c.client_email} &middot; Contractor: ${c.contractor_email||'Unassigned'} &middot; ${c.message_count||0} messages
+          </div>
+          <div style="font-size:11px;color:var(--ink-muted);">Stage: ${c.onboarding_stage} &middot; Last message: ${c.last_message?new Date(c.last_message).toLocaleDateString('en-CA',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'None'}</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="action-btn" onclick="openClientChat('${c.client_id}','${c.client_email}')">Open chat</button>
+          <button class="action-btn" style="background:var(--blue-light);border-color:var(--blue);color:var(--blue);" onclick="showReassignModal('${c.client_id}','${c.business_name||c.client_email}','${c.contractor_email||''}')">Reassign</button>
+        </div>
+      </div>`).join('')
+  } catch(e) { console.error(e) }
+}
+
+// ══════════════════════════════════════════════════════
+// REASSIGN CONTRACTOR
+// ══════════════════════════════════════════════════════
+async function showReassignModal(clientId, businessName, currentContractor) {
+  // Load contractors list
+  try {
+    const res = await fetch(API + '/admin/manager-codes', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    const data = await res.json()
+    const contractors = data.managers || []
+
+    const existing = document.getElementById('reassign-modal')
+    if (existing) existing.remove()
+
+    const modal = document.createElement('div')
+    modal.id = 'reassign-modal'
+    modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.75);display:flex;align-items:center;justify-content:center;padding:20px;'
+
+    const box = document.createElement('div')
+    box.style.cssText = 'background:white;border-radius:16px;max-width:440px;width:100%;padding:28px;box-shadow:0 24px 60px rgba(0,0,0,0.25);'
+    box.innerHTML = `<h3 style="font-family:var(--serif);font-size:20px;margin-bottom:8px;">Reassign contractor</h3>
+      <p style="font-size:13px;color:var(--ink-muted);margin-bottom:16px;">Reassigning for: <strong>${businessName}</strong><br>Current contractor: ${currentContractor||'None'}</p>
+      <div class="dash-field" style="margin-bottom:16px;">
+        <label>New contractor</label>
+        <select id="reassign-select" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:14px;">
+          ${contractors.map(c => '<option value="'+c.id+'"'+(c.email===currentContractor?' selected':'')+'>'+c.email+'</option>').join('')}
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="dash-save" id="reassign-confirm-btn">Reassign</button>
+        <button id="reassign-cancel-btn" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:10px 20px;font-family:var(--sans);font-size:14px;cursor:pointer;">Cancel</button>
+      </div>`
+
+    modal.appendChild(box)
+    document.body.appendChild(modal)
+
+    document.getElementById('reassign-cancel-btn').onclick = () => modal.remove()
+    document.getElementById('reassign-confirm-btn').onclick = async function() {
+      const contractorId = document.getElementById('reassign-select').value
+      try {
+        // Get website_id for this client
+        const statsRes = await fetch(API + '/admin/stats', { headers: { 'Authorization': 'Bearer ' + getToken() } })
+        const statsData = await statsRes.json()
+        const client = statsData.clients?.find(c => c.id === clientId)
+        if (!client?.website_id) { alert('Website not found'); return }
+
+        const res = await fetch(API + '/admin/reassign-contractor', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+          body: JSON.stringify({ website_id: client.website_id, contractor_id: contractorId })
+        })
+        const d = await res.json()
+        if (d.message) { modal.remove(); alert('Contractor reassigned!'); loadAllChats(); loadAdminData() }
+        else alert(d.error || 'Failed')
+      } catch(e) { alert('Could not connect') }
+    }
+  } catch(e) { alert('Could not load contractors') }
 }
