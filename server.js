@@ -139,19 +139,19 @@ app.post('/forgot-password', async (req, res) => {
       'INSERT INTO password_resets (client_id, token, expires_at) VALUES ($1, $2, $3)',
       [result.rows[0].id, token, expires]
     )
-    const resetLink = `https://siteflowa.onrender.com?token=${token}`
+    const resetLink = `https://sitefloa.onrender.com?token=${token}`
     await resend.emails.send({
-      from: 'Siteflowa <onboarding@resend.dev>',
+      from: 'Sitefloa <onboarding@resend.dev>',
       to: emailLower,
-      subject: 'Reset your Siteflowa password',
+      subject: 'Reset your Sitefloa password',
       html: `
         <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;">
           <h2 style="font-family:Georgia,serif;color:#0f1117;">Reset your password</h2>
-          <p style="color:#4a4f5e;line-height:1.6;">We received a request to reset your Siteflowa password. Click the button below to choose a new one.</p>
+          <p style="color:#4a4f5e;line-height:1.6;">We received a request to reset your Sitefloa password. Click the button below to choose a new one.</p>
           <a href="${resetLink}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">Reset my password</a>
           <p style="color:#8b909e;font-size:13px;">This link expires in 1 hour. If you did not request this, you can safely ignore this email.</p>
           <hr style="border:none;border-top:1px solid #e5e3de;margin:24px 0;">
-          <p style="color:#8b909e;font-size:12px;">Siteflowa - Professional websites for small business</p>
+          <p style="color:#8b909e;font-size:12px;">Sitefloa - Professional websites for small business</p>
         </div>
       `
     })
@@ -263,7 +263,7 @@ app.post('/notify-downgrade', authMiddleware, async (req, res) => {
     const emails = staff.rows.map(s => s.email)
     if (emails.length > 0) {
       await resend.emails.send({
-        from: 'Siteflowa <onboarding@resend.dev>',
+        from: 'Sitefloa <onboarding@resend.dev>',
         to: emails,
         subject: 'Plan downgrade - ' + (siteInfo?.business_name || clientInfo.email),
         html: `
@@ -273,7 +273,7 @@ app.post('/notify-downgrade', authMiddleware, async (req, res) => {
             <div style="background:#fff3e0;border:1px solid #e65100;border-radius:10px;padding:20px;margin:20px 0;">
               <strong>${siteInfo?.business_name || 'Unknown'}</strong><br>
               <span style="color:#4a4f5e;">${clientInfo.email}</span><br>
-              <span style="color:#4a4f5e;">Domain: ${siteInfo?.subdomain || '-'}.siteflowa.com</span>
+              <span style="color:#4a4f5e;">Domain: ${siteInfo?.subdomain || '-'}.sitefloa.com</span>
             </div>
             ${(from_plan === 'standard' || from_plan === 'premium') && to_plan === 'basic' ? `
               <div style="background:#ffebee;border:1px solid #e53935;border-radius:10px;padding:16px;margin-top:16px;">
@@ -703,9 +703,9 @@ app.post('/admin/close-period', authMiddleware, adminMiddleware, async (req, res
     await pool.query('UPDATE site_settings SET current_period_start=$1', [periodEnd])
     try {
       await resend.emails.send({
-        from: 'Siteflowa <onboarding@resend.dev>',
+        from: 'Sitefloa <onboarding@resend.dev>',
         to: manager.email,
-        subject: 'Your Siteflowa earnings - ' + periodStart.toLocaleDateString() + ' to ' + periodEnd.toLocaleDateString(),
+        subject: 'Your Sitefloa earnings - ' + periodStart.toLocaleDateString() + ' to ' + periodEnd.toLocaleDateString(),
         html: `
           <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
             <h2 style="font-family:Georgia,serif;color:#0f1117;">Your earnings summary</h2>
@@ -859,11 +859,11 @@ app.post('/admin/send-asset-form', authMiddleware, staffMiddleware, async (req, 
       'INSERT INTO asset_forms (email, plan, token, status, sent_by, sent_by_email) VALUES ($1,$2,$3,$4,$5,$6)',
       [email, plan||'standard', token, 'sent', req.user.id, req.user.email]
     )
-    const formUrl = 'https://siteflowa.onrender.com?assetform=' + token
+    const formUrl = 'https://sitefloa.onrender.com?assetform=' + token
     await resend.emails.send({
-      from: 'Siteflowa <onboarding@resend.dev>',
+      from: 'Sitefloa <onboarding@resend.dev>',
       to: email,
-      subject: 'Your Siteflowa website brief form',
+      subject: 'Your Sitefloa website brief form',
       html: `
         <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;">
           <h2 style="font-family:Georgia,serif;color:#0f1117;">Let's build your website</h2>
@@ -897,7 +897,7 @@ app.post('/asset-form/:token/submit', async (req, res) => {
     const form = await pool.query('SELECT * FROM asset_forms WHERE token=$1', [req.params.token])
     if (staff.rows.length > 0) {
       await resend.emails.send({
-        from: 'Siteflowa <onboarding@resend.dev>',
+        from: 'Sitefloa <onboarding@resend.dev>',
         to: staff.rows.map(s => s.email),
         subject: 'Website brief submitted - ' + form.rows[0].email,
         html: `
@@ -947,15 +947,15 @@ app.post('/create-deposit', authMiddleware, async (req, res) => {
       line_items: [{
         price_data: {
           currency: 'cad',
-          product_data: { name: 'Siteflowa Website Deposit', description: 'Deposit to begin building your website. Remaining balance due at launch.' },
+          product_data: { name: 'Sitefloa Website Deposit', description: 'Deposit to begin building your website. Remaining balance due at launch.' },
           unit_amount: Math.round(amount * 100)
         },
         quantity: 1
       }],
       mode: 'payment',
       payment_intent_data: { metadata: { client_id: req.user.id, payment_type: 'deposit', plan } },
-      success_url: 'https://siteflowa.onrender.com?deposit=success',
-      cancel_url: 'https://siteflowa.onrender.com?deposit=cancelled',
+      success_url: 'https://sitefloa.onrender.com?deposit=success',
+      cancel_url: 'https://sitefloa.onrender.com?deposit=cancelled',
       metadata: { client_id: req.user.id, payment_type: 'deposit' }
     })
     res.json({ url: session.url })
@@ -970,15 +970,15 @@ app.post('/admin/send-activation', authMiddleware, adminMiddleware, async (req, 
     await pool.query('UPDATE clients SET activation_code=$1 WHERE id=$2', [code, client_id])
     const client = await pool.query('SELECT * FROM clients WHERE id=$1', [client_id])
     await resend.emails.send({
-      from: 'Siteflowa <onboarding@resend.dev>',
+      from: 'Sitefloa <onboarding@resend.dev>',
       to: client.rows[0].email,
-      subject: 'Your Siteflowa website is ready!',
+      subject: 'Your Sitefloa website is ready!',
       html: `
         <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;">
           <h2 style="font-family:Georgia,serif;color:#1a6b5a;">Your website is ready to launch!</h2>
           <p style="color:#4a4f5e;line-height:1.6;">We've finished building your website. Log in to preview it and pay your launch fee to go live.</p>
           <p style="color:#4a4f5e;">Your activation code: <strong style="font-size:20px;letter-spacing:0.1em;">${code}</strong></p>
-          <a href="https://siteflowa.onrender.com" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">Preview your website</a>
+          <a href="https://sitefloa.onrender.com" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">Preview your website</a>
         </div>
       `
     })
@@ -1017,9 +1017,9 @@ app.post('/admin/send-activation-email', authMiddleware, staffMiddleware, async 
   try {
     const siteSettings = await pool.query('SELECT * FROM site_settings LIMIT 1')
     const s = siteSettings.rows[0] || {}
-    const companyName = s.company_name || 'Siteflowa'
+    const companyName = s.company_name || 'Sitefloa'
     await resend.emails.send({
-      from: 'Siteflowa <onboarding@resend.dev>',
+      from: 'Sitefloa <onboarding@resend.dev>',
       to: email,
       subject: 'Your website is ready — create your account',
       html: `
@@ -1029,7 +1029,7 @@ app.post('/admin/send-activation-email', authMiddleware, staffMiddleware, async 
           <div style="background:#f0f7f5;border-radius:12px;padding:24px;margin:24px 0;">
             <div style="font-size:13px;font-weight:700;color:#1a6b5a;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:16px;">How to view your website</div>
             <ol style="color:#4a4f5e;font-size:14px;line-height:2;padding-left:20px;">
-              <li>Go to <a href="https://siteflowa.onrender.com" style="color:#1a6b5a;">siteflowa.onrender.com</a></li>
+              <li>Go to <a href="https://sitefloa.onrender.com" style="color:#1a6b5a;">sitefloa.onrender.com</a></li>
               <li>Click the <strong>Client Login</strong> button in the top right</li>
               <li>Click <strong>Create account</strong> and enter your email and a password</li>
               <li>When asked for your activation code, enter: <strong style="font-size:18px;letter-spacing:0.1em;color:#1a6b5a;">${activation_code}</strong></li>
@@ -1037,7 +1037,7 @@ app.post('/admin/send-activation-email', authMiddleware, staffMiddleware, async 
             </ol>
           </div>
           <p style="color:#4a4f5e;font-size:14px;line-height:1.6;">Once you've had a look, you can approve it to go live or request any changes directly from your account.</p>
-          <a href="https://siteflowa.onrender.com" style="display:inline-block;margin:20px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">View my website preview</a>
+          <a href="https://sitefloa.onrender.com" style="display:inline-block;margin:20px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">View my website preview</a>
           <hr style="border:none;border-top:1px solid #e5e3de;margin:24px 0;">
           <p style="color:#8b909e;font-size:12px;">${companyName} — Professional websites for small business</p>
         </div>
@@ -1049,7 +1049,7 @@ app.post('/admin/send-activation-email', authMiddleware, staffMiddleware, async 
 
 // ── HEALTH CHECK ────────────────────────────────────────
 app.get('/health', async (req, res) => {
-  try { await pool.query('SELECT 1'); res.json({ message: 'Siteflowa server running!' }) }
+  try { await pool.query('SELECT 1'); res.json({ message: 'Sitefloa server running!' }) }
   catch (err) { res.status(500).json({ error: 'DB connection failed' }) }
 })
 
@@ -1089,7 +1089,7 @@ app.post('/create-checkout', authMiddleware, async (req, res) => {
           price_data: {
             currency: 'cad',
             product_data: {
-              name: 'Siteflowa ' + (planNames[plan] || 'Standard') + ' Plan — Website Setup',
+              name: 'Sitefloa ' + (planNames[plan] || 'Standard') + ' Plan — Website Setup',
               description: 'One-time website build fee for ' + (business_name || 'your business'),
             },
             unit_amount: Math.round(setup_fee * 100),
@@ -1100,7 +1100,7 @@ app.post('/create-checkout', authMiddleware, async (req, res) => {
           price_data: {
             currency: 'cad',
             product_data: {
-              name: 'Siteflowa Monthly Subscription',
+              name: 'Sitefloa Monthly Subscription',
               description: 'First month free — billing starts 30 days from today',
             },
             unit_amount: 0,
@@ -1114,8 +1114,8 @@ app.post('/create-checkout', authMiddleware, async (req, res) => {
         trial_period_days: 30,
         metadata: { client_id: req.user.id, plan: plan }
       },
-      success_url: 'https://siteflowa.onrender.com?payment=success&session_id={CHECKOUT_SESSION_ID}',
-      cancel_url: 'https://siteflowa.onrender.com?payment=cancelled',
+      success_url: 'https://sitefloa.onrender.com?payment=success&session_id={CHECKOUT_SESSION_ID}',
+      cancel_url: 'https://sitefloa.onrender.com?payment=cancelled',
       metadata: { client_id: req.user.id, plan: plan }
     })
 
@@ -1179,7 +1179,7 @@ app.post('/billing-portal', authMiddleware, async (req, res) => {
     if (!customerId) return res.status(400).json({ error: 'No billing account found' })
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: 'https://siteflowa.onrender.com'
+      return_url: 'https://sitefloa.onrender.com'
     })
     res.json({ url: session.url })
   } catch (err) { res.status(500).json({ error: err.message }) }
