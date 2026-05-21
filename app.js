@@ -938,7 +938,6 @@ let revenueChart=null
 async function loadAdminData(){
   loadSiteSettingsForm()
   loadPaySettings()
-  setTimeout(initAdminTabs, 100)
   const token=getToken();if(!token)return
   try{
     const res=await fetch(API+'/admin/stats',{headers:{'Authorization':'Bearer '+token}})
@@ -2570,91 +2569,6 @@ function routeClientAfterLogin(clientData, websiteData, plan) {
   } else {
     // Still in onboarding
     loadHoldingPage(clientData, websiteData)
-  }
-}
-
-// ══════════════════════════════════════════════════════
-// ADMIN TAB SYSTEM - Simple ID-based approach
-// ══════════════════════════════════════════════════════
-let currentAdminTab = 'stats'
-
-// Map of tab name -> array of element IDs/selectors to show
-const TAB_SHOW = {
-  stats: ['admin-section-stats'],
-  clients: ['shared-pipeline-section', 'shared-briefs-section', 'admin-clients-table-wrap', 'as-clients'],
-  contractors: ['as-contractors', 'as-contractors2', 'as-contractors3'],
-  pipeline: ['admin-pipeline-section', 'admin-briefs-section'],
-  chats: ['admin-section-chats'],
-  company: ['as-company', 'as-company2']
-}
-
-// All possible IDs across all tabs
-const ALL_TAB_IDS = Object.values(TAB_SHOW).flat()
-
-function findSectionByH3Id(id) {
-  const h3 = document.getElementById(id)
-  return h3 ? h3.closest('.admin-section') || h3.closest('[class*="admin"]') || h3.parentElement : null
-}
-
-function initAdminTabs() {
-  switchAdminTab('stats')
-}
-
-function switchAdminTab(tab) {
-  currentAdminTab = tab
-
-  // Update buttons
-  document.querySelectorAll('.admin-tab').forEach(btn => btn.classList.remove('active'))
-  const activeBtn = document.getElementById('admin-tab-' + tab)
-  if (activeBtn) activeBtn.classList.add('active')
-
-  // Hide everything first
-  ALL_TAB_IDS.forEach(id => {
-    // Try direct ID
-    const direct = document.getElementById(id)
-    if (direct) {
-      const section = direct.closest('.admin-section') || direct
-      section.style.display = 'none'
-    }
-  })
-
-  // Hide stats and table
-  const statsEl = document.getElementById('admin-section-stats')
-  if (statsEl) statsEl.style.display = 'none'
-  const tableEl = document.getElementById('admin-clients-table-wrap')
-  if (tableEl) tableEl.style.display = 'none'
-  document.querySelectorAll('.chart-wrap').forEach(el => el.style.display = 'none')
-  const chatsEl = document.getElementById('admin-section-chats')
-  if (chatsEl) chatsEl.style.display = 'none'
-
-  // Show tab content
-  const toShow = TAB_SHOW[tab] || []
-  toShow.forEach(id => {
-    const el = document.getElementById(id)
-    if (el) {
-      // If it's an h3 marker, show the parent section
-      const section = el.tagName === 'H3' ? el.closest('.admin-section') : el
-      if (section) section.style.display = ''
-    }
-  })
-
-  // Stats tab also shows charts
-  if (tab === 'stats') {
-    const statsEl = document.getElementById('admin-section-stats')
-    if (statsEl) statsEl.style.display = ''
-    document.querySelectorAll('.chart-wrap').forEach(el => el.style.display = '')
-  }
-
-  // Clients tab also shows table
-  if (tab === 'clients') {
-    const tableEl = document.getElementById('admin-clients-table-wrap')
-    if (tableEl) tableEl.style.display = ''
-  }
-
-  // Chats tab
-  if (tab === 'chats') {
-    const chatsEl = document.getElementById('admin-section-chats')
-    if (chatsEl) chatsEl.style.display = ''
   }
 }
 
