@@ -2576,90 +2576,67 @@ function routeClientAfterLogin(clientData, websiteData, plan) {
 // ══════════════════════════════════════════════════════
 // ADMIN TAB SYSTEM
 // ══════════════════════════════════════════════════════
-const ADMIN_TAB_SECTIONS = {
-  stats: ['.admin-stats-grid', '.chart-wrap', '#admin-section-stats'],
-  clients: ['#shared-pipeline-section', '#admin-briefs-section', '.clients-table-wrap', '.admin-section:has(#clients-table-body)', '#admin-section-clients'],
-  contractors: ['#admin-section-contractors'],
-  pipeline: ['#admin-pipeline-section', '#admin-section-pipeline'],
-  chats: ['#admin-section-chats'],
-  company: ['#admin-section-company']
-}
-
 let currentAdminTab = 'stats'
 
-function switchAdminTab(tab) {
-  currentAdminTab = tab
-  // Update tab buttons
-  document.querySelectorAll('.admin-tab').forEach(btn => btn.classList.remove('active'))
-  const activeBtn = document.getElementById('admin-tab-' + tab)
-  if (activeBtn) activeBtn.classList.add('active')
+// Each section gets a data-tab attribute via JS on init
+const SECTION_TAB_MAP = [
+  { keywords: ['clients-table-body', 'Create new client'], tab: 'clients' },
+  { keywords: ['shared-pipeline-section', 'admin-briefs-section'], tab: 'clients' },
+  { keywords: ['Pay period settings', 'Contractor performance', 'Staff performance', 'Contractor code', 'Admin code', 'pay-cycle'], tab: 'contractors' },
+  { keywords: ['admin-pipeline-section'], tab: 'pipeline' },
+  { keywords: ['admin-section-chats', 'all-chats-wrap'], tab: 'chats' },
+  { keywords: ['Site settings', 'Inquiries', 'site-settings-form', 'admin-inquiries'], tab: 'company' },
+]
 
-  // Show/hide sections based on tab
+function initAdminTabs() {
   const adminPage = document.getElementById('page-admin')
   if (!adminPage) return
 
-  // Get all admin sections
-  const allSections = adminPage.querySelectorAll('.admin-section, .admin-stats-grid, .chart-wrap, .clients-table-wrap')
-
-  // Define which sections belong to which tab by their content
-  allSections.forEach(section => {
-    section.style.display = 'none'
+  // Tag all sections with their tab
+  adminPage.querySelectorAll('.admin-section, .admin-section-chats-wrap, #admin-section-chats').forEach(section => {
+    const html = section.innerHTML + section.id
+    let assigned = 'stats'
+    for (const rule of SECTION_TAB_MAP) {
+      if (rule.keywords.some(k => html.includes(k) || section.id === k.replace('#',''))) {
+        assigned = rule.tab
+        break
+      }
+    }
+    section.setAttribute('data-tab', assigned)
   })
 
-  // Show relevant sections
-  if (tab === 'stats') {
-    adminPage.querySelectorAll('.admin-stats-grid, .chart-wrap').forEach(s => s.style.display = '')
-  } else if (tab === 'clients') {
-    const sections = adminPage.querySelectorAll('.admin-section')
-    sections.forEach(s => {
-      const h3 = s.querySelector('h3')
-      if (h3 && (h3.textContent.includes('client') || h3.textContent.includes('Client') ||
-          h3.textContent.includes('Create new') || h3.id === 'shared-pipeline-section' ||
-          s.id === 'shared-pipeline-section' || s.id === 'admin-briefs-section' ||
-          s.querySelector('#clients-table-body') || s.querySelector('.clients-table-wrap') ||
-          s.querySelector('#admin-inquiries-list'))) {
-        s.style.display = ''
-      }
-    })
-    adminPage.querySelectorAll('.clients-table-wrap').forEach(s => s.style.display = '')
-  } else if (tab === 'contractors') {
-    const sections = adminPage.querySelectorAll('.admin-section')
-    sections.forEach(s => {
-      const h3 = s.querySelector('h3')
-      if (h3 && (h3.textContent.includes('Pay period') || h3.textContent.includes('Contractor') ||
-          h3.textContent.includes('Staff') || h3.textContent.includes('contractor') ||
-          h3.textContent.includes('admin code') || h3.textContent.includes('Admin code') ||
-          h3.textContent.includes('Contractor code') || h3.textContent.includes('contractor code'))) {
-        s.style.display = ''
-      }
-    })
-  } else if (tab === 'pipeline') {
-    const sections = adminPage.querySelectorAll('.admin-section')
-    sections.forEach(s => {
-      if (s.id === 'shared-pipeline-section' || s.id === 'admin-pipeline-section' ||
-          s.id === 'admin-briefs-section') {
-        s.style.display = ''
-      }
-    })
-  } else if (tab === 'chats') {
-    const chatsSection = document.getElementById('admin-section-chats')
-    if (chatsSection) chatsSection.style.display = ''
-  } else if (tab === 'company') {
-    const sections = adminPage.querySelectorAll('.admin-section')
-    sections.forEach(s => {
-      const h3 = s.querySelector('h3')
-      if (h3 && (h3.textContent.includes('Site settings') || h3.textContent.includes('Inquiries') ||
-          h3.textContent.includes('Pay period') || h3.textContent.includes('Admin codes') ||
-          h3.textContent.includes('Company'))) {
-        s.style.display = ''
-      }
-    })
-  }
+  // Stats grid and charts always show in stats
+  adminPage.querySelectorAll('.admin-stats-grid, .chart-wrap').forEach(s => s.setAttribute('data-tab', 'stats'))
+
+  switchAdminTab('stats')
 }
 
-function initAdminTabs() {
-  // Hide all sections initially except stats
-  switchAdminTab('stats')
+function switchAdminTab(tab) {
+  currentAdminTab = tab
+
+  // Update buttons
+  document.querySelectorAll('.admin-tab').forEach(btn => btn.classList.remove('active'))
+  const btn = document.getElementById('admin-tab-' + tab)
+  if (btn) btn.classList.add('active')
+
+  const adminPage = document.getElementById('page-admin')
+  if (!adminPage) return
+
+  // Show/hide everything
+  adminPage.querySelectorAll('[data-tab]').forEach(el => {
+    el.style.display = el.getAttribute('data-tab') === tab ? '' : 'none'
+  })
+
+  // Special: chats section
+  const chatsSection = document.getElementById('admin-section-chats')
+  if (chatsSection) {
+    chatsSection.style.display = tab === 'chats' ? '' : 'none'
+  }
+
+  // clients table wrap has no data-tab - show in clients tab
+  adminPage.querySelectorAll('.clients-table-wrap').forEach(el => {
+    el.style.display = tab === 'clients' ? '' : 'none'
+  })
 }
 
 // ══════════════════════════════════════════════════════
