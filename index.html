@@ -62,15 +62,13 @@
       <h2 class="section-title">How it works</h2>
       <p class="section-sub" style="max-width:560px;">From first contact to a live website in just a few simple steps.</p>
       <div class="flow-steps">
-        <div class="flow-step"><div class="flow-num">1</div><div class="flow-icon">🎨</div><h3>We show you a demo</h3><p>We build a custom demo based on your business type so you can see exactly what yours will look like before committing.</p></div>
+        <div class="flow-step"><div class="flow-num">1</div><div class="flow-icon">📋</div><h3>Fill in your brief</h3><p>A simple form with your business details, photos, hours, and anything you want included on your site.</p></div>
         <div class="flow-arrow">→</div>
-        <div class="flow-step"><div class="flow-num">2</div><div class="flow-icon">📋</div><h3>You fill in your brief</h3><p>A simple form with your business details, photos, hours, and anything you want included on your site.</p></div>
+        <div class="flow-step"><div class="flow-num">2</div><div class="flow-icon">💳</div><h3>Pay your deposit</h3><p>A small deposit to get us started — this comes off your total launch fee, not on top of it.</p></div>
         <div class="flow-arrow">→</div>
-        <div class="flow-step"><div class="flow-num">3</div><div class="flow-icon">💳</div><h3>Pay your deposit</h3><p>A small deposit confirms your order and gets us building your website right away.</p></div>
+        <div class="flow-step"><div class="flow-num">3</div><div class="flow-icon">🔨</div><h3>We build your website</h3><p>We build your website and send it to your account to review. You check everything looks exactly right.</p></div>
         <div class="flow-arrow">→</div>
-        <div class="flow-step"><div class="flow-num">4</div><div class="flow-icon">🔨</div><h3>We build it</h3><p>We build your website and send it to your account to review. You check everything looks exactly right.</p></div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-step"><div class="flow-num">5</div><div class="flow-icon">🚀</div><h3>Pay and go live</h3><p>Happy with it? Pay the remaining launch fee, activate your account, and your website goes live instantly.</p></div>
+        <div class="flow-step"><div class="flow-num">4</div><div class="flow-icon">✅</div><h3>Approve and pay the rest</h3><p>Happy with it? Pay the remaining launch fee (deposit already deducted), activate your account, and go live instantly.</p></div>
       </div>
     </div>
   </section>
@@ -224,7 +222,8 @@
   <div class="payment-page">
     <div class="hero-eyebrow">One last step</div>
     <h2>Activate your website</h2>
-    <p style="font-size:15px;color:var(--ink-muted);margin-bottom:36px;">Pay the one-time build fee and start your subscription to go live.</p>
+    <p style="font-size:15px;color:var(--ink-muted);margin-bottom:16px;">Pay the one-time build fee and start your subscription to go live.</p>
+    <div id="payment-plan-badge" style="display:inline-block;background:var(--accent-light);color:var(--accent);font-size:13px;font-weight:600;padding:5px 18px;border-radius:20px;margin-bottom:24px;text-transform:capitalize;"></div>
     <div class="payment-card">
       <h3>Order summary</h3>
       <div class="price-line"><span>Website build fee (one-time)</span><span class="amount" id="pay-setup-fee">$299</span></div>
@@ -433,7 +432,7 @@
     <div class="dashboard-wrap" style="margin-top:24px;">
       <div class="dashboard-header">
         <div class="logo"><svg class="logo-flower-sm" viewBox="0 0 28 28" fill="none"><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(60 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(120 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(180 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(240 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(300 14 14)"/><circle cx="14" cy="14" r="4" fill="#f9e4ff"/><circle cx="14" cy="14" r="2.5" fill="#ce93d8"/></svg>Sitefloa<span>.</span> Clients</div>
-        <div class="user-badge"><div class="avatar manager" id="mgr-avatar">MG</div><span id="mgr-email-display">Manager</span><span class="role-badge manager">Manager</span></div>
+        <div class="user-badge"><div class="avatar manager" id="mgr-avatar">MG</div><span id="mgr-email-display">Contractor</span><span class="role-badge contractor">Contractor</span></div>
       </div>
       <div style="padding:24px;overflow-x:auto;">
         <table class="clients-table">
@@ -562,8 +561,8 @@
       <h3>👥 Staff access</h3>
       <p class="section-desc">Create invite codes for managers and additional admins.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-        <div><div style="font-size:13px;font-weight:600;color:var(--purple);margin-bottom:10px;">Manager codes</div>
-          <div class="manager-code-row"><div class="dash-field"><label>New manager code</label><input type="text" id="new-manager-code" placeholder="e.g. Staff2026"></div><button class="btn-purple" onclick="createManagerCode()">Create</button></div>
+        <div><div style="font-size:13px;font-weight:600;color:var(--purple);margin-bottom:10px;">Contractor codes</div>
+          <div class="manager-code-row"><div class="dash-field"><label>New contractor code</label><input type="text" id="new-manager-code" placeholder="e.g. Staff2026"></div><button class="btn-purple" onclick="createManagerCode()">Create</button></div>
           <div class="manager-codes-list" id="manager-codes-list"><span style="font-size:13px;color:var(--ink-muted);">Loading...</span></div>
         </div>
         <div><div style="font-size:13px;font-weight:600;color:#b71c1c;margin-bottom:10px;">Admin codes</div>

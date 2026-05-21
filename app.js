@@ -1,4 +1,4 @@
-const API='https://sitefloa.onrender.com'
+const API='https://siteflowa.onrender.com'
 let currentWebsite=null,setupFee=299,monthlyFee=49,discountApplied=false,siteSettings={},demoStep=0,demoAnswers={}
 const SECTIONS=['gallery','hours','contact','services','menu','team']
 const SECTION_LABELS={gallery:'🖼️ Gallery',hours:'🕐 Hours',contact:'📞 Contact',services:'🔧 Services',menu:'🍽️ Menu',team:'👥 Team'}
@@ -522,6 +522,12 @@ async function doResetPassword(){
 
 function showPaymentPage(website,plan){
   localStorage.setItem('wc_plan',plan||'standard')
+  const badge=document.getElementById('payment-plan-badge')
+  if(badge){
+    const names={basic:'Basic plan',standard:'Standard plan',premium:'Premium plan'}
+    badge.textContent=names[plan||'standard']||plan
+    badge.style.display='inline-block'
+  }
   setupFee=website?website.setup_fee||299:299
   monthlyFee=website?website.monthly_fee||49:49
   discountApplied=false
@@ -1000,7 +1006,7 @@ function renderChart(rows){
 }
 function renderStaffList(managers){
   const wrap=document.getElementById('staff-list')
-  if(!managers||!managers.length){wrap.innerHTML='<p style="color:var(--ink-muted);font-size:14px;">No managers yet.</p>';return}
+  if(!managers||!managers.length){wrap.innerHTML='<p style="color:var(--ink-muted);font-size:14px;">No contractors yet.</p>';return}
   wrap.innerHTML=managers.map(m=>{
     const total=parseFloat(m.total_brought_in)||0,commission=Math.round(total*(m.commission_rate||10)/100)
     return`<div class="staff-row">
@@ -1666,7 +1672,7 @@ async function loadAdminCodes(){
 }
 async function createManagerCode(){const code=document.getElementById('new-manager-code').value.trim();if(!code)return alert('Please enter a code');try{const res=await fetch(API+'/admin/create-manager-code',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({code})});const d=await res.json();if(d.message){document.getElementById('new-manager-code').value='';loadManagerCodes()}else alert(d.error||'Failed')}catch(e){alert('Could not connect')}}
 async function createAdminCode(){const code=document.getElementById('new-admin-code').value.trim();if(!code)return alert('Please enter a code');try{const res=await fetch(API+'/admin/create-admin-code',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({code})});const d=await res.json();if(d.message){document.getElementById('new-admin-code').value='';loadAdminCodes()}else alert(d.error||'Failed')}catch(e){alert('Could not connect')}}
-async function removeManager(cid,email){if(!confirm('Remove manager access for '+email+'?'))return;try{const res=await fetch(API+'/admin/remove-manager/'+cid,{method:'DELETE',headers:{'Authorization':'Bearer '+getToken()}});const d=await res.json();if(d.message)loadAdminData();else alert(d.error||'Failed')}catch(e){alert('Could not connect')}}
+async function removeManager(cid,email){if(!confirm('Remove contractor access for '+email+'?'))return;try{const res=await fetch(API+'/admin/remove-manager/'+cid,{method:'DELETE',headers:{'Authorization':'Bearer '+getToken()}});const d=await res.json();if(d.message)loadAdminData();else alert(d.error||'Failed')}catch(e){alert('Could not connect')}}
 
 document.getElementById('login-modal').addEventListener('click',function(e){if(e.target===this)closeLogin()})
 function switchPanel(name,el){document.querySelectorAll('.dash-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.dash-nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('panel-'+name).classList.add('active');el.classList.add('active')}
