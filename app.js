@@ -139,7 +139,7 @@ async function doLogin(){
       else if(role==='manager'){document.getElementById('mgr-email-display').textContent=email.toLowerCase();document.getElementById('mgr-avatar').textContent=email.substring(0,2).toUpperCase();showPage('manager');checkTOS(email.toLowerCase(),'manager')}
       else if(data.update_fee_required){document.getElementById('update-fee-amount').textContent='$'+data.update_fee_amount;document.getElementById('update-fee-total').textContent='$'+data.update_fee_amount;showPage('update-fee')}
       else if(data.subscription_status==='pending_payment'){currentWebsite=data.website;showPaymentPage(data.website,data.plan)}
-      else loadClientDashboard(email.toLowerCase(),data.website,data.plan)
+      else routeClientAfterLogin({email:email.toLowerCase(),subscription_status:data.subscription_status,onboarding_stage:data.onboarding_stage,plan:data.plan||'standard',deposit_paid:data.deposit_paid},data.website,data.plan||'standard')
     }else showError('login-error',data.error||'Login failed')
   }catch(e){showError('login-error','Could not connect to server. Is it running?')}
 }
@@ -157,7 +157,7 @@ async function doSignup(){
       closeLogin()
       if(data.role==='admin'){document.getElementById('admin-email-display').textContent=email.toLowerCase();showPage('admin')}
       else if(data.role==='manager'){document.getElementById('mgr-email-display').textContent=email.toLowerCase();showPage('manager')}
-      else{currentWebsite=data.website;showPaymentPage(data.website,data.plan)}
+      else{currentWebsite=data.website;routeClientAfterLogin({email:email.toLowerCase(),subscription_status:data.subscription_status||'account_created',onboarding_stage:'account_created',plan:data.plan||'standard',deposit_paid:false},data.website,data.plan||'standard')}
     }else showError('signup-error',data.error||'Signup failed')
   }catch(e){showError('signup-error','Could not connect to server. Is it running?')}
 }
@@ -1213,6 +1213,10 @@ function renderManagerTable(clients){
         <div class="detail-item"><div class="dl">Total charged</div><div class="dv" style="color:var(--accent);font-weight:600;">${calcClientTotal(c)}</div></div>
       </div>
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <button class="action-btn" style="background:var(--accent-light);border-color:var(--accent);color:var(--accent);" onclick="uploadPreviewForClient('${c.id}','${c.website_id}')">Upload preview to client</button>
+          <button class="action-btn" onclick="sendActivationCode('${c.id}')">Send activation code</button>
+        </div>
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Update website HTML</div>
         <div id="html-update-zone-${c.id}" style="border:2px dashed var(--border-strong);border-radius:var(--radius);padding:16px;text-align:center;cursor:pointer;transition:all 0.2s;font-size:13px;color:var(--ink-muted);"
           ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='var(--accent-light)'"
@@ -1441,6 +1445,46 @@ async function updateDomainFee(cid, wid){
 // ── HTML FILE UPLOAD ──────────────────────────────────
 let pendingHtmlContent = null
 
+async function uploadPreviewForClient(clientId, websiteId) {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.html'
+  input.onchange = async function(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = async function(ev) {
+      const html = ev.target.result
+      try {
+        const res = await fetch(API + '/admin/upload-preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+          body: JSON.stringify({ client_id: clientId, preview_html: html })
+        })
+        const d = await res.json()
+        if (d.message) alert('Preview uploaded and client notified by email!')
+        else alert(d.error || 'Upload failed')
+      } catch(err) { alert('Could not connect') }
+    }
+    reader.readAsText(file)
+  }
+  input.click()
+}
+
+async function sendActivationCode(clientId) {
+  if (!confirm('Send activation code to this client? This will email them a code to create their account.')) return
+  try {
+    const res = await fetch(API + '/admin/send-activation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ client_id: clientId })
+    })
+    const d = await res.json()
+    if (d.message) alert('Activation code sent!')
+    else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
 async function handleHtmlUpdate(e, websiteId, clientId) {
   e.preventDefault()
   const zone = document.getElementById('html-update-zone-'+clientId)
@@ -1618,6 +1662,22 @@ window.addEventListener('load',()=>{
     alert('Payment was cancelled. You can try again from your account.')
     window.history.replaceState({},'',window.location.pathname)
     openLogin()
+  }
+  if(params.get('deposit')==='success'){
+    const token=getToken()
+    if(token){
+      fetch(API+'/deposit-confirmed',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}})
+        .then(r=>r.json())
+        .then(d=>{
+          const email=localStorage.getItem('wc_email')
+          fetch(API+'/my-dashboard',{headers:{'Authorization':'Bearer '+token}})
+            .then(r=>r.json())
+            .then(data=>{
+              routeClientAfterLogin(data.client,data.website,data.client?.plan||'standard')
+            })
+        }).catch(()=>{})
+    }
+    window.history.replaceState({},'',window.location.pathname)
   }
   if(params.get('assetform')){
     const token=params.get('assetform')
@@ -1822,7 +1882,7 @@ async function deleteLead(id) {
 // WEBSITE BRIEFS / ASSET FORMS
 // ══════════════════════════════════════════════════════
 async function sendAssetForm() {
-  const email = document.getElementById('brief-email')?.value
+  const email = document.getElementById('brief-email')?.value?.trim()
   const plan = document.getElementById('brief-plan')?.value || 'standard'
   if (!email) { alert('Please enter a client email'); return }
   try {
@@ -1842,8 +1902,19 @@ async function sendAssetForm() {
 }
 
 async function sendAssetFormMgr() {
-  const email = document.getElementById('mgr-brief-email')?.value
-  const plan = document.getElementById('mgr-brief-plan')?.value || 'standard'
+  await sendAssetFormShared()
+}
+
+async function sendAssetFormShared() {
+  // Try all possible email input IDs
+  const emailEl = document.getElementById('brief-email-shared') || 
+                  document.getElementById('brief-email') ||
+                  document.getElementById('mgr-brief-email')
+  const planEl = document.getElementById('brief-plan-shared') || 
+                 document.getElementById('brief-plan') ||
+                 document.getElementById('mgr-brief-plan')
+  const email = emailEl?.value?.trim()
+  const plan = planEl?.value || 'standard'
   if (!email) { alert('Please enter a client email'); return }
   try {
     const res = await fetch(API + '/admin/send-asset-form', {
@@ -1853,11 +1924,12 @@ async function sendAssetFormMgr() {
     })
     const d = await res.json()
     if (d.message) {
-      const msg = document.getElementById('save-msg-mgr-brief')
+      const msg = document.getElementById('save-msg-brief-shared') || document.getElementById('save-msg-brief')
       if (msg) { msg.classList.add('show'); setTimeout(() => msg.classList.remove('show'), 3000) }
-      document.getElementById('mgr-brief-email').value = ''
-    } else alert(d.error || 'Failed')
-  } catch(e) { alert('Could not connect') }
+      if (emailEl) emailEl.value = ''
+      loadAssetForms()
+    } else alert(d.error || 'Failed to send: ' + (d.error || 'Unknown error'))
+  } catch(e) { alert('Could not connect to server') }
 }
 
 async function loadAssetForms() {
@@ -2142,4 +2214,150 @@ async function savePaySettings() {
       if (msg) { msg.classList.add('show'); setTimeout(() => msg.classList.remove('show'), 3000) }
     }
   } catch(e) { alert('Could not connect') }
+}
+
+// ══════════════════════════════════════════════════════
+// NEW CLIENT ONBOARDING FLOW
+// ══════════════════════════════════════════════════════
+
+async function loadHoldingPage(clientData, websiteData) {
+  showPage('holding')
+  const wrap = document.getElementById('holding-content')
+  if (!wrap) return
+
+  const stage = clientData.onboarding_stage || 'account_created'
+  const plan = clientData.plan || 'standard'
+  const planNames = { basic: 'Basic', standard: 'Standard', premium: 'Premium' }
+  const siteSettings = await fetch(API + '/site-settings').then(r => r.json()).catch(() => ({}))
+  const depositPct = siteSettings.deposit_percent || 50
+  const setupFees = { basic: siteSettings.plan_basic_setup || 199, standard: siteSettings.plan_standard_setup || 299, premium: siteSettings.plan_premium_setup || 499 }
+  const monthlyFees = { basic: siteSettings.plan_basic_price || 29, standard: siteSettings.plan_standard_price || 49, premium: siteSettings.plan_premium_price || 79 }
+  const setupFee = setupFees[plan]
+  const depositAmt = Math.round(setupFee * depositPct / 100)
+  const remainingAmt = setupFee - depositAmt
+
+  if (stage === 'account_created' || !clientData.deposit_paid) {
+    // Stage 1: Pay deposit
+    wrap.innerHTML = `
+      <div style="font-size:52px;margin-bottom:20px;">👋</div>
+      <div style="display:inline-block;background:var(--accent-light);color:var(--accent);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;padding:5px 14px;border-radius:20px;margin-bottom:16px;">${planNames[plan]} plan</div>
+      <h2 style="font-family:var(--serif);font-size:clamp(28px,4vw,42px);letter-spacing:-0.025em;margin-bottom:14px;">Welcome to Siteflowa!</h2>
+      <p style="font-size:16px;color:var(--ink-light);line-height:1.7;margin-bottom:32px;">To get started, pay your deposit and we'll begin building your website. The remaining balance is due when your site is ready to launch.</p>
+      <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:28px;text-align:left;">
+        <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;"><span>Website build fee</span><span style="font-weight:600;">$${setupFee}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;"><span>Deposit today (${depositPct}%)</span><span style="font-weight:600;color:var(--accent);">$${depositAmt}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;color:var(--ink-muted);"><span>Remaining at launch</span><span>$${remainingAmt}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:14px;color:var(--ink-muted);"><span>Monthly subscription (starts 30 days after launch)</span><span>$${monthlyFees[plan]}/mo</span></div>
+      </div>
+      <button onclick="payDeposit(${depositAmt},'${plan}')" style="background:var(--accent);color:white;border:none;padding:16px 40px;border-radius:10px;font-family:var(--sans);font-size:16px;font-weight:500;cursor:pointer;width:100%;margin-bottom:14px;">Pay $${depositAmt} deposit securely</button>
+      <p style="font-size:12px;color:var(--ink-muted);">Secured by Stripe. Your card details are never stored on our servers.</p>
+      <div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--border);">
+        <p style="font-size:13px;color:var(--ink-muted);">Questions before paying? Get in touch:</p>
+        <div style="display:flex;gap:12px;justify-content:center;margin-top:10px;flex-wrap:wrap;">
+          ${window._siteEmail ? '<a href="mailto:'+window._siteEmail+'" style="display:inline-flex;align-items:center;gap:6px;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:13px;color:var(--ink);text-decoration:none;">📧 Email us</a>' : ''}
+          ${window._sitePhone ? '<a href="tel:'+window._sitePhone.replace(/\\D/g,'')+'" style="display:inline-flex;align-items:center;gap:6px;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:13px;color:var(--ink);text-decoration:none;">📞 Call us</a>' : ''}
+        </div>
+      </div>`
+
+  } else if (stage === 'deposit_paid' || stage === 'building') {
+    // Stage 2: Deposit paid, waiting for website
+    wrap.innerHTML = `
+      <div style="font-size:52px;margin-bottom:20px;">🔨</div>
+      <h2 style="font-family:var(--serif);font-size:clamp(26px,4vw,38px);letter-spacing:-0.025em;margin-bottom:14px;">We're building your website!</h2>
+      <p style="font-size:16px;color:var(--ink-light);line-height:1.7;margin-bottom:28px;">Your deposit has been received. Our team is now working on your website. We'll email you as soon as it's ready to preview.</p>
+      <div style="background:var(--accent-light);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:24px;">
+        <div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:4px;">What happens next</div>
+        <p style="font-size:13px;color:var(--ink-light);line-height:1.6;">Once your website is built we'll send you an email with a link to preview it right here in your account. You'll be able to check everything looks perfect before paying the remaining launch fee.</p>
+      </div>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        ${window._siteEmail ? '<a href="mailto:'+window._siteEmail+'" style="display:inline-flex;align-items:center;gap:6px;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:14px;color:var(--ink);text-decoration:none;">📧 Email us</a>' : ''}
+        ${window._sitePhone ? '<a href="tel:'+window._sitePhone.replace(/\\D/g,'')+'" style="display:inline-flex;align-items:center;gap:6px;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:14px;color:var(--ink);text-decoration:none;">📞 Call us</a>' : ''}
+      </div>`
+
+  } else if (stage === 'preview_ready') {
+    // Stage 3: Preview ready - show website in iframe + pay launch fee
+    const previewHtml = websiteData?.preview_html
+    if (previewHtml) {
+      wrap.innerHTML = `
+        <h2 style="font-family:var(--serif);font-size:clamp(24px,3vw,34px);margin-bottom:10px;">Your website is ready!</h2>
+        <p style="font-size:15px;color:var(--ink-light);margin-bottom:20px;">Check everything below and let us know if you're happy with it.</p>
+        <div style="border:2px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:20px;text-align:left;">
+          <div style="background:var(--cream);padding:10px 16px;display:flex;gap:6px;align-items:center;border-bottom:1px solid var(--border);">
+            <div style="width:10px;height:10px;border-radius:50%;background:#ff5f57;"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#febc2e;"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#28c840;"></div>
+            <span style="font-size:12px;color:var(--ink-muted);margin-left:8px;">Preview of your website</span>
+          </div>
+          <iframe srcdoc="${previewHtml.replace(/"/g,'&quot;')}" style="width:100%;height:500px;border:none;"></iframe>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+          <button onclick="approvePreview(${remainingAmt},'${plan}')" style="background:var(--accent);color:white;border:none;padding:14px;border-radius:10px;font-family:var(--sans);font-size:15px;font-weight:500;cursor:pointer;">Yes, I love it! Pay $${remainingAmt} to launch</button>
+          <button onclick="rejectPreview()" style="background:var(--cream);color:var(--ink);border:1px solid var(--border);padding:14px;border-radius:10px;font-family:var(--sans);font-size:15px;cursor:pointer;">I'd like some changes</button>
+        </div>
+        <p style="font-size:12px;color:var(--ink-muted);">Once you pay your remaining launch fee your website goes live and you get full dashboard access.</p>`
+    } else {
+      wrap.innerHTML = `
+        <div style="font-size:52px;margin-bottom:20px;">⏳</div>
+        <h2 style="font-family:var(--serif);font-size:clamp(26px,4vw,38px);margin-bottom:14px;">Almost there...</h2>
+        <p style="font-size:16px;color:var(--ink-light);line-height:1.7;margin-bottom:24px;">We're putting the finishing touches on your website. You'll get an email as soon as your preview is ready.</p>
+        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+          ${window._siteEmail ? '<a href="mailto:'+window._siteEmail+'" style="display:inline-flex;align-items:center;gap:6px;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:14px;color:var(--ink);text-decoration:none;">📧 Email us</a>' : ''}
+          ${window._sitePhone ? '<a href="tel:'+window._sitePhone.replace(/\\D/g,'')+'" style="display:inline-flex;align-items:center;gap:6px;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:14px;color:var(--ink);text-decoration:none;">📞 Call us</a>' : ''}
+        </div>`
+    }
+  }
+}
+
+async function payDeposit(amount, plan) {
+  try {
+    const res = await fetch(API + '/create-deposit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ amount, plan })
+    })
+    const d = await res.json()
+    if (d.url) window.location.href = d.url
+    else alert(d.error || 'Could not create payment')
+  } catch(e) { alert('Could not connect') }
+}
+
+async function approvePreview(amount, plan) {
+  try {
+    const res = await fetch(API + '/create-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ setup_fee: amount, monthly_fee: 0, plan, business_name: '' })
+    })
+    const d = await res.json()
+    if (d.url) window.location.href = d.url
+    else alert(d.error || 'Could not create payment')
+  } catch(e) { alert('Could not connect') }
+}
+
+async function rejectPreview() {
+  const msg = prompt('What changes would you like? We\'ll get back to you within one business day.')
+  if (!msg) return
+  try {
+    await fetch(API + '/notify-downgrade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ from_plan: 'preview_feedback', to_plan: msg })
+    })
+    alert('Feedback sent! We\'ll make the changes and update your preview.')
+  } catch(e) { alert('Could not connect') }
+}
+
+// ══════════════════════════════════════════════════════
+// UPDATED LOGIN HANDLER - route to holding page if needed
+// ══════════════════════════════════════════════════════
+function routeClientAfterLogin(clientData, websiteData, plan) {
+  const stage = clientData.onboarding_stage || 'account_created'
+  const hasDashboard = clientData.subscription_status === 'active' && websiteData?.is_active
+  if (hasDashboard) {
+    // Full dashboard access
+    loadClientDashboard(clientData.email, websiteData, plan)
+  } else {
+    // Still in onboarding
+    loadHoldingPage(clientData, websiteData)
+  }
 }

@@ -428,24 +428,27 @@
       <div class="admin-stat-card"><div class="stat-label">Total revenue</div><div class="stat-value green" id="stat-total">—</div></div>
     </div>
     <div class="chart-wrap"><h4>📈 Revenue over time</h4><canvas id="revenue-chart" height="80"></canvas></div>
-    <div class="admin-section" id="mgr-pipeline-section">
+    <div class="admin-section" id="shared-pipeline-section">
       <h3>🎯 Sales Pipeline</h3>
       <p class="section-desc">Track potential clients. Claim a lead to take ownership and update its stage.</p>
       <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
         <button class="dash-save" onclick="showAddLeadModal()">+ Add lead</button>
         <button onclick="loadPipeline()" style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;">Refresh</button>
       </div>
-      <div id="mgr-pipeline-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading...</p></div>
+      <div id="pipeline-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading...</p></div>
     </div>
-    <div class="admin-section" id="mgr-briefs-section">
+    <div class="admin-section" id="shared-briefs-section">
       <h3>📋 Website Briefs</h3>
-      <p class="section-desc">Send clients a website brief form.</p>
-      <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:16px;">
-        <div class="dash-field"><label>Client email</label><input type="email" id="mgr-brief-email" placeholder="client@email.com"></div>
-        <div class="dash-field"><label>Plan</label><select id="mgr-brief-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
-        <button class="dash-save" onclick="sendAssetFormMgr()">Send form</button>
+      <p class="section-desc">Send clients a website brief form to collect everything needed to build their site. Once submitted you can generate a ready-to-use Claude build prompt from the responses.</p>
+      <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
+          <div class="dash-field"><label>Client email</label><input type="email" id="brief-email-shared" placeholder="client@email.com"></div>
+          <div class="dash-field"><label>Plan</label><select id="brief-plan-shared"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
+          <button class="dash-save" onclick="sendAssetFormShared()" style="height:42px;">Send form</button>
+        </div>
+        <span class="save-msg" id="save-msg-brief-shared">Form sent!</span>
       </div>
-      <span class="save-msg" id="save-msg-mgr-brief">Form sent!</span>
+      <div id="asset-forms-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading submitted briefs...</p></div>
     </div>
     <div class="admin-section">
       <h3>⚙️ Site settings</h3>
@@ -530,79 +533,6 @@
           <div class="manager-codes-list" id="admin-codes-list"><span style="font-size:13px;color:var(--ink-muted);">Loading...</span></div>
         </div>
       </div>
-    </div>
-    <!-- PIPELINE PANEL -->
-    <div class="dash-panel" id="panel-pipeline" style="display:none;">
-      <div class="dash-section-title">Sales Pipeline</div>
-      <div class="dash-section-sub">Track and manage potential clients. Claim a lead to take ownership and update its status.</div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px;">
-        <button class="dash-save" onclick="showAddLeadModal()">+ Add lead</button>
-        <button onclick="loadPipeline()" style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:9px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;">Refresh</button>
-        <select id="pipeline-filter" onchange="filterPipeline()" style="padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;background:var(--cream);">
-          <option value="all">All stages</option>
-          <option value="new">New</option>
-          <option value="contacted">Contacted</option>
-          <option value="interested">Interested</option>
-          <option value="demo_sent">Demo sent</option>
-          <option value="deposit_paid">Deposit paid</option>
-          <option value="building">Building</option>
-          <option value="ready">Ready to launch</option>
-          <option value="live">Live</option>
-          <option value="not_interested">Not interested</option>
-        </select>
-      </div>
-      <div id="pipeline-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading pipeline...</p></div>
-    </div>
-
-    <!-- ASSET FORMS PANEL -->
-    <div class="dash-panel" id="panel-assetforms" style="display:none;">
-      <div class="dash-section-title">Website Briefs</div>
-      <div class="dash-section-sub">Send clients a website brief form. Once submitted, use it to build their website.</div>
-      <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:20px;">
-        <h4 style="font-family:var(--serif);font-size:17px;margin-bottom:10px;">Send a brief form</h4>
-        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
-          <div class="dash-field"><label>Client email</label><input type="email" id="brief-email" placeholder="client@email.com"></div>
-          <div class="dash-field"><label>Plan</label><select id="brief-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
-          <button class="dash-save" onclick="sendAssetForm()" style="height:42px;">Send form</button>
-        </div>
-        <span class="save-msg" id="save-msg-brief">Form sent!</span>
-      </div>
-      <div id="asset-forms-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading submitted briefs...</p></div>
-    </div>
-
-    <div class="admin-section" id="admin-pipeline-section">
-      <h3>🎯 Sales Pipeline</h3>
-      <p class="section-desc">Track potential clients. Claim a lead to take ownership of it.</p>
-      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-        <button class="dash-save" onclick="showAddLeadModal()">+ Add lead</button>
-        <button onclick="loadPipeline()" style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;">Refresh</button>
-        <select id="pipeline-filter" onchange="filterPipeline()" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;background:var(--cream);">
-          <option value="all">All stages</option>
-          <option value="new">New lead</option>
-          <option value="contacted">Contacted</option>
-          <option value="interested">Interested</option>
-          <option value="demo_sent">Demo sent</option>
-          <option value="deposit_paid">Deposit paid</option>
-          <option value="building">Building</option>
-          <option value="ready">Ready to launch</option>
-          <option value="live">Live</option>
-          <option value="not_interested">Not interested</option>
-        </select>
-      </div>
-      <div id="pipeline-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading...</p></div>
-    </div>
-    <div class="admin-section" id="admin-briefs-section">
-      <h3>📋 Website Briefs</h3>
-      <p class="section-desc">Send clients a website brief form to collect everything needed to build their site.</p>
-      <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:16px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
-          <div class="dash-field"><label>Client email</label><input type="email" id="brief-email" placeholder="client@email.com"></div>
-          <div class="dash-field"><label>Plan</label><select id="brief-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
-          <button class="dash-save" onclick="sendAssetForm()" style="height:42px;">Send form</button>
-        </div>
-        <span class="save-msg" id="save-msg-brief">Form sent!</span>
-      </div>
-      <div id="asset-forms-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading submitted briefs...</p></div>
     </div>
     <div class="admin-section">
       <h3>📅 Pay period settings</h3>
@@ -697,6 +627,17 @@
   <div class="footer-socials" id="footer-socials"></div>
 </footer>
 <script src="/app.js"></script>
+<!-- NEW CLIENT ONBOARDING - HOLDING PAGE -->
+<div id="page-holding" class="page-section">
+  <section style="padding-top:100px;padding-bottom:80px;min-height:80vh;display:flex;align-items:center;">
+    <div class="section-inner" style="text-align:center;max-width:580px;margin:0 auto;">
+      <div id="holding-content">
+        <!-- Dynamically filled based on onboarding stage -->
+      </div>
+    </div>
+  </section>
+</div>
+
 <!-- ASSET FORM PAGE -->
 <div id="page-assetform" class="page-section">
   <section style="padding-top:100px;padding-bottom:80px;">
