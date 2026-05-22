@@ -34,8 +34,7 @@ function switchTab(t){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'))
   document.querySelectorAll('.modal-tab').forEach(x=>x.classList.remove('active'))
   document.getElementById('tab-'+t).classList.add('active')
-  if(t==='login')document.querySelectorAll('.modal-tab')[0].classList.add('active')
-  if(t==='signup')document.querySelectorAll('.modal-tab')[1].classList.add('active')
+  document.getElementById('form-'+t).classList.add('active')
 }
 function showError(id,msg){const el=document.getElementById(id);el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),5000)}
 function switchInquiryTab(tab,el){
