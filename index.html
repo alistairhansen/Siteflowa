@@ -371,30 +371,30 @@
 
 <!-- ADMIN DASHBOARD -->
 <div id="page-admin" class="page-section">
-  <section style="padding-top:100px;padding-bottom:60px;">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
-      <div><h2 style="font-family:var(--serif);font-size:clamp(28px,3vw,42px);letter-spacing:-0.02em;">Admin Dashboard</h2><span class="role-badge admin" style="margin-top:6px;display:inline-block;">Admin</span></div>
-      <div style="display:flex;gap:10px;align-items:center;">
-        <div class="admin-avatar" id="admin-avatar">AD</div>
-        <span id="admin-email-display" style="font-size:13px;color:var(--ink-muted);"></span>
-        <button class="dash-save" onclick="doLogout()">Log out</button>
-        <button onclick="viewTOS()" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:9px 16px;font-family:var(--sans);font-size:12px;cursor:pointer;color:var(--ink-muted);">View Terms</button>
+  <section style="padding:60px 20px;max-width:1200px;margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:40px;flex-wrap:wrap;gap:16px;">
+      <div>
+        <h2 style="font-family:var(--serif);font-size:32px;margin-bottom:8px;letter-spacing:-0.02em;">Admin Dashboard</h2>
+        <p style="color:var(--ink-muted);font-size:14px;">Manage your business, staff, and clients</p>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <button class="dash-save" onclick="loadAdminData()" style="background:var(--cream);border:1px solid var(--border);color:var(--ink);">Refresh</button>
+        <button onclick="showManagerPreview()" style="background:var(--cream);border:1px solid var(--border);color:var(--ink);border-radius:var(--radius);padding:10px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;">👁 Preview Manager View</button>
+        <button onclick="showContractorPreview()" style="background:var(--cream);border:1px solid var(--border);color:var(--ink);border-radius:var(--radius);padding:10px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;">👁 Preview Contractor View</button>
+        <button class="dash-save" onclick="showPage('home')" style="background:var(--ink);color:white;">Logout</button>
       </div>
     </div>
 
-    <div class="admin-stats-grid">
-      <div class="admin-stat-card"><div class="stat-label">Total clients</div><div class="stat-value" id="stat-clients">—</div></div>
-      <div class="admin-stat-card"><div class="stat-label">Active websites</div><div class="stat-value" id="stat-active">—</div></div>
-      <div class="admin-stat-card"><div class="stat-label">Monthly recurring</div><div class="stat-value green" id="stat-monthly">—</div></div>
-      <div class="admin-stat-card"><div class="stat-label">Gross revenue (all time)</div><div class="stat-value green" id="stat-total">—</div></div>
-      <div class="admin-stat-card"><div class="stat-label">Commissions paid out</div><div class="stat-value" id="stat-commissions">—</div></div>
-      <div class="admin-stat-card" style="border:2px solid var(--accent);"><div class="stat-label">My net revenue</div><div class="stat-value green" id="stat-net">—</div></div>
-      <div class="admin-stat-card"><div class="stat-label">Brief forms sent</div><div class="stat-value" id="stat-forms-sent">—</div></div>
+    <!-- INQUIRIES -->
+    <div class="admin-section">
+      <h3>🔔 New Client Inquiries</h3>
+      <p class="section-desc">Unclaimed leads from your inquiry form. Claim a lead to see their email and contact them.</p>
+      <div id="inquiries-list-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading inquiries...</p></div>
     </div>
-    <div class="chart-wrap"><h4>📈 Revenue over time</h4><canvas id="revenue-chart" height="80"></canvas></div>
-    <div class="chart-wrap" style="margin-top:20px;"><h4>💼 Contractor earnings vs my net (per pay period)</h4><p style="font-size:13px;color:var(--ink-muted);margin-bottom:12px;">Green = your net revenue &middot; Blue = contractor commissions paid out</p><canvas id="contractor-chart" height="80"></canvas></div>
+
+    <!-- PIPELINE -->
     <div class="admin-section" id="shared-pipeline-section">
-      <h3>🎯 Sales Pipeline</h3>
+      <h3>📋 Pipeline</h3>
       <p class="section-desc">Track potential clients. Claim a lead to take ownership and update its stage.</p>
       <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
         <button class="dash-save" onclick="showAddLeadModal()">+ Add lead</button>
@@ -402,173 +402,89 @@
       </div>
       <div id="pipeline-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading...</p></div>
     </div>
+
+    <!-- WEBSITE BRIEFS -->
     <div class="admin-section" id="shared-briefs-section">
       <h3>📋 Website Briefs</h3>
-      <p class="section-desc">Send clients a website brief form to collect everything needed to build their site. Once submitted you can generate a ready-to-use Claude build prompt from the responses.</p>
+      <p class="section-desc">Send clients a website brief form. Track completed submissions.</p>
       <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:16px;">
         <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
-          <div class="dash-field"><label>Client email</label><input type="email" id="brief-email-shared" placeholder="client@email.com"></div>
-          <div class="dash-field"><label>Plan</label><select id="brief-plan-shared"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
-          <button class="dash-save" onclick="sendAssetFormShared()" style="height:42px;">Send form</button>
+          <div class="dash-field"><label>Client email</label><input type="email" id="brief-email" placeholder="client@email.com"></div>
+          <div class="dash-field"><label>Plan</label><select id="brief-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
+          <button class="dash-save" onclick="sendAssetForm()" style="height:42px;">Send form</button>
         </div>
-        <span class="save-msg" id="save-msg-brief-shared">Form sent!</span>
+        <span class="save-msg" id="save-msg-brief">Form sent!</span>
       </div>
-      <div id="asset-forms-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading submitted briefs...</p></div>
-    </div>
-    <div class="admin-section">
-      <h3 id="as-company">⚙️ Site settings</h3>
-      <p class="section-desc">Controls what appears on your public website. Leave blank to hide.</p>
-      <div class="site-settings-grid">
-        <div class="settings-section-label">Company & pricing</div>
-        <div class="dash-field"><label>Company name</label><input type="text" id="ss-name" placeholder="Sitefloa"></div>
-        <div class="dash-field"><label>Tagline</label><input type="text" id="ss-tagline"></div>
-        <div class="settings-section-label">Plan monthly prices ($)</div>
-        <div class="dash-field"><label>Basic /mo</label><input type="number" id="ss-basic-price" value="29"></div>
-        <div class="dash-field"><label>Standard /mo</label><input type="number" id="ss-std-price" value="49"></div>
-        <div class="dash-field"><label>Premium /mo</label><input type="number" id="ss-prem-price" value="79"></div>
-        <div class="dash-field"><label>Basic setup</label><input type="number" id="ss-basic-setup" value="199"></div>
-        <div class="dash-field"><label>Standard setup</label><input type="number" id="ss-std-setup" value="299"></div>
-        <div class="dash-field"><label>Premium setup</label><input type="number" id="ss-prem-setup" value="499"></div>
-        <div class="dash-field" style="grid-column:1/-1;">
-          <label>When saving plan price changes, apply to:</label>
-          <select id="ss-price-apply">
-            <option value="new_only">New clients only (existing clients keep their current price)</option>
-            <option value="all">All clients including existing ones</option>
-          </select>
-          <p style="font-size:12px;color:var(--ink-muted);margin-top:6px;">⚠️ Choosing "all clients" will update the monthly fee for every active subscription. Use with caution if you've promised clients a locked-in rate.</p>
-        </div>
-        <div class="settings-section-label">Contact info</div>
-        <div class="dash-field"><label>Email</label><input type="email" id="ss-email"></div>
-        <div class="dash-field"><label>Phone</label><input type="text" id="ss-phone"></div>
-        <div class="dash-field" style="grid-column:1/-1;"><label>Address</label><input type="text" id="ss-address"></div>
-        <div class="settings-section-label">Social media</div>
-        <div class="dash-field"><label>Instagram</label><div class="social-input-wrap"><span class="social-prefix">instagram.com/</span><input type="text" id="ss-instagram"></div></div>
-        <div class="dash-field"><label>Facebook</label><div class="social-input-wrap"><span class="social-prefix">facebook.com/</span><input type="text" id="ss-facebook"></div></div>
-        <div class="dash-field"><label>TikTok</label><div class="social-input-wrap"><span class="social-prefix">tiktok.com/@</span><input type="text" id="ss-tiktok"></div></div>
-        <div class="dash-field"><label>X / Twitter</label><div class="social-input-wrap"><span class="social-prefix">x.com/</span><input type="text" id="ss-twitter"></div></div>
-        <div class="dash-field"><label>LinkedIn</label><div class="social-input-wrap"><span class="social-prefix">linkedin.com/company/</span><input type="text" id="ss-linkedin"></div></div>
-        <div class="dash-field"><label>YouTube</label><div class="social-input-wrap"><span class="social-prefix">youtube.com/@</span><input type="text" id="ss-youtube"></div></div>
-      </div>
-      <div style="margin-top:20px;"><button class="dash-save" onclick="saveSiteSettings()">Save settings</button><span class="save-msg" id="save-msg-settings">✓ Saved</span></div>
-    </div>
-    <div class="admin-section">
-      <h3 id="as-clients">➕ Add new client website</h3>
-      <p class="section-desc">Create a website record and get an invite code to send to your client.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr 140px auto;gap:10px;align-items:end;">
-        <div class="dash-field"><label>Business name</label><input type="text" id="new-biz-name" placeholder="Jane's Plumbing Co."></div>
-        <div class="dash-field"><label>Subdomain <span style="font-weight:400;font-size:11px;color:var(--ink-muted);">(lowercase, no spaces, e.g. janesplumbing)</span></label><input type="text" id="new-subdomain" placeholder="janesplumbing"></div>
-        <div class="dash-field"><label>Plan</label><select id="new-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
-        <div class="dash-field"><label>Domain name <span style="font-weight:400;font-size:11px;color:var(--ink-muted);">(optional)</span></label><input type="text" id="new-domain-name" placeholder="e.g. janeplumbing.com"></div>
-        <div class="dash-field"><label>Domain cost per year ($) <span style="font-weight:400;font-size:11px;color:var(--ink-muted);">added to launch fee</span></label><input type="number" id="new-domain-cost" placeholder="0" oninput="calcNewDomainFee()" min="0" step="0.01"></div>
-        <div class="dash-field full" id="new-domain-fee-notice"><div style="background:var(--accent-light);border-radius:var(--radius);padding:10px 14px;font-size:13px;color:var(--accent);" id="new-domain-fee-text"></div></div>
-        <button class="dash-save" onclick="createWebsite()" style="height:42px;white-space:nowrap;align-self:end;">Create + get code</button>
-      </div>
-      <p style="font-size:12px;color:var(--ink-muted);margin-top:10px;">Pricing is set automatically based on the plan rates in Site Settings above.</p>
-      <p style="font-size:12px;color:var(--ink-muted);margin-top:10px;">Sections are defined by the client's website template — no manual selection needed.</p>
-      <div style="margin-top:16px;">
-        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Upload client website HTML (optional — can add later)</div>
-        <div id="html-drop-zone" style="border:2px dashed var(--border-strong);border-radius:var(--radius-lg);padding:28px;text-align:center;cursor:pointer;transition:all 0.2s;"
-          ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='var(--accent-light)'"
-          ondragleave="this.style.borderColor='var(--border-strong)';this.style.background=''"
-          ondrop="handleHtmlDrop(event)"
-          onclick="document.getElementById('html-file-input').click()">
-          <div style="font-size:28px;margin-bottom:8px;">📄</div>
-          <p style="font-size:14px;color:var(--ink-muted);">Drag and drop the client website HTML here<br><strong style="color:var(--accent);">or click to browse</strong></p>
-          <p style="font-size:12px;color:var(--ink-muted);margin-top:6px;" id="html-file-name">No file selected</p>
-          <input type="file" id="html-file-input" accept=".html" onchange="handleHtmlFileSelect(event)">
-        </div>
-      </div>
-      <div class="invite-code-result" id="invite-result"><p>Website created! Send this invite code to your client:</p><div class="code" id="invite-code-display">——</div><small>They enter this when creating their account.</small></div>
-    </div>
-      <div class="admin-section">
-        <h3 id="as-chats">💬 Live client chats</h3>
-        <p class="section-desc">Active conversations between clients and contractors during the build process.</p>
-        <div id="all-chats-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading chats...</p></div>
-      </div>
-<div class="admin-section">
-      <h3 id="as-company2">📩 Inquiries</h3>
-      <p class="section-desc">All website requests. Claim an inquiry to assign it to yourself as the account manager.</p>
-      <div class="inquiries-list" id="admin-inquiries-list"><p style="color:var(--ink-muted);font-size:14px;">Loading inquiries...</p></div>
-    </div>
-    <div class="manager-section">
-      <h3 id="as-contractors">👥 Staff access</h3>
-      <p class="section-desc">Create invite codes for managers and additional admins.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-        <div><div style="font-size:13px;font-weight:600;color:var(--purple);margin-bottom:10px;">Contractor codes</div>
-          <div class="manager-code-row"><div class="dash-field"><label>New contractor code</label><input type="text" id="new-manager-code" placeholder="e.g. Staff2026"></div><button class="btn-purple" onclick="createManagerCode()">Create</button></div>
-          <div class="manager-codes-list" id="manager-codes-list"><span style="font-size:13px;color:var(--ink-muted);">Loading...</span></div>
-        </div>
-        <div><div style="font-size:13px;font-weight:600;color:#b71c1c;margin-bottom:10px;">Admin codes</div>
-          <div class="manager-code-row"><div class="dash-field"><label>New admin code</label><input type="text" id="new-admin-code" placeholder="e.g. AdminInvite2026"></div><button class="btn-red" onclick="createAdminCode()">Create</button></div>
-          <div class="manager-codes-list" id="admin-codes-list"><span style="font-size:13px;color:var(--ink-muted);">Loading...</span></div>
-        </div>
-      </div>
-    </div>
-    <div class="admin-section">
-      <h3 id="as-contractors2">📅 Pay period settings</h3>
-      <p class="section-desc">Control the payment cycle for managers. Closing a period sends them their earnings receipt by email and resets their period stats.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;margin-bottom:20px;">
-        <div class="dash-field"><label>Pay cycle (days)</label><input type="number" id="pay-cycle-days" value="7" min="1" max="365"></div>
-        <div class="dash-field"><label>Current period started</label><input type="date" id="period-start-date"></div>
-        <div class="dash-field"><label>Deposit % of launch fee</label><input type="number" id="deposit-percent" value="50" min="1" max="100" placeholder="50"></div>
-        <button class="dash-save" onclick="savePaySettings()" style="height:42px;align-self:end;">Save settings</button>
-      </div>
-      <span class="save-msg" id="save-msg-pay">✓ Saved</span>
-    </div>
-    <div class="admin-section">
-      <h3 id="as-contractors3">👤 Staff performance</h3>
-      <p class="section-desc">Managers, websites created, revenue brought in, and commission. Click "Close period" to pay a manager and send their receipt.</p>
-      <div id="staff-list"><p style="color:var(--ink-muted);font-size:14px;">Loading staff...</p></div>
+      <div id="asset-forms-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading submissions...</p></div>
     </div>
 
-    <!-- DOMAIN REQUESTS -->
+    <!-- CLIENTS LIST -->
     <div class="admin-section">
-      <h3>🌐 Domain requests</h3>
-      <p class="section-desc">Domain setup requests from contractors. Purchase the domain, add DNS records in Cloudflare, then mark complete to notify the contractor.
-        <button onclick="toggleDomainEmails()" id="domain-email-toggle-btn" style="margin-left:12px;background:none;border:1px solid var(--border);border-radius:var(--radius);padding:4px 12px;font-family:var(--sans);font-size:12px;cursor:pointer;">Turn off domain emails</button>
-      </p>
-      <div id="domain-requests-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading...</p></div>
+      <h3>👥 Clients List</h3>
+      <p class="section-desc">All client websites. Admins can transfer clients between contractors. Contractors only see their own clients.</p>
+      <div id="clients-list-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading clients...</p></div>
+    </div>
+
+    <!-- CONTRACTOR EARNINGS -->
+    <div class="admin-section">
+      <h3>💰 Contractor Earnings vs Net Income</h3>
+      <p class="section-desc">Track what each contractor earned and your net income per pay period.</p>
+      <div id="contractor-earnings-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading earnings...</p></div>
+    </div>
+
+    <!-- MANAGER PERFORMANCE & PAY -->
+    <div class="admin-section">
+      <h3>🎖️ Manager Performance & Pay</h3>
+      <p class="section-desc">Websites created, revenue brought in, commission paid. Click "Close Period" to pay a manager and send their receipt.</p>
+      <div id="manager-performance-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading manager stats...</p></div>
     </div>
 
     <!-- BONUS GOALS -->
     <div class="admin-section">
-      <h3>🎯 Bonus goals</h3>
-      <p class="section-desc">Set a client target for your team. Contractors who hit the goal get the bonus added to their pay automatically.</p>
-      <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:16px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;">
-          <div class="dash-field"><label>Goal title</label><input type="text" id="bonus-title" placeholder="e.g. Summer push"></div>
-          <div class="dash-field"><label>Target (new clients)</label><input type="number" id="bonus-target" placeholder="5" min="1"></div>
-          <div class="dash-field"><label>Bonus amount ($)</label><input type="number" id="bonus-amount" placeholder="100" min="0"></div>
-          <button class="dash-save" onclick="createBonusGoal()" style="height:42px;">Set goal</button>
-        </div>
-        <span class="save-msg" id="save-msg-bonus">Goal set!</span>
+      <h3>🎯 Bonus Goals</h3>
+      <p class="section-desc">Set targets for contractors to earn bonuses. Active goals appear on contractor dashboards.</p>
+      <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:16px;display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;">
+        <div class="dash-field"><label>Goal title</label><input type="text" id="bonus-title" placeholder="e.g. Q1 Growth Challenge"></div>
+        <div class="dash-field"><label>Target clients</label><input type="number" id="bonus-target" placeholder="10"></div>
+        <div class="dash-field"><label>Bonus amount</label><input type="number" id="bonus-amount" placeholder="500" step="10"></div>
+        <button class="dash-save" onclick="createBonusGoal()" style="height:42px;">Create goal</button>
       </div>
-      <div id="bonus-goals-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading...</p></div>
+      <span class="save-msg" id="save-msg-bonus">Goal created!</span>
+      <div id="bonus-goals-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading goals...</p></div>
     </div>
 
-    <!-- MANAGER MANAGEMENT -->
+    <!-- SITE SETTINGS -->
     <div class="admin-section">
-      <h3>👔 Manager management</h3>
-      <p class="section-desc">Managers earn a % of all contractor commissions each pay period. Only admins can change roles or rates.</p>
-      <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:16px;">
-        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:12px;">Create manager invite code</div>
-        <div style="display:flex;gap:8px;">
-          <input type="text" id="new-manager-role-code" placeholder="e.g. MGR2026" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">
-          <button class="dash-save" onclick="createManagerCode()">Create</button>
-        </div>
-        <div class="manager-codes-list" id="manager-codes-list" style="margin-top:12px;"><span style="font-size:13px;color:var(--ink-muted);">Loading...</span></div>
+      <h3>⚙️ Site Settings</h3>
+      <p class="section-desc">Configure your company branding, pricing, and contact info.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+        <div class="dash-field"><label>Company name</label><input type="text" id="ss-name"></div>
+        <div class="dash-field"><label>Tagline</label><input type="text" id="ss-tagline"></div>
+        <div class="dash-field"><label>Email</label><input type="email" id="ss-email"></div>
+        <div class="dash-field"><label>Phone</label><input type="tel" id="ss-phone"></div>
+        <div class="dash-field"><label>Address</label><input type="text" id="ss-address"></div>
+        <div class="dash-field"><label>Instagram handle</label><input type="text" id="ss-instagram" placeholder="username"></div>
+        <div class="dash-field"><label>Facebook page</label><input type="text" id="ss-facebook" placeholder="page-name"></div>
+        <div class="dash-field"><label>TikTok handle</label><input type="text" id="ss-tiktok" placeholder="username"></div>
+        <div class="dash-field"><label>Twitter/X handle</label><input type="text" id="ss-twitter" placeholder="username"></div>
+        <div class="dash-field"><label>LinkedIn profile</label><input type="text" id="ss-linkedin" placeholder="company-name"></div>
+        <div class="dash-field"><label>YouTube channel</label><input type="text" id="ss-youtube" placeholder="@channelname"></div>
       </div>
-      <div id="manager-staff-list"><p style="color:var(--ink-muted);font-size:14px;">Loading managers...</p></div>
-      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:10px;">Manager commission % (% of all contractor commissions)</div>
-        <p style="font-size:13px;color:var(--ink-muted);margin-bottom:10px;">Set per manager using the rate field next to each manager above. Default is 10%.</p>
+      <h4 style="font-weight:600;margin-bottom:12px;font-size:14px;">Pricing</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div class="dash-field"><label>Basic monthly</label><input type="number" id="ss-basic-price" value="29"></div>
+        <div class="dash-field"><label>Standard monthly</label><input type="number" id="ss-std-price" value="49"></div>
+        <div class="dash-field"><label>Premium monthly</label><input type="number" id="ss-prem-price" value="79"></div>
+        <div class="dash-field"><label>Basic setup</label><input type="number" id="ss-basic-setup" value="199"></div>
+        <div class="dash-field"><label>Standard setup</label><input type="number" id="ss-std-setup" value="299"></div>
+        <div class="dash-field"><label>Premium setup</label><input type="number" id="ss-prem-setup" value="499"></div>
       </div>
+      <button class="dash-save" onclick="saveSiteSettings()">Save settings</button>
+      <span class="save-msg" id="save-msg-settings">Settings saved!</span>
     </div>
-
   </section>
 </div>
 
-<!-- MANAGER DASHBOARD -->
 <div id="page-manager" class="page-section">
   <section style="padding-top:100px;padding-bottom:60px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:14px;">
@@ -708,6 +624,7 @@
     </div>
 
   </section>
+
 </div>
 
 <!-- NEW CLIENT ONBOARDING - HOLDING PAGE -->
