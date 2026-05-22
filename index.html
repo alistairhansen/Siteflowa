@@ -516,75 +516,49 @@
       <h3 id="as-contractors3">👤 Staff performance</h3>
       <p class="section-desc">Managers, websites created, revenue brought in, and commission. Click "Close period" to pay a manager and send their receipt.</p>
       <div id="staff-list"><p style="color:var(--ink-muted);font-size:14px;">Loading staff...</p></div>
-    </div>
-    <div class="dashboard-wrap">
-      <div class="dashboard-header">
-        <div class="logo"><svg class="logo-flower-sm" viewBox="0 0 28 28" fill="none"><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(60 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#9c4dcc" opacity="0.85" transform="rotate(120 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(180 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(240 14 14)"/><ellipse cx="14" cy="7" rx="3.5" ry="6" fill="#b06ad4" opacity="0.7" transform="rotate(300 14 14)"/><circle cx="14" cy="14" r="4" fill="#f9e4ff"/><circle cx="14" cy="14" r="2.5" fill="#ce93d8"/></svg>Sitefloa<span>.</span> All Clients</div>
-        <div class="user-badge"><div class="avatar admin-av" id="admin-avatar">AD</div><span id="admin-email-display">Admin</span><span class="role-badge admin">Admin</span></div>
-      </div>
-      <div style="padding:24px;overflow-x:auto;">
-        <table class="clients-table">
-          <thead><tr><th></th><th>Email</th><th>Business</th><th>Plan</th><th>Status</th><th>Setup</th><th>Monthly</th><th>Total charged</th><th>Created by</th><th>Joined</th><th>Actions</th></tr></thead>
-          <tbody id="clients-table-body"><tr><td colspan="10" style="text-align:center;color:var(--ink-muted);padding:32px;">Loading clients...</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-</div>
+    </div>    </div>
 
-<!-- LOGIN MODAL -->
-<div class="modal-overlay" id="login-modal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeLogin()">×</button>
-    <h2>Welcome back</h2>
-    <div class="modal-desc">Log in or create a new account with your invite code.</div>
-    <div class="modal-tabs">
-      <button class="modal-tab active" onclick="switchTab('login')">Log in</button>
-      <button class="modal-tab" onclick="switchTab('signup')">Create account</button>
+    <!-- DOMAIN REQUESTS -->
+    <div class="admin-section">
+      <h3>🌐 Domain requests</h3>
+      <p class="section-desc">Domain setup requests from contractors. Purchase the domain, add DNS records in Cloudflare, then mark complete to notify the contractor.
+        <button onclick="toggleDomainEmails()" id="domain-email-toggle-btn" style="margin-left:12px;background:none;border:1px solid var(--border);border-radius:var(--radius);padding:4px 12px;font-family:var(--sans);font-size:12px;cursor:pointer;">Turn off domain emails</button>
+      </p>
+      <div id="domain-requests-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading...</p></div>
     </div>
-    <div class="tab-panel active" id="tab-login">
-      <div><label>Email address</label><input type="email" id="login-email" placeholder="jane@business.com"></div>
-      <div><label>Password</label>
-        <div style="position:relative;">
-          <input type="password" id="login-password" placeholder="••••••••" style="padding-right:44px;">
-          <button type="button" onclick="togglePw('login-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--ink-muted);">👁</button>
+
+    <!-- BONUS GOALS -->
+    <div class="admin-section">
+      <h3>🎯 Bonus goals</h3>
+      <p class="section-desc">Set a client target for your team. Contractors who hit the goal get the bonus added to their pay automatically.</p>
+      <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;">
+          <div class="dash-field"><label>Goal title</label><input type="text" id="bonus-title" placeholder="e.g. Summer push"></div>
+          <div class="dash-field"><label>Target (new clients)</label><input type="number" id="bonus-target" placeholder="5" min="1"></div>
+          <div class="dash-field"><label>Bonus amount ($)</label><input type="number" id="bonus-amount" placeholder="100" min="0"></div>
+          <button class="dash-save" onclick="createBonusGoal()" style="height:42px;">Set goal</button>
         </div>
+        <span class="save-msg" id="save-msg-bonus">Goal set!</span>
       </div>
-      <div class="error-msg" id="login-error"></div>
-      <button class="form-submit" onclick="doLogin()">Log in to dashboard</button>
-      <div class="modal-footer"><a onclick="switchTab('forgot')">Forgot your password?</a></div>
+      <div id="bonus-goals-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading...</p></div>
     </div>
-    <div class="tab-panel" id="tab-signup">
-      <div><label>Email address</label><input type="email" id="signup-email" placeholder="jane@business.com"></div>
-      <div><label>Choose a password</label>
-        <div style="position:relative;">
-          <input type="password" id="signup-password" placeholder="At least 8 characters" style="padding-right:44px;">
-          <button type="button" onclick="togglePw('signup-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--ink-muted);">👁</button>
+
+    <!-- MANAGER MANAGEMENT -->
+    <div class="admin-section">
+      <h3>👔 Manager management</h3>
+      <p class="section-desc">Managers earn a % of all contractor commissions each pay period. Only admins can change roles or rates.</p>
+      <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:12px;">Create manager invite code</div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="new-manager-role-code" placeholder="e.g. MGR2026" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">
+          <button class="dash-save" onclick="createManagerCode()">Create</button>
         </div>
+        <div class="manager-codes-list" id="manager-codes-list" style="margin-top:12px;"><span style="font-size:13px;color:var(--ink-muted);">Loading...</span></div>
       </div>
-      <div><label>Invite code (from Sitefloa)</label><input type="text" id="signup-code" placeholder="e.g. ABC123"></div>
-      <div class="error-msg" id="signup-error"></div>
-      <button class="form-submit" onclick="doSignup()">Create my account →</button>
+      <div id="manager-staff-list"><p style="color:var(--ink-muted);font-size:14px;">Loading managers...</p></div>
     </div>
-    <div class="tab-panel" id="tab-forgot">
-      <p style="font-size:13px;color:var(--ink-muted);">Enter your email and we'll send a reset link.</p>
-      <div><label>Email address</label><input type="email" id="forgot-email" placeholder="jane@business.com"></div>
-      <div class="error-msg" id="forgot-error"></div>
-      <button class="form-submit" onclick="doForgotPassword()">Send reset link</button>
-      <div class="modal-footer"><a onclick="switchTab('login')">← Back to login</a></div>
-    </div>
-    <div class="tab-panel" id="tab-reset">
-      <p style="font-size:13px;color:var(--ink-muted);">Enter your new password below.</p>
-      <div><label>New password</label>
-        <div style="position:relative;">
-          <input type="password" id="reset-password" placeholder="At least 8 characters" style="padding-right:44px;">
-          <button type="button" onclick="togglePw('reset-password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--ink-muted);">👁</button>
-        </div>
-      </div>
-      <div class="error-msg" id="reset-error"></div>
-      <button class="form-submit" onclick="doResetPassword()">Set new password</button>
-    </div>
-  </div>
+
+  </section>
 </div>
 
 <!-- MANAGER DASHBOARD -->
@@ -661,6 +635,36 @@
         </div>
       </div>
       <div class="invite-code-result" id="mgr-invite-result"><p>Website created! Send this invite code to your client:</p><div class="code" id="mgr-invite-code-display">——</div><small>They enter this when creating their account.</small></div>
+    </div>
+
+    <!-- DOMAIN REQUESTS -->
+    <div class="admin-section">
+      <h3>🌐 Request a domain</h3>
+      <p class="section-desc">Request a domain name for a client website. Admins and managers will be notified and set it up for you.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div class="dash-field"><label>Business name</label><input type="text" id="dr-business" placeholder="Jane's Plumbing"></div>
+        <div class="dash-field"><label>Domain name requested</label><input type="text" id="dr-domain" placeholder="janesplumbing.com"></div>
+      </div>
+      <div style="font-size:13px;font-weight:600;color:var(--ink-muted);margin-bottom:10px;">DNS records needed (from Cloudflare Add record screen):</div>
+      <div id="dr-records-wrap">
+        <div class="dr-record-row" style="display:grid;grid-template-columns:100px 1fr 1fr auto;gap:8px;margin-bottom:8px;">
+          <select class="dr-type" style="padding:8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;"><option>CNAME</option><option>A</option><option>TXT</option><option>MX</option></select>
+          <input type="text" class="dr-name" placeholder="Name (e.g. @)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">
+          <input type="text" class="dr-content" placeholder="Content/Target" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">
+          <button onclick="this.closest('.dr-record-row').remove()" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;cursor:pointer;color:var(--ink-muted);">✕</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button onclick="addDnsRecordRow()" style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;">+ Add record</button>
+        <button class="dash-save" onclick="submitDomainRequest()">Send request</button>
+      </div>
+      <span class="save-msg" id="save-msg-domain-req">Request sent!</span>
+    </div>
+
+    <!-- BONUS GOAL -->
+    <div class="admin-section" id="bonus-goal-section" style="display:none;">
+      <h3>🎯 Current bonus goal</h3>
+      <div id="bonus-goal-display"></div>
     </div>
 
     <!-- INQUIRIES -->

@@ -40,6 +40,21 @@ app.post('/signup', async (req, res) => {
   const { email, password, invite_code } = req.body
   const emailLower = email.toLowerCase().trim()
   try {
+    // Check for manager role code (uses manager_codes but assigns 'manager' role)
+    const managerRoleCode = await pool.query('SELECT * FROM manager_codes WHERE code=$1 AND used=FALSE AND assigned_to IS NOT NULL', [invite_code.trim()])
+    if (managerRoleCode.rows.length > 0) {
+      const existing = await pool.query('SELECT * FROM clients WHERE email=$1', [emailLower])
+      if (existing.rows.length > 0) return res.status(400).json({ error: 'Email already registered' })
+      const password_hash = await bcrypt.hash(password, 10)
+      const client = await pool.query(
+        'INSERT INTO clients (email,password_hash,role,is_admin,subscription_status,manager_commission_rate) VALUES ($1,$2,$3,FALSE,$4,10) RETURNING id,email',
+        [emailLower, password_hash, 'manager', 'active']
+      )
+      await pool.query('UPDATE manager_codes SET used=TRUE, assigned_to=$1 WHERE id=$2', [client.rows[0].id, managerRoleCode.rows[0].id])
+      const token = jwt.sign({ id: client.rows[0].id, email: emailLower, role: 'manager' }, process.env.JWT_SECRET, { expiresIn: '30d' })
+      return res.json({ message: 'Account created', token, role: 'manager' })
+    }
+
     const adminCode = await pool.query('SELECT * FROM admin_codes WHERE code=$1 AND used=FALSE', [invite_code.trim()])
     if (adminCode.rows.length > 0) {
       const existing = await pool.query('SELECT * FROM clients WHERE email=$1', [emailLower])
@@ -61,7 +76,7 @@ app.post('/signup', async (req, res) => {
       const password_hash = await bcrypt.hash(password, 10)
       const client = await pool.query(
         'INSERT INTO clients (email,password_hash,role,is_admin,subscription_status) VALUES ($1,$2,$3,FALSE,$4) RETURNING id,email',
-        [emailLower, password_hash, 'manager', 'active']
+        [emailLower, password_hash, 'contractor', 'active']
       )
       await pool.query('UPDATE manager_codes SET used=TRUE, assigned_to=$1 WHERE code=$2', [client.rows[0].id, invite_code.trim()])
       const token = jwt.sign({ id: client.rows[0].id, email: emailLower, role: 'manager' }, process.env.JWT_SECRET, { expiresIn: '7d' })
@@ -1123,6 +1138,235 @@ app.post('/admin/reassign-contractor', authMiddleware, adminMiddleware, async (r
   try {
     await pool.query('UPDATE websites SET created_by=$1 WHERE id=$2', [contractor_id, website_id])
     res.json({ message: 'Contractor reassigned' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+
+// ── MANAGER ROLE ROUTES ──────────────────────────────────
+app.post('/admin/set-role', authMiddleware, adminMiddleware, async (req, res) => {
+  const { client_id, role } = req.body
+  if (!['admin','manager','contractor','client'].includes(role)) return res.status(400).json({ error: 'Invalid role' })
+  try {
+    await pool.query('UPDATE clients SET role=$1 WHERE id=$2', [role, client_id])
+    res.json({ message: 'Role updated to ' + role })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.post('/admin/set-manager-rate', authMiddleware, adminMiddleware, async (req, res) => {
+  const { client_id, rate } = req.body
+  try {
+    await pool.query('UPDATE clients SET manager_commission_rate=$1 WHERE id=$2', [rate, client_id])
+    res.json({ message: 'Manager rate updated' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/admin/manager-staff', authMiddleware, async (req, res) => {
+  // managers and admins can see contractors
+  if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' })
+  try {
+    const result = await pool.query(`
+      SELECT c.id, c.email, c.role, c.commission_rate, c.manager_commission_rate,
+        COUNT(w.id) as websites_count,
+        COALESCE(SUM(pp.total_earned),0) as total_earned_all_time
+      FROM clients c
+      LEFT JOIN websites w ON w.created_by = c.id
+      LEFT JOIN pay_periods pp ON pp.manager_id = c.id
+      WHERE c.role IN ('contractor','manager')
+      GROUP BY c.id
+      ORDER BY c.role, c.email
+    `)
+    res.json({ staff: result.rows })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// Manager pay periods - same as contractor but with manager_commission_rate
+app.post('/admin/close-manager-period', authMiddleware, adminMiddleware, async (req, res) => {
+  const { manager_id, period_start, period_end } = req.body
+  try {
+    const mgr = await pool.query('SELECT * FROM clients WHERE id=$1', [manager_id])
+    const m = mgr.rows[0]
+    if (!m) return res.status(404).json({ error: 'Manager not found' })
+
+    // Get all contractor commissions in this period
+    const commissions = await pool.query(
+      'SELECT SUM(total_earned) as total FROM pay_periods WHERE period_start>=$1 AND period_end<=$2',
+      [period_start, period_end]
+    )
+    const totalCommissions = parseFloat(commissions.rows[0]?.total || 0)
+    const rate = parseFloat(m.manager_commission_rate || 10)
+    const earned = Math.round(totalCommissions * rate / 100 * 100) / 100
+
+    // Count new clients this period
+    const newClients = await pool.query(
+      "SELECT COUNT(*) as count FROM clients WHERE created_at>=$1 AND created_at<=$2 AND role='client'",
+      [period_start, period_end]
+    )
+
+    await pool.query(
+      'INSERT INTO pay_periods (manager_id, period_start, period_end, websites_count, total_earned, commission_rate, websites_data) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [manager_id, period_start, period_end, newClients.rows[0].count, earned, rate, JSON.stringify({ type: 'manager', total_commissions: totalCommissions, rate, new_clients: newClients.rows[0].count })]
+    )
+
+    const siteSettings = await pool.query('SELECT * FROM site_settings LIMIT 1')
+    const s = siteSettings.rows[0] || {}
+
+    await resend.emails.send({
+      from: 'Sitefloa <hello@sitefloa.com>',
+      to: m.email,
+      subject: 'Your Sitefloa manager earnings receipt',
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;">
+          <h2 style="font-family:Georgia,serif;color:#1a6b5a;">Manager earnings receipt</h2>
+          <p>Period: <strong>${new Date(period_start).toLocaleDateString()} – ${new Date(period_end).toLocaleDateString()}</strong></p>
+          <div style="background:#f0f7f5;border-radius:12px;padding:20px;margin:20px 0;">
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e0ede9;"><span>Total contractor commissions this period</span><span>$${totalCommissions.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e0ede9;"><span>Your rate</span><span>${rate}%</span></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e0ede9;"><span>New clients this period</span><span>${newClients.rows[0].count}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:700;font-size:18px;color:#1a6b5a;"><span>Your earnings</span><span>$${earned.toFixed(2)}</span></div>
+          </div>
+          <p style="color:#8b909e;font-size:12px;">Sitefloa — Please do not reply to this email.</p>
+        </div>`
+    })
+    res.json({ message: 'Manager period closed', earned })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── DOMAIN REQUESTS ──────────────────────────────────────
+app.post('/domain-request', authMiddleware, async (req, res) => {
+  const { website_id, business_name, domain_name, dns_records } = req.body
+  try {
+    const result = await pool.query(
+      'INSERT INTO domain_requests (requested_by, requested_by_email, website_id, business_name, domain_name, dns_records) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [req.user.id, req.user.email, website_id, business_name, domain_name, JSON.stringify(dns_records)]
+    )
+    // Email all admins and managers who want notifications
+    const staff = await pool.query(
+      "SELECT email FROM clients WHERE role IN ('admin','manager') AND (notify_domain_requests IS NULL OR notify_domain_requests=TRUE)"
+    )
+    if (staff.rows.length > 0) {
+      const dnsTable = dns_records.map(r => `<tr><td style="padding:6px 12px;border:1px solid #e0ede9;">${r.type}</td><td style="padding:6px 12px;border:1px solid #e0ede9;">${r.name}</td><td style="padding:6px 12px;border:1px solid #e0ede9;">${r.content}</td></tr>`).join('')
+      await resend.emails.send({
+        from: 'Sitefloa <hello@sitefloa.com>',
+        to: staff.rows.map(s => s.email),
+        subject: 'Domain request — ' + domain_name,
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
+            <h2 style="font-family:Georgia,serif;color:#1a6b5a;">New domain request</h2>
+            <p><strong>${req.user.email}</strong> has requested a domain for <strong>${business_name}</strong>.</p>
+            <p>Domain: <strong>${domain_name}</strong></p>
+            <p style="font-weight:600;margin-top:20px;">DNS records to add in Cloudflare:</p>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;">
+              <thead><tr style="background:#f0f7f5;"><th style="padding:8px 12px;border:1px solid #e0ede9;text-align:left;">Type</th><th style="padding:8px 12px;border:1px solid #e0ede9;text-align:left;">Name</th><th style="padding:8px 12px;border:1px solid #e0ede9;text-align:left;">Content</th></tr></thead>
+              <tbody>${dnsTable}</tbody>
+            </table>
+            <p style="margin-top:20px;">Log in to your dashboard to mark this as complete once done.</p>
+            <p style="color:#8b909e;font-size:12px;">Please do not reply to this email.</p>
+          </div>`
+      })
+    }
+    res.json({ message: 'Domain request submitted', request: result.rows[0] })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/admin/domain-requests', authMiddleware, async (req, res) => {
+  if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' })
+  try {
+    const result = await pool.query('SELECT * FROM domain_requests ORDER BY created_at DESC')
+    res.json({ requests: result.rows })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.post('/admin/domain-requests/:id/complete', authMiddleware, async (req, res) => {
+  if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' })
+  try {
+    const req2 = await pool.query('SELECT * FROM domain_requests WHERE id=$1', [req.params.id])
+    const dr = req2.rows[0]
+    if (!dr) return res.status(404).json({ error: 'Not found' })
+    await pool.query('UPDATE domain_requests SET status=$1, completed_at=NOW() WHERE id=$2', ['completed', req.params.id])
+    // Notify contractor
+    await resend.emails.send({
+      from: 'Sitefloa <hello@sitefloa.com>',
+      to: dr.requested_by_email,
+      subject: 'Your domain is ready — ' + dr.domain_name,
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;">
+          <h2 style="font-family:Georgia,serif;color:#1a6b5a;">Domain is ready!</h2>
+          <p>The domain <strong>${dr.domain_name}</strong> for <strong>${dr.business_name}</strong> has been set up and is ready to use.</p>
+          <p>Log in to your dashboard to connect it to the client's website.</p>
+          <p style="color:#8b909e;font-size:12px;">Please do not reply to this email.</p>
+        </div>`
+    })
+    res.json({ message: 'Domain request marked complete' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.post('/admin/toggle-domain-emails', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const current = await pool.query('SELECT notify_domain_requests FROM clients WHERE id=$1', [req.user.id])
+    const newVal = !(current.rows[0]?.notify_domain_requests !== false)
+    await pool.query('UPDATE clients SET notify_domain_requests=$1 WHERE id=$2', [newVal, req.user.id])
+    res.json({ message: newVal ? 'Domain request emails enabled' : 'Domain request emails disabled', enabled: newVal })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── BONUS GOALS ──────────────────────────────────────────
+app.get('/bonus-goals', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM bonus_goals WHERE active=TRUE ORDER BY created_at DESC LIMIT 1')
+    res.json({ goal: result.rows[0] || null })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/admin/bonus-goals', authMiddleware, async (req, res) => {
+  if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' })
+  try {
+    const result = await pool.query('SELECT * FROM bonus_goals ORDER BY created_at DESC')
+    res.json({ goals: result.rows })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.post('/admin/bonus-goals', authMiddleware, async (req, res) => {
+  if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' })
+  const { title, target_clients, bonus_amount } = req.body
+  try {
+    // Deactivate existing goals
+    await pool.query('UPDATE bonus_goals SET active=FALSE')
+    const result = await pool.query(
+      'INSERT INTO bonus_goals (title, target_clients, bonus_amount, created_by, active, period_start) VALUES ($1,$2,$3,$4,TRUE,NOW()) RETURNING *',
+      [title, target_clients, bonus_amount, req.user.id]
+    )
+    res.json({ goal: result.rows[0] })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.delete('/admin/bonus-goals/:id', authMiddleware, async (req, res) => {
+  if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' })
+  try {
+    await pool.query('UPDATE bonus_goals SET active=FALSE WHERE id=$1', [req.params.id])
+    res.json({ message: 'Bonus goal removed' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+app.get('/bonus-progress/:contractorId', authMiddleware, async (req, res) => {
+  try {
+    const goal = await pool.query('SELECT * FROM bonus_goals WHERE active=TRUE LIMIT 1')
+    if (!goal.rows[0]) return res.json({ goal: null, progress: 0 })
+    const g = goal.rows[0]
+    // Count websites added by this contractor since goal was created
+    const progress = await pool.query(
+      'SELECT COUNT(*) as count FROM websites WHERE created_by=$1 AND created_at>=$2',
+      [req.params.contractorId, g.period_start]
+    )
+    const count = parseInt(progress.rows[0].count)
+    const hit = count >= g.target_clients
+    // If hit and not yet paid, add bonus to their pay period
+    if (hit) {
+      const alreadyPaid = await pool.query(
+        "SELECT id FROM pay_periods WHERE manager_id=$1 AND websites_data::text LIKE '%bonus_paid%' AND period_start>=$2",
+        [req.params.contractorId, g.period_start]
+      )
+    }
+    res.json({ goal: g, progress: count, hit })
   } catch(err) { res.status(500).json({ error: err.message }) }
 })
 

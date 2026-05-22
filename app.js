@@ -156,7 +156,7 @@ async function doSignup(){
       localStorage.setItem('wc_token',data.token);localStorage.setItem('wc_email',email.toLowerCase());localStorage.setItem('wc_role',data.role)
       closeLogin()
       if(data.role==='admin'){document.getElementById('admin-email-display').textContent=email.toLowerCase();showPage('admin')}
-      else if(data.role==='manager'){document.getElementById('mgr-email-display').textContent=email.toLowerCase();showPage('manager')}
+      else if(data.role==='manager'||data.role==='contractor'){document.getElementById('mgr-email-display').textContent=email.toLowerCase();showPage('manager')}
       else{currentWebsite=data.website;routeClientAfterLogin({email:email.toLowerCase(),subscription_status:data.subscription_status||'account_created',onboarding_stage:'account_created',plan:data.plan||'standard',deposit_paid:false},data.website,data.plan||'standard')}
     }else showError('signup-error',data.error||'Signup failed')
   }catch(e){showError('signup-error','Could not connect to server. Is it running?')}
@@ -2811,4 +2811,301 @@ async function showReassignModal(clientId, businessName, currentContractor) {
       } catch(e) { alert('Could not connect') }
     }
   } catch(e) { alert('Could not load contractors') }
+}
+
+// ══════════════════════════════════════════════════════
+// MANAGER ROLE MANAGEMENT
+// ══════════════════════════════════════════════════════
+async function loadManagerStaffList() {
+  const wrap = document.getElementById('manager-staff-list')
+  if (!wrap) return
+  try {
+    const res = await fetch(API + '/admin/manager-staff', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    const data = await res.json()
+    const staff = data.staff || []
+    if (!staff.length) { wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No managers or contractors yet.</p>'; return }
+    wrap.innerHTML = staff.map(s => `
+      <div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-weight:600;font-size:14px;">${s.email}</div>
+          <div style="font-size:12px;color:var(--ink-muted);">
+            <span style="text-transform:capitalize;">${s.role}</span> &middot;
+            ${s.role==='contractor'?'Commission: '+s.commission_rate+'%':'Manager rate: '+s.manager_commission_rate+'%'}
+            &middot; ${s.websites_count} websites &middot; $${parseFloat(s.total_earned_all_time).toFixed(2)} earned
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          ${getRole()==='admin' ? `
+            <select onchange="changeStaffRole('${s.id}',this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:12px;">
+              <option value="contractor" ${s.role==='contractor'?'selected':''}>Contractor</option>
+              <option value="manager" ${s.role==='manager'?'selected':''}>Manager</option>
+              <option value="admin" ${s.role==='admin'?'selected':''}>Admin</option>
+            </select>
+            <input type="number" id="rate-${s.id}" value="${s.role==='manager'?s.manager_commission_rate:s.commission_rate}" min="0" max="100" style="width:60px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:12px;">
+            <button class="action-btn" onclick="saveStaffRate('${s.id}','${s.role}')">Save rate</button>
+            <button class="action-btn" onclick="closeStaffPeriod('${s.id}','${s.email}','${s.role}')">Close period</button>
+          ` : ''}
+        </div>
+      </div>`).join('')
+  } catch(e) { console.error(e) }
+}
+
+async function changeStaffRole(clientId, role) {
+  if (!confirm('Change this person\'s role to ' + role + '?')) return
+  try {
+    const res = await fetch(API + '/admin/set-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ client_id: clientId, role })
+    })
+    const d = await res.json()
+    if (d.message) { alert('Role updated!'); loadManagerStaffList() }
+    else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+async function saveStaffRate(clientId, role) {
+  const rate = document.getElementById('rate-' + clientId)?.value
+  if (!rate) return
+  const endpoint = role === 'manager' ? '/admin/set-manager-rate' : '/admin/set-commission'
+  try {
+    const res = await fetch(API + endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ client_id: clientId, rate: parseFloat(rate) })
+    })
+    const d = await res.json()
+    if (d.message) alert('Rate saved!')
+    else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+async function closeStaffPeriod(staffId, email, role) {
+  const periodStart = prompt('Period start date (YYYY-MM-DD):')
+  if (!periodStart) return
+  const periodEnd = new Date().toISOString().split('T')[0]
+  const endpoint = role === 'manager' ? '/admin/close-manager-period' : '/admin/close-period'
+  try {
+    const res = await fetch(API + endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ manager_id: staffId, period_start: periodStart, period_end: periodEnd })
+    })
+    const d = await res.json()
+    if (d.message) alert('Period closed! Earned: $' + (d.earned || 0))
+    else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+// ══════════════════════════════════════════════════════
+// DOMAIN REQUESTS
+// ══════════════════════════════════════════════════════
+function addDnsRecordRow() {
+  const wrap = document.getElementById('dr-records-wrap')
+  if (!wrap) return
+  const row = document.createElement('div')
+  row.className = 'dr-record-row'
+  row.style.cssText = 'display:grid;grid-template-columns:100px 1fr 1fr auto;gap:8px;margin-bottom:8px;'
+  row.innerHTML = `
+    <select class="dr-type" style="padding:8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;"><option>CNAME</option><option>A</option><option>TXT</option><option>MX</option></select>
+    <input type="text" class="dr-name" placeholder="Name (e.g. @)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">
+    <input type="text" class="dr-content" placeholder="Content/Target" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">
+    <button onclick="this.closest('.dr-record-row').remove()" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;cursor:pointer;color:var(--ink-muted);">✕</button>`
+  wrap.appendChild(row)
+}
+
+async function submitDomainRequest() {
+  const business = document.getElementById('dr-business')?.value?.trim()
+  const domain = document.getElementById('dr-domain')?.value?.trim()
+  if (!business || !domain) { alert('Please fill in business name and domain'); return }
+  const rows = document.querySelectorAll('.dr-record-row')
+  const dns_records = []
+  rows.forEach(row => {
+    const type = row.querySelector('.dr-type')?.value
+    const name = row.querySelector('.dr-name')?.value?.trim()
+    const content = row.querySelector('.dr-content')?.value?.trim()
+    if (name && content) dns_records.push({ type, name, content })
+  })
+  if (!dns_records.length) { alert('Please add at least one DNS record'); return }
+  try {
+    const res = await fetch(API + '/domain-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ business_name: business, domain_name: domain, dns_records })
+    })
+    const d = await res.json()
+    if (d.message) {
+      const msg = document.getElementById('save-msg-domain-req')
+      if (msg) { msg.classList.add('show'); setTimeout(() => msg.classList.remove('show'), 3000) }
+      document.getElementById('dr-business').value = ''
+      document.getElementById('dr-domain').value = ''
+    } else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+async function loadDomainRequests() {
+  const wrap = document.getElementById('domain-requests-wrap')
+  if (!wrap) return
+  try {
+    const res = await fetch(API + '/admin/domain-requests', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    const data = await res.json()
+    const requests = data.requests || []
+    if (!requests.length) { wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No domain requests yet.</p>'; return }
+    wrap.innerHTML = requests.map(r => {
+      const records = typeof r.dns_records === 'string' ? JSON.parse(r.dns_records) : (r.dns_records || [])
+      return `<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-weight:600;font-size:14px;">${r.domain_name} — ${r.business_name}</div>
+            <div style="font-size:12px;color:var(--ink-muted);">Requested by ${r.requested_by_email} &middot; ${new Date(r.created_at).toLocaleDateString()}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:${r.status==='completed'?'var(--accent-light)':'#fff3cd'};color:${r.status==='completed'?'var(--accent)':'#856404'};">${r.status}</span>
+            ${r.status!=='completed'?'<button class="action-btn" onclick="completeDomainRequest(\''+r.id+'\')">Mark complete</button>':''}
+          </div>
+        </div>
+        <div style="margin-top:12px;overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead><tr style="background:var(--cream);"><th style="padding:6px 10px;text-align:left;border:1px solid var(--border);">Type</th><th style="padding:6px 10px;text-align:left;border:1px solid var(--border);">Name</th><th style="padding:6px 10px;text-align:left;border:1px solid var(--border);">Content</th></tr></thead>
+            <tbody>${records.map(rec => '<tr><td style="padding:6px 10px;border:1px solid var(--border);">'+rec.type+'</td><td style="padding:6px 10px;border:1px solid var(--border);">'+rec.name+'</td><td style="padding:6px 10px;border:1px solid var(--border);font-family:monospace;">'+rec.content+'</td></tr>').join('')}</tbody>
+          </table>
+        </div>
+      </div>`
+    }).join('')
+  } catch(e) { console.error(e) }
+}
+
+async function completeDomainRequest(id) {
+  try {
+    const res = await fetch(API + '/admin/domain-requests/' + id + '/complete', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    const d = await res.json()
+    if (d.message) { alert('Marked complete! Contractor notified.'); loadDomainRequests() }
+    else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+async function toggleDomainEmails() {
+  try {
+    const res = await fetch(API + '/admin/toggle-domain-emails', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    const d = await res.json()
+    const btn = document.getElementById('domain-email-toggle-btn')
+    if (btn) btn.textContent = d.enabled ? 'Turn off domain emails' : 'Turn on domain emails'
+    alert(d.message)
+  } catch(e) { alert('Could not connect') }
+}
+
+// ══════════════════════════════════════════════════════
+// BONUS GOALS
+// ══════════════════════════════════════════════════════
+async function createBonusGoal() {
+  const title = document.getElementById('bonus-title')?.value?.trim()
+  const target = document.getElementById('bonus-target')?.value
+  const amount = document.getElementById('bonus-amount')?.value
+  if (!title || !target || !amount) { alert('Please fill in all fields'); return }
+  try {
+    const res = await fetch(API + '/admin/bonus-goals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ title, target_clients: parseInt(target), bonus_amount: parseFloat(amount) })
+    })
+    const d = await res.json()
+    if (d.goal) {
+      const msg = document.getElementById('save-msg-bonus')
+      if (msg) { msg.classList.add('show'); setTimeout(() => msg.classList.remove('show'), 3000) }
+      loadBonusGoalsAdmin()
+    } else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+async function loadBonusGoalsAdmin() {
+  const wrap = document.getElementById('bonus-goals-wrap')
+  if (!wrap) return
+  try {
+    const res = await fetch(API + '/admin/bonus-goals', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    const data = await res.json()
+    const goals = data.goals || []
+    if (!goals.length) { wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No bonus goals set yet.</p>'; return }
+    wrap.innerHTML = goals.map(g => `
+      <div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-weight:600;font-size:14px;">${g.title} ${g.active?'<span style="background:var(--accent-light);color:var(--accent);padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;">ACTIVE</span>':''}</div>
+          <div style="font-size:12px;color:var(--ink-muted);">Target: ${g.target_clients} new clients &middot; Bonus: $${g.bonus_amount} &middot; Set ${new Date(g.created_at).toLocaleDateString()}</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          ${g.active ? '<button class="action-btn danger" onclick="removeBonusGoal(\''+g.id+'\')">Remove goal</button>' : ''}
+        </div>
+      </div>`).join('')
+  } catch(e) { console.error(e) }
+}
+
+async function removeBonusGoal(id) {
+  if (!confirm('Remove this bonus goal? Progress bars will reset for contractors.')) return
+  try {
+    const res = await fetch(API + '/admin/bonus-goals/' + id, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    const d = await res.json()
+    if (d.message) loadBonusGoalsAdmin()
+    else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+async function loadBonusGoalContractor() {
+  const section = document.getElementById('bonus-goal-section')
+  if (!section) return
+  try {
+    const tokenData = JSON.parse(atob(getToken().split('.')[1]))
+    const contractorId = tokenData.id
+    const res = await fetch(API + '/bonus-progress/' + contractorId, {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    const data = await res.json()
+    if (!data.goal) { section.style.display = 'none'; return }
+    section.style.display = ''
+    const g = data.goal
+    const pct = Math.min(100, Math.round(data.progress / g.target_clients * 100))
+    const hit = data.hit
+    document.getElementById('bonus-goal-display').innerHTML = `
+      <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 24px;">
+        <div style="font-size:18px;font-weight:700;margin-bottom:6px;">${g.title}</div>
+        <div style="font-size:13px;color:var(--ink-muted);margin-bottom:16px;">Hit ${g.target_clients} new clients this period to earn a <strong style="color:var(--accent);">$${g.bonus_amount} bonus</strong></div>
+        <div style="background:var(--border);border-radius:20px;height:14px;overflow:hidden;margin-bottom:8px;">
+          <div style="background:${hit?'var(--accent)':'#f59e0b'};height:100%;width:${pct}%;border-radius:20px;transition:width 0.5s;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;">
+          <span style="color:var(--ink-muted);">${data.progress} / ${g.target_clients} clients</span>
+          <span style="font-weight:600;color:${hit?'var(--accent)':'var(--ink-muted)'};">${hit?'🎉 Goal reached! Bonus added to your pay!':'${pct}% there'}</span>
+        </div>
+      </div>`
+  } catch(e) { console.error(e) }
+}
+
+// Load domain requests and bonus goals when admin/manager loads
+const _origLoadAdminData = loadAdminData
+async function loadAdminData() {
+  await _origLoadAdminData()
+  loadDomainRequests()
+  loadBonusGoalsAdmin()
+  loadManagerStaffList()
+}
+
+const _origLoadManagerData = loadManagerData
+async function loadManagerData() {
+  await _origLoadManagerData()
+  loadDomainRequests()
+  loadBonusGoalsAdmin()
+  loadBonusGoalContractor()
 }
