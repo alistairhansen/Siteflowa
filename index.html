@@ -742,7 +742,7 @@
       <div class="modal-tab" id="tab-signup" onclick="switchTab('signup')">Create account</div>
     </div>
 
-    <div class="tab-panel active" id="tab-login">
+    <div id="form-login">
       <div class="dash-field"><label>Email address</label><input type="email" id="login-email" placeholder="you@example.com" autocomplete="email"></div>
       <div class="dash-field" style="margin-top:12px;position:relative;">
         <label>Password</label>
@@ -754,7 +754,7 @@
       <p class="modal-footer"><a onclick="showForgotPassword()">Forgot your password?</a></p>
     </div>
 
-    <div class="tab-panel" id="tab-signup" style="display:none;">
+    <div id="form-signup" style="display:none;">
       <div class="dash-field"><label>Email address</label><input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email"></div>
       <div class="dash-field" style="margin-top:12px;position:relative;">
         <label>Password</label>
@@ -769,7 +769,7 @@
       <button class="form-submit" onclick="doSignup()" style="margin-top:16px;width:100%;">Create account</button>
     </div>
 
-    <div class="tab-panel" id="tab-forgot" style="display:none;">
+    <div id="form-forgot" style="display:none;">
       <p style="font-size:14px;color:var(--ink-muted);margin-bottom:16px;">Enter your email and we'll send you a reset link.</p>
       <div class="dash-field"><label>Email address</label><input type="email" id="forgot-email" placeholder="you@example.com"></div>
       <div class="error-msg" id="forgot-error"></div>
