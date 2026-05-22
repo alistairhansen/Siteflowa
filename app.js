@@ -3114,89 +3114,93 @@ async function loadManagerData() {
 // DASHBOARD PREVIEW (MANAGERS/CONTRACTORS)
 // ══════════════════════════════════════════════════════
 function showManagerPreview() {
+  const body = document.body
   const overlay = document.createElement('div')
-  overlay.id = 'preview-overlay'
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.85);display:flex;align-items:center;justify-content:center;padding:20px;'
+  overlay.className = 'manager-preview-overlay'
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `
   
-  const modal = document.createElement('div')
-  modal.style.cssText = 'background:white;border-radius:18px;max-width:800px;width:100%;max-height:90vh;display:flex;flex-direction:column;pointer-events:auto;'
-  modal.innerHTML = `
-    <div style="padding:28px 32px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-      <h2 style="font-family:var(--serif);font-size:24px;margin:0;">Manager Dashboard Preview</h2>
-      <button style="background:none;border:none;font-size:24px;cursor:pointer;padding:0;">×</button>
-    </div>
-    <div style="padding:24px 32px;overflow-y:auto;flex:1;font-size:13px;color:var(--ink-light);">
-      <h3 style="font-weight:600;margin-bottom:12px;">Manager View Includes:</h3>
-      <ul style="margin:0;padding-left:20px;">
-        <li style="margin-bottom:8px;">📋 Pipeline - Manage all their leads and prospects</li>
-        <li style="margin-bottom:8px;">📊 Website Briefs - Send forms to clients, track submissions</li>
-        <li style="margin-bottom:8px;">💰 Earnings - Track commission and revenue brought in</li>
-        <li style="margin-bottom:8px;">👥 Clients List - See all clients they created websites for</li>
-        <li style="margin-bottom:8px;">🎯 Bonus Goals - Track progress toward bonus targets</li>
-        <li style="margin-bottom:8px;">📱 Domain Requests - Manage domain setup requests</li>
-        <li style="margin-bottom:8px;">➕ Full admin features - Everything contractors have access to, plus management tools</li>
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:18px;max-width:800px;width:90%;max-height:80vh;overflow:auto;padding:40px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:20px;">
+        <h2 style="font-family:Georgia,serif;font-size:28px;margin:0;color:#0f1117;">Manager Dashboard Preview</h2>
+        <button style="background:none;border:none;font-size:32px;cursor:pointer;color:#999;line-height:1;" onclick="this.closest('.manager-preview-overlay').remove()">×</button>
+      </div>
+      <h3 style="font-size:16px;font-weight:600;margin:20px 0 15px 0;color:#0f1117;">Manager View Includes:</h3>
+      <ul style="margin:0;padding-left:20px;line-height:1.8;">
+        <li>📋 Pipeline - Manage all their leads and prospects</li>
+        <li>📊 Website Briefs - Send forms to clients, track submissions</li>
+        <li>💰 Earnings - Track commission and revenue brought in</li>
+        <li>👥 Clients List - See all clients they created websites for</li>
+        <li>🎯 Bonus Goals - Track progress toward bonus targets</li>
+        <li>📱 Domain Requests - Manage domain setup requests</li>
+        <li>➕ Full admin features - Everything contractors have, plus management tools</li>
       </ul>
-    </div>
-    <div style="padding:20px 32px;border-top:1px solid var(--border);display:flex;gap:12px;justify-content:flex-end;">
-      <button style="background:var(--cream);border:1px solid var(--border);color:var(--ink);border-radius:var(--radius);padding:10px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;">Close</button>
+      <div style="margin-top:30px;display:flex;gap:10px;">
+        <button onclick="this.closest('.manager-preview-overlay').remove()" style="padding:10px 20px;background:#f5f5f5;border:1px solid #ddd;border-radius:6px;cursor:pointer;font-size:14px;">Close</button>
+      </div>
     </div>
   `
   
-  overlay.appendChild(modal)
-  document.body.appendChild(overlay)
+  body.appendChild(overlay)
   
-  function closeModal() {
-    overlay.remove()
-  }
-  
-  overlay.addEventListener('click', (e) => {
-    if(e.target === overlay) closeModal()
+  overlay.addEventListener('click', function(e) {
+    if(e.target === this) this.remove()
   })
-  
-  modal.querySelector('button:first-of-type').addEventListener('click', closeModal)
-  modal.querySelector('button:last-of-type').addEventListener('click', closeModal)
 }
 
 function showContractorPreview() {
+  const body = document.body
   const overlay = document.createElement('div')
-  overlay.id = 'preview-overlay'
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.85);display:flex;align-items:center;justify-content:center;padding:20px;'
+  overlay.className = 'contractor-preview-overlay'
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `
   
-  const modal = document.createElement('div')
-  modal.style.cssText = 'background:white;border-radius:18px;max-width:800px;width:100%;max-height:90vh;display:flex;flex-direction:column;pointer-events:auto;'
-  modal.innerHTML = `
-    <div style="padding:28px 32px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-      <h2 style="font-family:var(--serif);font-size:24px;margin:0;">Contractor Dashboard Preview</h2>
-      <button style="background:none;border:none;font-size:24px;cursor:pointer;padding:0;">×</button>
-    </div>
-    <div style="padding:24px 32px;overflow-y:auto;flex:1;font-size:13px;color:var(--ink-light);">
-      <h3 style="font-weight:600;margin-bottom:12px;">Contractor View Includes:</h3>
-      <ul style="margin:0;padding-left:20px;">
-        <li style="margin-bottom:8px;">📋 Pipeline - Manage their own leads and prospects</li>
-        <li style="margin-bottom:8px;">📊 Website Briefs - Send website setup forms to clients</li>
-        <li style="margin-bottom:8px;">💰 Earnings - Track their pay periods and total earnings</li>
-        <li style="margin-bottom:8px;">👥 Clients List - See only clients they created websites for</li>
-        <li style="margin-bottom:8px;">🎯 Bonus Goals - Track individual bonus progress</li>
-        <li style="margin-bottom:8px;">📱 Domain Requests - Submit domain setup requests</li>
-        <li style="margin-bottom:8px;">🔍 Limited Access - No admin functions, focused on project delivery</li>
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:18px;max-width:800px;width:90%;max-height:80vh;overflow:auto;padding:40px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:20px;">
+        <h2 style="font-family:Georgia,serif;font-size:28px;margin:0;color:#0f1117;">Contractor Dashboard Preview</h2>
+        <button style="background:none;border:none;font-size:32px;cursor:pointer;color:#999;line-height:1;" onclick="this.closest('.contractor-preview-overlay').remove()">×</button>
+      </div>
+      <h3 style="font-size:16px;font-weight:600;margin:20px 0 15px 0;color:#0f1117;">Contractor View Includes:</h3>
+      <ul style="margin:0;padding-left:20px;line-height:1.8;">
+        <li>📋 Pipeline - Manage their own leads and prospects</li>
+        <li>📊 Website Briefs - Send website setup forms to clients</li>
+        <li>💰 Earnings - Track their pay periods and total earnings</li>
+        <li>👥 Clients List - See only clients they created websites for</li>
+        <li>🎯 Bonus Goals - Track individual bonus progress</li>
+        <li>📱 Domain Requests - Submit domain setup requests</li>
+        <li>🔍 Limited Access - No admin functions, focused on project delivery</li>
       </ul>
-    </div>
-    <div style="padding:20px 32px;border-top:1px solid var(--border);display:flex;gap:12px;justify-content:flex-end;">
-      <button style="background:var(--cream);border:1px solid var(--border);color:var(--ink);border-radius:var(--radius);padding:10px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;">Close</button>
+      <div style="margin-top:30px;display:flex;gap:10px;">
+        <button onclick="this.closest('.contractor-preview-overlay').remove()" style="padding:10px 20px;background:#f5f5f5;border:1px solid #ddd;border-radius:6px;cursor:pointer;font-size:14px;">Close</button>
+      </div>
     </div>
   `
   
-  overlay.appendChild(modal)
-  document.body.appendChild(overlay)
+  body.appendChild(overlay)
   
-  function closeModal() {
-    overlay.remove()
-  }
-  
-  overlay.addEventListener('click', (e) => {
-    if(e.target === overlay) closeModal()
+  overlay.addEventListener('click', function(e) {
+    if(e.target === this) this.remove()
   })
-  
-  modal.querySelector('button:first-of-type').addEventListener('click', closeModal)
-  modal.querySelector('button:last-of-type').addEventListener('click', closeModal)
 }
