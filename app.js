@@ -708,7 +708,7 @@ function renderStaffList(managers){
   }).join('')
 }
 
-async async function closePeriod(managerId, email){
+async function closePeriod(managerId, email){
   if(!confirm('Close pay period for '+email+'? This will calculate earnings, send receipt, and reset stats.'))return
   try{
     const res=await fetch(API+'/admin/close-period',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({manager_id:managerId})})
