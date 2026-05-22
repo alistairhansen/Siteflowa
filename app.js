@@ -31,11 +31,12 @@ function showPage(n){
 function openLogin(){document.getElementById('login-modal').classList.add('open')}
 function closeLogin(){document.getElementById('login-modal').classList.remove('open')}
 function switchTab(t){
-  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'))
+  document.getElementById('form-login').style.display = t==='login' ? '' : 'none'
+  document.getElementById('form-signup').style.display = t==='signup' ? '' : 'none'
+  document.getElementById('form-forgot').style.display = 'none'
+  document.getElementById('forgot-pwd-link').style.display = t==='login' ? '' : 'none'
   document.querySelectorAll('.modal-tab').forEach(x=>x.classList.remove('active'))
   document.getElementById('tab-'+t).classList.add('active')
-  if(t==='login')document.querySelectorAll('.modal-tab')[0].classList.add('active')
-  if(t==='signup')document.querySelectorAll('.modal-tab')[1].classList.add('active')
 }
 function showError(id,msg){const el=document.getElementById(id);el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),5000)}
 function switchInquiryTab(tab,el){
