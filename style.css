@@ -457,3 +457,12 @@ footer p{font-size:13px;}
 .admin-tab:hover{background:white;color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,0.06);}
 .admin-tab.active{background:var(--accent);color:white;box-shadow:0 2px 8px rgba(26,107,90,0.25);}
 #admin-section-chats{display:none;}
+
+/* ── LOGIN MODAL ─────────────────────────────────────── */
+.modal-box{background:var(--white);border-radius:20px;padding:36px 32px;width:100%;max-width:440px;position:relative;box-shadow:0 24px 60px rgba(0,0,0,0.2);}
+.modal-close{position:absolute;top:16px;right:18px;background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-muted);line-height:1;padding:4px;}
+.modal-close:hover{color:var(--ink);}
+.tab-bar{display:grid;grid-template-columns:1fr 1fr;background:var(--cream);border-radius:var(--radius);padding:4px;gap:4px;}
+.tab-btn{background:none;border:none;padding:10px;border-radius:var(--radius);font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;color:var(--ink-muted);transition:all 0.15s;}
+.tab-btn.active{background:var(--accent);color:white;box-shadow:0 2px 8px rgba(26,107,90,0.25);}
+.tab-btn:not(.active):hover{background:white;color:var(--ink);}
