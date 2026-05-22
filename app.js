@@ -31,28 +31,11 @@ function showPage(n){
 function openLogin(){document.getElementById('login-modal').classList.add('open')}
 function closeLogin(){document.getElementById('login-modal').classList.remove('open')}
 function switchTab(t){
-  // Hide all forms
-  const login = document.getElementById('form-login')
-  const signup = document.getElementById('form-signup')
-  const forgot = document.getElementById('form-forgot')
-  
-  if(login) login.style.display = 'none'
-  if(signup) signup.style.display = 'none'
-  if(forgot) forgot.style.display = 'none'
-  
-  // Show the selected one
-  if(t === 'login' && login) login.style.display = 'block'
-  if(t === 'signup' && signup) signup.style.display = 'block'
-  if(t === 'forgot' && forgot) forgot.style.display = 'block'
-  
-  // Update tab styling
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'))
   document.querySelectorAll('.modal-tab').forEach(x=>x.classList.remove('active'))
-  const activeTab = document.getElementById('tab-'+t)
-  if(activeTab) activeTab.classList.add('active')
-  
-  // Hide forgot password link in signup
-  const forgotLink = document.getElementById('forgot-pwd-link')
-  if(forgotLink) forgotLink.style.display = t === 'login' ? 'block' : 'none'
+  document.getElementById('tab-'+t).classList.add('active')
+  if(t==='login')document.querySelectorAll('.modal-tab')[0].classList.add('active')
+  if(t==='signup')document.querySelectorAll('.modal-tab')[1].classList.add('active')
 }
 function showError(id,msg){const el=document.getElementById(id);el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),5000)}
 function switchInquiryTab(tab,el){
@@ -3126,4 +3109,3 @@ async function loadManagerData() {
   loadBonusGoalsAdmin()
   loadBonusGoalContractor()
 }
-
