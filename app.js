@@ -3120,7 +3120,7 @@ function showManagerPreview() {
     <div style="background:white;border-radius:18px;max-width:800px;width:100%;max-height:90vh;display:flex;flex-direction:column;">
       <div style="padding:28px 32px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
         <h2 style="font-family:var(--serif);font-size:24px;">Manager Dashboard Preview</h2>
-        <button onclick="this.closest('div').parentElement.parentElement.remove()" style="background:none;border:none;font-size:24px;cursor:pointer;">×</button>
+        <button style="background:none;border:none;font-size:24px;cursor:pointer;">×</button>
       </div>
       <div style="padding:24px 32px;overflow-y:auto;flex:1;font-size:13px;color:var(--ink-light);">
         <h3 style="font-weight:600;margin-bottom:12px;">Manager View Includes:</h3>
@@ -3135,11 +3135,16 @@ function showManagerPreview() {
         </ul>
       </div>
       <div style="padding:20px 32px;border-top:1px solid var(--border);display:flex;gap:12px;justify-content:flex-end;">
-        <button onclick="this.closest('div').parentElement.parentElement.remove()" style="background:var(--cream);border:1px solid var(--border);color:var(--ink);border-radius:var(--radius);padding:10px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;">Close</button>
+        <button style="background:var(--cream);border:1px solid var(--border);color:var(--ink);border-radius:var(--radius);padding:10px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;">Close</button>
       </div>
     </div>
   `
   document.body.appendChild(overlay)
+  overlay.addEventListener('click', function(e) {
+    if(e.target === overlay) overlay.remove()
+  })
+  overlay.querySelector('button:first-of-type').addEventListener('click', function() { overlay.remove() })
+  overlay.querySelector('button:last-of-type').addEventListener('click', function() { overlay.remove() })
 }
 
 function showContractorPreview() {
@@ -3149,7 +3154,7 @@ function showContractorPreview() {
     <div style="background:white;border-radius:18px;max-width:800px;width:100%;max-height:90vh;display:flex;flex-direction:column;">
       <div style="padding:28px 32px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
         <h2 style="font-family:var(--serif);font-size:24px;">Contractor Dashboard Preview</h2>
-        <button onclick="this.closest('div').parentElement.parentElement.remove()" style="background:none;border:none;font-size:24px;cursor:pointer;">×</button>
+        <button style="background:none;border:none;font-size:24px;cursor:pointer;">×</button>
       </div>
       <div style="padding:24px 32px;overflow-y:auto;flex:1;font-size:13px;color:var(--ink-light);">
         <h3 style="font-weight:600;margin-bottom:12px;">Contractor View Includes:</h3>
@@ -3164,9 +3169,14 @@ function showContractorPreview() {
         </ul>
       </div>
       <div style="padding:20px 32px;border-top:1px solid var(--border);display:flex;gap:12px;justify-content:flex-end;">
-        <button onclick="this.closest('div').parentElement.parentElement.remove()" style="background:var(--cream);border:1px solid var(--border);color:var(--ink);border-radius:var(--radius);padding:10px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;">Close</button>
+        <button style="background:var(--cream);border:1px solid var(--border);color:var(--ink);border-radius:var(--radius);padding:10px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;">Close</button>
       </div>
     </div>
   `
   document.body.appendChild(overlay)
+  overlay.addEventListener('click', function(e) {
+    if(e.target === overlay) overlay.remove()
+  })
+  overlay.querySelector('button:first-of-type').addEventListener('click', function() { overlay.remove() })
+  overlay.querySelector('button:last-of-type').addEventListener('click', function() { overlay.remove() })
 }
