@@ -724,5 +724,75 @@
   </section>
 </div>
 
+
+<!-- LOGIN MODAL -->
+<div id="login-modal" class="modal-overlay">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeLogin()">×</button>
+    <h2 style="font-family:var(--serif);font-size:26px;margin-bottom:6px;">Welcome back</h2>
+    <p style="font-size:14px;color:var(--ink-muted);margin-bottom:20px;">Log in or create a new account with your invite code.</p>
+    <div class="tab-bar" style="margin-bottom:20px;">
+      <button class="tab-btn active" id="tab-login" onclick="switchTab('login')">Log in</button>
+      <button class="tab-btn" id="tab-signup" onclick="switchTab('signup')">Create account</button>
+    </div>
+
+    <!-- LOGIN TAB -->
+    <div id="form-login">
+      <div class="dash-field"><label>Email address</label><input type="email" id="login-email" placeholder="you@example.com" autocomplete="email"></div>
+      <div class="dash-field" style="margin-top:12px;position:relative;">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="••••••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+        <button onclick="togglePasswordVisibility('login-password')" style="position:absolute;right:12px;top:34px;background:none;border:none;cursor:pointer;font-size:16px;color:var(--ink-muted);">👁</button>
+      </div>
+      <div class="error-msg" id="login-error"></div>
+      <button class="form-submit" onclick="doLogin()" style="margin-top:16px;">Log in to dashboard</button>
+      <p style="text-align:center;margin-top:14px;font-size:13px;"><a href="#" onclick="showForgotPassword()" style="color:var(--accent);">Forgot your password?</a></p>
+    </div>
+
+    <!-- SIGNUP TAB -->
+    <div id="form-signup" style="display:none;">
+      <div class="dash-field"><label>Email address</label><input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email"></div>
+      <div class="dash-field" style="margin-top:12px;position:relative;">
+        <label>Password</label>
+        <input type="password" id="signup-password" placeholder="Choose a password" autocomplete="new-password">
+        <button onclick="togglePasswordVisibility('signup-password')" style="position:absolute;right:12px;top:34px;background:none;border:none;cursor:pointer;font-size:16px;color:var(--ink-muted);">👁</button>
+      </div>
+      <div class="dash-field" style="margin-top:12px;">
+        <label>Invite or activation code</label>
+        <input type="text" id="signup-code" placeholder="e.g. ABC123" style="text-transform:uppercase;">
+      </div>
+      <div class="error-msg" id="signup-error"></div>
+      <button class="form-submit" onclick="doSignup()" style="margin-top:16px;">Create account</button>
+    </div>
+
+    <!-- FORGOT PASSWORD -->
+    <div id="form-forgot" style="display:none;">
+      <p style="font-size:14px;color:var(--ink-muted);margin-bottom:16px;">Enter your email and we'll send you a reset link.</p>
+      <div class="dash-field"><label>Email address</label><input type="email" id="forgot-email" placeholder="you@example.com"></div>
+      <div class="error-msg" id="forgot-error"></div>
+      <div class="save-msg" id="forgot-success">Reset email sent! Check your inbox.</div>
+      <button class="form-submit" onclick="doForgotPassword()" style="margin-top:16px;">Send reset link</button>
+      <p style="text-align:center;margin-top:14px;font-size:13px;"><a href="#" onclick="switchTab('login')" style="color:var(--accent);">Back to login</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- RESET PASSWORD PAGE -->
+<div id="page-reset" class="page-section">
+  <div style="max-width:420px;margin:120px auto;padding:0 20px;">
+    <h2 style="font-family:var(--serif);font-size:28px;margin-bottom:8px;">Set new password</h2>
+    <p style="color:var(--ink-muted);margin-bottom:24px;">Enter your new password below.</p>
+    <div class="dash-field">
+      <label>New password</label>
+      <div style="position:relative;">
+        <input type="password" id="reset-password" placeholder="New password" style="width:100%;padding-right:44px;">
+        <button onclick="togglePasswordVisibility('reset-password')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--ink-muted);">👁</button>
+      </div>
+    </div>
+    <div class="error-msg" id="reset-error"></div>
+    <button class="form-submit" onclick="doResetPassword()">Set new password</button>
+  </div>
+</div>
+
 </body>
 </html>
