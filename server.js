@@ -1373,6 +1373,28 @@ app.get('/bonus-progress/:contractorId', authMiddleware, async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }) }
 })
 
+// ── WEBSITE BRIEFS - get submitted briefs ───────────
+app.get('/admin/website-briefs', authMiddleware, staffMiddleware, async (req, res) => {
+  try {
+    const isContractor = req.user.role === 'contractor'
+    let result
+    if (isContractor) {
+      // Contractors only see briefs for their own clients
+      result = await pool.query(`
+        SELECT wb.*, c.email as client_email, w.created_by
+        FROM website_briefs wb
+        LEFT JOIN clients c ON c.email = wb.email
+        LEFT JOIN websites w ON w.client_id = c.id
+        WHERE w.created_by = $1
+        ORDER BY wb.created_at DESC
+      `, [req.user.id])
+    } else {
+      result = await pool.query('SELECT * FROM website_briefs ORDER BY created_at DESC')
+    }
+    res.json({ briefs: result.rows })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
 // ── HEALTH CHECK ────────────────────────────────────────
 app.get('/health', async (req, res) => {
   try { await pool.query('SELECT 1'); res.json({ message: 'Sitefloa server running!' }) }
@@ -1467,10 +1489,12 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
     const session = event.data.object
     const clientId = session.metadata?.client_id
     if (clientId) {
-      await pool.query('UPDATE clients SET subscription_status=$1, stripe_session_id=$2 WHERE id=$3',
-        ['active', session.id, clientId])
+      await pool.query(
+        'UPDATE clients SET subscription_status=$1, stripe_session_id=$2, onboarding_stage=$3 WHERE id=$4',
+        ['active', session.id, 'launched', clientId]
+      )
       await pool.query('UPDATE websites SET is_active=TRUE WHERE client_id=$1', [clientId])
-      console.log('Payment confirmed for client:', clientId)
+      console.log('Launch payment confirmed for client:', clientId)
     }
   }
 
@@ -1589,6 +1613,27 @@ app.post('/pay-deposit', authMiddleware, async (req, res) => {
   }
 })
 
+// ── DEPOSIT CONFIRMED (called after Stripe redirect) ─
+app.post('/deposit-confirmed', authMiddleware, async (req, res) => {
+  try {
+    const client = await pool.query('SELECT * FROM clients WHERE id=$1', [req.user.id])
+    const c = client.rows[0]
+    if (!c) return res.status(404).json({ error: 'Client not found' })
+    // Only update if they haven't already moved past this stage
+    if (!c.deposit_paid || c.onboarding_stage === 'account_created') {
+      await pool.query(
+        'UPDATE clients SET deposit_paid=TRUE, onboarding_stage=$1 WHERE id=$2',
+        ['building', req.user.id]
+      )
+    }
+    const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.user.id])
+    res.json({ message: 'Deposit confirmed', onboarding_stage: 'building', website: website.rows[0] || null })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // ── TRANSFER CLIENT BETWEEN CONTRACTORS ─────────────
 app.post('/admin/transfer-client', authMiddleware, async (req, res) => {
   if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Only admins and managers can transfer clients' })
@@ -1631,6 +1676,14 @@ app.post('/submit-brief', async (req, res) => {
        VALUES ($1, $2, $3, $4, NOW())`,
       [email, plan, business_name, JSON.stringify(req.body)]
     )
+
+    // Update client's onboarding_stage so staff can see brief was submitted
+    if (email) {
+      await pool.query(
+        `UPDATE clients SET onboarding_stage='brief_submitted' WHERE LOWER(email)=LOWER($1) AND onboarding_stage IN ('building','brief_pending','deposit_paid')`,
+        [email]
+      )
+    }
     
     // Generate Claude prompt
     const planLimits = {
