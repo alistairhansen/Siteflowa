@@ -421,16 +421,25 @@ async function doForgotPassword(){
 }
 
 async function doResetPassword(){
-  const token=new URLSearchParams(window.location.search).get('token')
+  const token = window._resetToken || new URLSearchParams(window.location.search).get('token')
   const password=document.getElementById('reset-password').value
   if(!token)return showError('reset-error','No reset token found. Please request a new reset link.')
   if(!password||password.length<8)return showError('reset-error','Password must be at least 8 characters')
   try{
     const res=await fetch(API+'/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,password})})
     const d=await res.json()
-    if(d.message){alert('Password reset successfully! You can now log in with your new password.');closeLogin();openLogin();switchTab('login')}
-    else showError('reset-error',d.error||'Reset failed - the link may have expired')
-  }catch(e){showError('reset-error','Could not connect to server. Is it running?')}
+    if(d.message){
+      window._resetToken = null
+      // Show success state on the reset page
+      const wrap = document.querySelector('#page-reset > div')
+      if(wrap) wrap.innerHTML = '<div style="text-align:center;padding:20px 0;">' +
+        '<div style="font-size:56px;margin-bottom:20px;">✅</div>' +
+        '<h2 style="font-family:var(--serif);font-size:28px;margin-bottom:12px;">Password updated!</h2>' +
+        '<p style="color:var(--ink-muted);font-size:15px;line-height:1.6;margin-bottom:28px;">Your password has been changed successfully. You can now log in with your new password.</p>' +
+        '<button onclick="showPage(\'home\');openLogin()" style="background:var(--accent);color:white;border:none;padding:14px 32px;border-radius:10px;font-family:var(--sans);font-size:15px;font-weight:500;cursor:pointer;">Log in →</button>' +
+        '</div>'
+    } else showError('reset-error',d.error||'Reset failed — the link may have expired. Please request a new one.')
+  }catch(e){showError('reset-error','Could not connect to server.')}
 }
 
 function showPaymentPage(website,plan){
@@ -1204,11 +1213,10 @@ window.addEventListener('load',()=>{
   loadSiteSettings()
   const params=new URLSearchParams(window.location.search)
   if(params.get('token')){
-    openLogin()
-    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'))
-    document.querySelectorAll('.modal-tab').forEach(t=>t.classList.remove('active'))
-    const resetTab=document.getElementById('tab-reset')
-    if(resetTab)resetTab.classList.add('active')
+    showPage('reset')
+    // Store token so doResetPassword can read it
+    window._resetToken = params.get('token')
+    window.history.replaceState({},'',window.location.pathname)
   }
   if(params.get('brief')){
     var bPlan = params.get('plan') || 'standard'
