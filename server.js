@@ -1539,7 +1539,6 @@ app.post('/billing-portal', authMiddleware, async (req, res) => {
 app.post('/admin/send-invite-email', authMiddleware, staffMiddleware, async (req, res) => {
   const { email, invite_code } = req.body
   if (!email || !invite_code) return res.status(400).json({ error: 'Email and invite code required' })
-  res.json({ message: 'Invite email sent to ' + email })
   try {
     await resend.emails.send({
       from: 'Sitefloa <hello@sitefloa.com>',
@@ -1565,7 +1564,11 @@ app.post('/admin/send-invite-email', authMiddleware, staffMiddleware, async (req
         </div>
       `
     })
-  } catch (err) { console.error('Invite email error:', err) }
+    res.json({ message: 'Invite email sent to ' + email })
+  } catch (err) {
+    console.error('Invite email error:', err)
+    res.status(500).json({ error: err.message })
+  }
 })
 
 // ── PAY DEPOSIT ─────────────────────────────────────
@@ -1852,7 +1855,6 @@ app.post('/admin/send-ready-email', authMiddleware, staffMiddleware, async (req,
     if (client.rows[0]) {
       await pool.query('UPDATE clients SET onboarding_stage=$1 WHERE id=$2', ['review', client.rows[0].id])
     }
-    res.json({ message: 'Website ready email sent to ' + email })
     await resend.emails.send({
       from: 'Sitefloa <hello@sitefloa.com>',
       to: email,
@@ -1867,9 +1869,10 @@ app.post('/admin/send-ready-email', authMiddleware, staffMiddleware, async (req,
         </div>
       `
     })
+    res.json({ message: 'Website ready email sent to ' + email })
   } catch (err) {
     console.error('Ready email error:', err)
-    if (!res.headersSent) res.status(500).json({ error: 'Failed to send email' })
+    res.status(500).json({ error: 'Failed to send email' })
   }
 })
 
@@ -1877,7 +1880,6 @@ app.post('/admin/send-ready-email', authMiddleware, staffMiddleware, async (req,
 app.post('/admin/send-custom-email', authMiddleware, staffMiddleware, async (req, res) => {
   const { email, subject, message } = req.body
   if (!email || !subject || !message) return res.status(400).json({ error: 'Email, subject, and message required' })
-  res.json({ message: 'Email sent to ' + email })
   try {
     await resend.emails.send({
       from: 'Sitefloa <hello@sitefloa.com>',
@@ -1892,7 +1894,11 @@ app.post('/admin/send-custom-email', authMiddleware, staffMiddleware, async (req
         </div>
       `
     })
-  } catch (err) { console.error('Custom email error:', err) }
+    res.json({ message: 'Email sent to ' + email })
+  } catch (err) {
+    console.error('Custom email error:', err)
+    res.status(500).json({ error: err.message })
+  }
 })
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
