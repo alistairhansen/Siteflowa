@@ -2036,6 +2036,122 @@ async function deleteLead(id) {
 }
 
 // ══════════════════════════════════════════════════════
+// CLIENT EMAIL CENTER
+// ══════════════════════════════════════════════════════
+
+// Track emails sent this session for the sent log
+const _sentEmailLog = []
+
+function updateEmailFields() {
+  const type = document.getElementById('email-center-type')?.value
+  const extraFields = document.getElementById('email-extra-fields')
+  const customField = document.getElementById('email-custom-field')
+  const planField = document.getElementById('email-plan-field')
+  const extraLabel = document.getElementById('email-extra-label')
+  const extraInput = document.getElementById('email-center-extra')
+
+  if (extraFields) extraFields.style.display = 'none'
+  if (customField) customField.style.display = 'none'
+  if (planField) planField.style.display = ['brief','invite'].includes(type) ? '' : 'none'
+
+  if (type === 'invite') {
+    if (extraFields) extraFields.style.display = ''
+    if (extraLabel) extraLabel.textContent = 'Invite code'
+    if (extraInput) extraInput.placeholder = 'e.g. ABC123'
+  } else if (type === 'ready') {
+    if (extraFields) extraFields.style.display = ''
+    if (extraLabel) extraLabel.textContent = 'Activation code (optional)'
+    if (extraInput) extraInput.placeholder = 'Leave blank to skip'
+  } else if (type === 'custom') {
+    if (customField) customField.style.display = ''
+  }
+}
+
+async function sendEmailCenter() {
+  const email = document.getElementById('email-center-to')?.value?.trim()
+  const type = document.getElementById('email-center-type')?.value
+  const plan = document.getElementById('email-center-plan')?.value || 'standard'
+  const extra = document.getElementById('email-center-extra')?.value?.trim()
+  const subject = document.getElementById('email-center-subject')?.value?.trim()
+  const message = document.getElementById('email-center-message')?.value?.trim()
+
+  if (!email) { alert('Please enter a client email address'); return }
+
+  const btn = document.querySelector('[onclick="sendEmailCenter()"]')
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending...' }
+
+  try {
+    let res, d, endpoint, body
+
+    if (type === 'brief') {
+      endpoint = '/admin/send-brief'
+      body = { email, plan }
+    } else if (type === 'invite') {
+      if (!extra) { alert('Please enter the invite code'); if (btn) { btn.disabled = false; btn.textContent = 'Send' }; return }
+      endpoint = '/admin/send-invite-email'
+      body = { email, invite_code: extra }
+    } else if (type === 'ready') {
+      endpoint = '/admin/send-ready-email'
+      body = { email }
+    } else if (type === 'custom') {
+      if (!subject) { alert('Please enter a subject line'); if (btn) { btn.disabled = false; btn.textContent = 'Send' }; return }
+      if (!message) { alert('Please enter a message'); if (btn) { btn.disabled = false; btn.textContent = 'Send' }; return }
+      endpoint = '/admin/send-custom-email'
+      body = { email, subject, message }
+    } else {
+      alert('Unknown email type'); if (btn) { btn.disabled = false; btn.textContent = 'Send' }; return
+    }
+
+    res = await fetch(API + endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify(body)
+    })
+    d = await res.json()
+
+    if (d.message) {
+      // Show success flash
+      const msg = document.getElementById('save-msg-email-center')
+      if (msg) { msg.classList.add('show'); setTimeout(() => msg.classList.remove('show'), 3000) }
+
+      // Log to sent list
+      const typeLabels = { brief: 'Brief form', invite: 'Invite code', ready: 'Website ready', custom: subject || 'Custom email' }
+      _sentEmailLog.unshift({ to: email, type: typeLabels[type] || type, time: new Date() })
+      renderSentEmailLog()
+
+      // Clear fields
+      document.getElementById('email-center-to').value = ''
+      if (document.getElementById('email-center-extra')) document.getElementById('email-center-extra').value = ''
+      if (document.getElementById('email-center-subject')) document.getElementById('email-center-subject').value = ''
+      if (document.getElementById('email-center-message')) document.getElementById('email-center-message').value = ''
+    } else {
+      alert(d.error || 'Failed to send email')
+    }
+  } catch(e) {
+    alert('Could not connect to server')
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Send' }
+}
+
+function renderSentEmailLog() {
+  const wrap = document.getElementById('sent-emails-wrap')
+  if (!wrap) return
+  if (!_sentEmailLog.length) {
+    wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No emails sent yet this session.</p>'
+    return
+  }
+  wrap.innerHTML = '<div style="display:grid;gap:6px;">'
+    + _sentEmailLog.slice(0, 10).map(function(e) {
+        return '<div style="display:flex;justify-content:space-between;align-items:center;background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:13px;">'
+          + '<div><span style="font-weight:600;">' + escHtml(e.to) + '</span> <span style="color:var(--ink-muted);">— ' + escHtml(e.type) + '</span></div>'
+          + '<div style="color:var(--ink-muted);font-size:12px;">' + e.time.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' }) + '</div>'
+          + '</div>'
+      }).join('')
+    + '</div>'
+}
+
+// ══════════════════════════════════════════════════════
 // WEBSITE BRIEFS / ASSET FORMS
 // ══════════════════════════════════════════════════════
 async function sendAssetForm() {
