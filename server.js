@@ -877,7 +877,7 @@ app.post('/admin/leads/:id/claim', authMiddleware, staffMiddleware, async (req, 
     }
     await pool.query('UPDATE leads SET claimed_by=$1, claimed_by_email=$2 WHERE id=$3',
       [req.user.id, req.user.email, req.params.id])
-    res.json({ message: 'Claimed' })
+    res.json({ message: 'Claimed', claimed_by: req.user.id, claimed_by_email: req.user.email })
   } catch(err) { res.status(500).json({ error: err.message }) }
 })
 
@@ -1316,21 +1316,17 @@ app.post('/admin/domain-requests/:id/complete', authMiddleware, staffMiddleware,
     const dr = req2.rows[0]
     if (!dr) return res.status(404).json({ error: 'Not found' })
     await pool.query(`UPDATE domain_requests SET status='completed' WHERE id=$1`, [req.params.id])
-    // Notify contractor
-    await resend.emails.send({
-      from: 'Sitefloa <hello@sitefloa.com>',
-      to: dr.requested_by_email,
-      subject: 'Your domain is ready — ' + dr.domain_name,
-      html: `
-        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;">
-          <h2 style="font-family:Georgia,serif;color:#1a6b5a;">Domain is ready!</h2>
-          <p>The domain <strong>${dr.domain_name}</strong> for <strong>${dr.business_name}</strong> has been set up and is ready to use.</p>
-          <p>Log in to your dashboard to connect it to the client's website.</p>
-          <p style="color:#8b909e;font-size:12px;">Please do not reply to this email.</p>
-        </div>`
-    })
+    // Notify contractor — wrapped so email failure doesn't block the response
+    if (dr.requested_by_email) {
+      resend.emails.send({
+        from: 'Sitefloa <hello@sitefloa.com>',
+        to: dr.requested_by_email,
+        subject: 'Your domain is ready — ' + (dr.domain_name || ''),
+        html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;"><h2 style="font-family:Georgia,serif;color:#1a6b5a;">Domain is ready!</h2><p>The domain <strong>${dr.domain_name}</strong> for <strong>${dr.business_name}</strong> has been set up.</p><p>Log in to your dashboard to connect it to the client's website.</p></div>`
+      }).catch(e => console.error('Domain email error:', e))
+    }
     res.json({ message: 'Domain request marked complete' })
-  } catch(err) { res.status(500).json({ error: err.message }) }
+  } catch(err) { console.error('Domain complete error:', err); res.status(500).json({ error: err.message }) }
 })
 
 app.post('/admin/toggle-domain-emails', authMiddleware, adminMiddleware, async (req, res) => {

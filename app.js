@@ -1967,12 +1967,17 @@ async function loadSubmittedBriefs() {
 }
 
 function renderSubmittedBriefs(briefs) {
-  var wrap = document.getElementById('submitted-briefs-wrap')
-  if (!wrap) return
-  if (!briefs.length) { wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No briefs submitted yet.</p>'; return }
+  // Render into all instances of submitted-briefs-wrap (admin page + manager page both have one)
+  var wraps = document.querySelectorAll('#submitted-briefs-wrap, [id="submitted-briefs-wrap"]')
+  if (!wraps.length) return
+  var wrap = wraps[0] // use first for the main render, then copy to others
+  if (!briefs.length) {
+    document.querySelectorAll('[id="submitted-briefs-wrap"]').forEach(function(el) { el.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No briefs submitted yet.</p>' })
+    return
+  }
   var myId = getToken() ? JSON.parse(atob(getToken().split('.')[1])).id : null
   var myEmail = localStorage.getItem('wc_email') || ''
-  wrap.innerHTML = '<div style="display:grid;gap:10px;">' +
+  var html = '<div style="display:grid;gap:10px;">' +
     briefs.map(function(b) {
       var fd = {}
       try { fd = typeof b.form_data === 'string' ? JSON.parse(b.form_data) : (b.form_data || {}) } catch(e) {}
@@ -2007,6 +2012,8 @@ function renderSubmittedBriefs(briefs) {
         '</div>' +
         '</div></div></div>'
     }).join('') + '</div>'
+  // Apply to all submitted-briefs-wrap elements on the page (admin + manager pages)
+  document.querySelectorAll('[id="submitted-briefs-wrap"]').forEach(function(el) { el.innerHTML = html })
 }
 
 function buildClaudePrompt(b, fd) {
@@ -2464,11 +2471,12 @@ async function deleteBonusGoal(id) {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
     })
-    var d = await res.json()
-    if (d.message) {
+    var d = {}
+    try { d = await res.json() } catch(e) { d = {} }
+    if (res.ok && d.message) {
       loadBonusGoals()
     } else {
-      alert('Error: ' + (d.error || 'Failed to remove goal'))
+      alert('Error ' + res.status + ': ' + (d.error || 'Failed to remove goal. You may not have permission.'))
     }
   } catch(e) { alert('Could not connect to server') }
 }
@@ -2592,9 +2600,13 @@ async function completeDomainRequest(id) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
     })
-    var d = await res.json()
-    if (d.message) loadDomainRequests()
-    else alert(d.error || 'Failed')
+    var d = {}
+    try { d = await res.json() } catch(e) { d = {} }
+    if (res.ok && d.message) {
+      loadDomainRequests()
+    } else {
+      alert('Error ' + res.status + ': ' + (d.error || 'Could not mark complete'))
+    }
   } catch(e) { alert('Could not connect to server') }
 }
 
