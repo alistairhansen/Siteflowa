@@ -1061,10 +1061,11 @@ async function createManagerCode(){const code=document.getElementById('new-manag
 async function createAdminCode(){const code=document.getElementById('new-admin-code').value.trim();if(!code)return alert('Please enter a code');try{const res=await fetch(API+'/admin/create-admin-code',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({code})});const d=await res.json();if(d.message){document.getElementById('new-admin-code').value='';loadAdminCodes()}else alert(d.error||'Failed')}catch(e){alert('Could not connect')}}
 async function removeManager(cid,email){if(!confirm('Remove manager access for '+email+'?'))return;try{const res=await fetch(API+'/admin/remove-manager/'+cid,{method:'DELETE',headers:{'Authorization':'Bearer '+getToken()}});const d=await res.json();if(d.message)loadAdminData();else alert(d.error||'Failed')}catch(e){alert('Could not connect')}}
 
-document.getElementById('login-modal').addEventListener('click',function(e){if(e.target===this)closeLogin()})
 function switchPanel(name,el){document.querySelectorAll('.dash-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.dash-nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('panel-'+name).classList.add('active');el.classList.add('active')}
 function savePanel(btn){const p=btn.closest('.dash-panel');const m=p.querySelector('.save-msg');if(m){m.classList.add('show');setTimeout(()=>m.classList.remove('show'),3000)}}
 window.addEventListener('load',()=>{
+  var loginModal=document.getElementById('login-modal')
+  if(loginModal) loginModal.addEventListener('click',function(e){if(e.target===this)closeLogin()})
   loadSiteSettings()
   const params=new URLSearchParams(window.location.search)
   if(params.get('token')){
