@@ -664,7 +664,7 @@ async function loadAdminData(){
     if(data.clients)renderClientsTable(data.clients.filter(c=>c.role==='client'||(!c.role&&!c.is_admin)))
     if(data.managers)renderStaffList(data.managers)
     if(data.monthly_chart)renderChart(data.monthly_chart)
-    loadAdminCodes();loadManagerCodes();loadInquiries('admin')
+    loadAdminCodes();loadManagerCodes();loadInquiries('admin');loadPipeline();loadAssetForms();loadSubmittedBriefs()
   }catch(e){console.error(e)}
 }
 
@@ -879,6 +879,7 @@ async function loadManagerData(){
     renderManagerEarningsHistory(earnData)
 
     loadInquiries('manager')
+    loadPipeline();loadMgrAssetForms();loadSubmittedBriefs()
   }catch(e){console.error(e)}
 }
 
@@ -1520,4 +1521,265 @@ async function submitBriefForm() {
     document.querySelector('#asset-form-wrap > div:first-child').style.display = 'none'
     document.getElementById('brief-form-success').style.display = 'block'
   }
+}
+
+// ── SALES PIPELINE ───────────────────────────────────────
+var allLeads = []
+
+var STAGE_LABELS = {
+  new: 'New', contacted: 'Contacted', interested: 'Interested',
+  demo_sent: 'Demo sent', won: 'Won', lost: 'Lost'
+}
+var STAGE_COLORS = {
+  new: '#6b7280', contacted: '#3b82f6', interested: '#8b5cf6',
+  demo_sent: '#f59e0b', won: '#10b981', lost: '#ef4444'
+}
+
+async function loadPipeline() {
+  try {
+    var res = await fetch(API + '/admin/leads', { headers: { 'Authorization': 'Bearer ' + getToken() } })
+    var data = await res.json()
+    allLeads = data.leads || []
+    renderPipeline(allLeads)
+  } catch(e) {
+    var w1 = document.getElementById('pipeline-wrap')
+    var w2 = document.getElementById('mgr-pipeline-wrap')
+    if (w1) w1.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">Could not load pipeline.</p>'
+    if (w2) w2.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">Could not load pipeline.</p>'
+  }
+}
+
+function renderPipeline(leads) {
+  var html = ''
+  if (!leads.length) {
+    html = '<p style="color:var(--ink-muted);font-size:14px;">No leads yet. Click "+ Add lead" to add your first one.</p>'
+  } else {
+    html = '<div style="display:grid;gap:10px;">' +
+      leads.map(function(l) {
+        var color = STAGE_COLORS[l.stage] || '#6b7280'
+        var label = STAGE_LABELS[l.stage] || l.stage || 'New'
+        var myId = getToken() ? JSON.parse(atob(getToken().split('.')[1])).id : null
+        var claimedByMe = l.claimed_by == myId
+        var isClaimed = !!l.claimed_by
+        return '<div style="background:white;border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">' +
+          '<div>' +
+          '<div style="font-weight:600;font-size:15px;">' + (l.business_name || 'Unnamed') + '</div>' +
+          '<div style="font-size:13px;color:var(--ink-muted);margin-top:3px;">' +
+          (l.contact_name ? l.contact_name + ' &middot; ' : '') +
+          (isClaimed ? (l.email || '') : '(claim to see email)') +
+          (l.phone && isClaimed ? ' &middot; ' + l.phone : '') +
+          '</div>' +
+          (l.notes ? '<div style="font-size:12px;color:var(--ink-muted);margin-top:4px;">' + l.notes + '</div>' : '') +
+          '</div>' +
+          '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
+          '<span style="background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;">' + label + '</span>' +
+          (!isClaimed ? '<button onclick="claimLead(' + l.id + ')" style="background:var(--accent);color:white;border:none;padding:5px 12px;border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;">Claim</button>' : '') +
+          (claimedByMe || getRole() === 'admin' ?
+            '<select onchange="updateLeadStage(' + l.id + ',this.value)" style="padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:12px;">' +
+            Object.entries(STAGE_LABELS).map(function(e) { return '<option value="' + e[0] + '"' + (l.stage === e[0] ? ' selected' : '') + '>' + e[1] + '</option>' }).join('') +
+            '</select>' : '') +
+          (getRole() === 'admin' ? '<button onclick="deleteLead(' + l.id + ')" style="background:none;border:1px solid var(--border);color:var(--ink-muted);padding:5px 10px;border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;">Delete</button>' : '') +
+          '</div></div></div>'
+      }).join('') + '</div>'
+  }
+  var w1 = document.getElementById('pipeline-wrap')
+  var w2 = document.getElementById('mgr-pipeline-wrap')
+  if (w1) w1.innerHTML = html
+  if (w2) w2.innerHTML = html
+}
+
+function showAddLeadModal() {
+  var existing = document.getElementById('add-lead-modal')
+  if (existing) existing.remove()
+  var modal = document.createElement('div')
+  modal.id = 'add-lead-modal'
+  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.7);display:flex;align-items:center;justify-content:center;padding:20px;'
+  modal.innerHTML = '<div style="background:white;border-radius:16px;width:100%;max-width:480px;padding:28px;box-shadow:0 24px 60px rgba(0,0,0,0.2);">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">' +
+    '<div style="font-family:var(--serif);font-size:20px;">Add new lead</div>' +
+    '<button onclick="document.getElementById(\'add-lead-modal\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-muted);">\u2715</button>' +
+    '</div>' +
+    '<div style="display:grid;gap:12px;">' +
+    '<div class="dash-field"><label>Business name *</label><input type="text" id="nl-biz" placeholder="e.g. Jane\'s Plumbing"></div>' +
+    '<div class="dash-field"><label>Contact name</label><input type="text" id="nl-contact" placeholder="e.g. Jane Smith"></div>' +
+    '<div class="dash-field"><label>Email</label><input type="email" id="nl-email" placeholder="jane@example.com"></div>' +
+    '<div class="dash-field"><label>Phone</label><input type="tel" id="nl-phone" placeholder="(555) 123-4567"></div>' +
+    '<div class="dash-field"><label>Plan interest</label><select id="nl-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>' +
+    '<div class="dash-field"><label>Notes</label><textarea id="nl-notes" rows="2" placeholder="Any notes about this lead..."></textarea></div>' +
+    '</div>' +
+    '<div style="display:flex;gap:10px;margin-top:20px;">' +
+    '<button onclick="submitAddLead()" style="flex:1;padding:12px;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;">Add lead</button>' +
+    '<button onclick="document.getElementById(\'add-lead-modal\').remove()" style="padding:12px 20px;background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:14px;cursor:pointer;">Cancel</button>' +
+    '</div></div>'
+  modal.onclick = function(e) { if (e.target === modal) modal.remove() }
+  document.body.appendChild(modal)
+}
+
+async function submitAddLead() {
+  var biz = document.getElementById('nl-biz').value.trim()
+  if (!biz) return alert('Please enter a business name')
+  var body = {
+    business_name: biz,
+    contact_name: document.getElementById('nl-contact').value,
+    email: document.getElementById('nl-email').value,
+    phone: document.getElementById('nl-phone').value,
+    plan_interest: document.getElementById('nl-plan').value,
+    notes: document.getElementById('nl-notes').value
+  }
+  try {
+    var res = await fetch(API + '/admin/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify(body)
+    })
+    var d = await res.json()
+    if (d.lead) {
+      document.getElementById('add-lead-modal').remove()
+      loadPipeline()
+    } else alert(d.error || 'Failed to add lead')
+  } catch(e) { alert('Could not connect to server') }
+}
+
+async function claimLead(id) {
+  try {
+    var res = await fetch(API + '/admin/leads/' + id + '/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    if (d.message) loadPipeline()
+    else alert(d.error || 'Could not claim lead')
+  } catch(e) { alert('Could not connect to server') }
+}
+
+async function updateLeadStage(id, stage) {
+  try {
+    await fetch(API + '/admin/leads/' + id + '/stage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ stage: stage })
+    })
+    loadPipeline()
+  } catch(e) { alert('Could not connect to server') }
+}
+
+async function deleteLead(id) {
+  if (!confirm('Delete this lead?')) return
+  try {
+    await fetch(API + '/admin/leads/' + id, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    loadPipeline()
+  } catch(e) { alert('Could not connect to server') }
+}
+
+// ── ASSET FORMS (sent brief forms) ───────────────────────
+async function loadAssetForms() {
+  try {
+    var res = await fetch(API + '/admin/asset-forms', { headers: { 'Authorization': 'Bearer ' + getToken() } })
+    var data = await res.json()
+    renderAssetForms(data.forms || [], 'asset-forms-wrap')
+  } catch(e) { console.error('Could not load asset forms', e) }
+}
+
+async function loadMgrAssetForms() {
+  try {
+    var res = await fetch(API + '/admin/asset-forms', { headers: { 'Authorization': 'Bearer ' + getToken() } })
+    var data = await res.json()
+    renderAssetForms(data.forms || [], 'mgr-asset-forms-wrap')
+  } catch(e) { console.error('Could not load asset forms', e) }
+}
+
+function renderAssetForms(forms, wrapId) {
+  var wrap = document.getElementById(wrapId)
+  if (!wrap) return
+  if (!forms.length) { wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No brief forms sent yet.</p>'; return }
+  wrap.innerHTML = '<div style="display:grid;gap:8px;">' +
+    forms.map(function(f) {
+      var date = new Date(f.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
+      var statusColor = f.status === 'submitted' ? 'var(--accent)' : '#6b7280'
+      var statusLabel = f.status === 'submitted' ? '\u2705 Submitted' : '\u23f3 Sent'
+      return '<div style="display:flex;justify-content:space-between;align-items:center;background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:13px;">' +
+        '<div><strong>' + f.email + '</strong> &middot; <span style="text-transform:capitalize;">' + (f.plan || 'standard') + '</span> &middot; ' + date + '</div>' +
+        '<span style="color:' + statusColor + ';font-weight:600;font-size:12px;">' + statusLabel + '</span>' +
+        '</div>'
+    }).join('') + '</div>'
+}
+
+// ── SUBMITTED BRIEFS ──────────────────────────────────────
+async function loadSubmittedBriefs() {
+  try {
+    var res = await fetch(API + '/admin/website-briefs', { headers: { 'Authorization': 'Bearer ' + getToken() } })
+    var data = await res.json()
+    renderSubmittedBriefs(data.briefs || [])
+  } catch(e) { console.error('Could not load submitted briefs', e) }
+}
+
+function renderSubmittedBriefs(briefs) {
+  var wrap = document.getElementById('submitted-briefs-wrap')
+  if (!wrap) return
+  if (!briefs.length) { wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No briefs submitted yet.</p>'; return }
+  wrap.innerHTML = '<div style="display:grid;gap:10px;">' +
+    briefs.map(function(b) {
+      var fd = {}
+      try { fd = typeof b.form_data === 'string' ? JSON.parse(b.form_data) : (b.form_data || {}) } catch(e) {}
+      var date = new Date(b.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+      var safeJson = JSON.stringify(b).replace(/\\/g,'\\\\').replace(/`/g,'\\`')
+      return '<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">' +
+        '<div>' +
+        '<div style="font-weight:600;font-size:15px;">' + (b.business_name || 'Unknown') + '</div>' +
+        '<div style="font-size:13px;color:var(--ink-muted);margin-top:2px;">' + (b.email || '') + ' &middot; ' + (b.plan || 'standard') + ' plan &middot; ' + date + '</div>' +
+        (fd.description ? '<div style="font-size:13px;color:var(--ink-light);margin-top:6px;">' + fd.description.substring(0,100) + (fd.description.length > 100 ? '...' : '') + '</div>' : '') +
+        '</div>' +
+        '<button onclick="showBriefModal(this)" data-brief="' + safeJson.replace(/"/g,'&quot;') + '" style="background:var(--accent-light);color:var(--accent);border:1px solid var(--accent);border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">View brief</button>' +
+        '</div></div>'
+    }).join('') + '</div>'
+}
+
+function showBriefModal(btn) {
+  try {
+    var b = JSON.parse(btn.getAttribute('data-brief').replace(/&quot;/g,'"'))
+    var fd = {}
+    try { fd = typeof b.form_data === 'string' ? JSON.parse(b.form_data) : (b.form_data || {}) } catch(e) {}
+    var existing = document.getElementById('brief-view-modal')
+    if (existing) existing.remove()
+    function row(label, val) {
+      if (!val) return ''
+      var display = Array.isArray(val) ? val.join(', ') : String(val)
+      return '<div style="padding:10px 0;border-bottom:1px solid var(--border);">' +
+        '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:3px;">' + label + '</div>' +
+        '<div style="font-size:14px;white-space:pre-wrap;">' + display.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div></div>'
+    }
+    var modal = document.createElement('div')
+    modal.id = 'brief-view-modal'
+    modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.7);display:flex;align-items:center;justify-content:center;padding:20px;'
+    modal.innerHTML = '<div style="background:white;border-radius:16px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.2);">' +
+      '<div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:white;z-index:1;">' +
+      '<div><div style="font-family:var(--serif);font-size:20px;">' + (b.business_name || 'Brief') + '</div>' +
+      '<div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">' + (b.email || '') + ' &middot; ' + (b.plan || 'standard') + ' plan</div></div>' +
+      '<button onclick="document.getElementById(\'brief-view-modal\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-muted);">\u2715</button>' +
+      '</div>' +
+      '<div style="padding:20px 24px;">' +
+      row('Business name', fd.business_name || b.business_name) +
+      row('Business type', fd.business_type) +
+      row('Description', fd.description) +
+      row('Phone', fd.phone) +
+      row('Address', fd.address) +
+      row('Business email', fd.business_email) +
+      row('Tagline', fd.tagline) +
+      row('Style', fd.style) +
+      row('Brand colours', fd.colors || fd.colours) +
+      row('Inspiration', fd.inspiration) +
+      row('Services', fd.services) +
+      row('Photos', fd.photos) +
+      row('Hours', fd.hours ? JSON.stringify(fd.hours) : null) +
+      row('Existing website', fd.existing_website) +
+      row('Notes', fd.notes) +
+      '</div></div>'
+    modal.onclick = function(e) { if (e.target === modal) modal.remove() }
+    document.body.appendChild(modal)
+  } catch(e) { alert('Could not load brief details') }
 }

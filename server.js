@@ -1839,4 +1839,40 @@ app.post('/admin/send-custom-email', authMiddleware, staffMiddleware, async (req
   } catch (err) { console.error('Custom email error:', err) }
 })
 
+// ── GET SUBMITTED WEBSITE BRIEFS ────────────────────
+app.get('/admin/website-briefs', authMiddleware, staffMiddleware, async (req, res) => {
+  try {
+    const isContractor = req.user.role === 'contractor'
+    let result
+    if (isContractor) {
+      result = await pool.query(`
+        SELECT wb.* FROM website_briefs wb
+        LEFT JOIN clients c ON LOWER(c.email) = LOWER(wb.email)
+        LEFT JOIN websites w ON w.client_id = c.id
+        WHERE w.created_by = $1
+        ORDER BY wb.created_at DESC
+      `, [req.user.id])
+    } else {
+      result = await pool.query('SELECT * FROM website_briefs ORDER BY created_at DESC')
+    }
+    res.json({ briefs: result.rows })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── DEPOSIT CONFIRMED (after Stripe redirect) ────────
+app.post('/deposit-confirmed', authMiddleware, async (req, res) => {
+  try {
+    const client = await pool.query('SELECT * FROM clients WHERE id=$1', [req.user.id])
+    if (!client.rows[0]) return res.status(404).json({ error: 'Client not found' })
+    if (!client.rows[0].deposit_paid) {
+      await pool.query(
+        "UPDATE clients SET deposit_paid=TRUE, onboarding_stage='building' WHERE id=$1",
+        [req.user.id]
+      )
+    }
+    const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.user.id])
+    res.json({ message: 'Deposit confirmed', website: website.rows[0] || null })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
