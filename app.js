@@ -721,6 +721,7 @@ function renderStaffList(managers){
         <button class="action-btn" onclick="updateCommission('${m.id}')">Save %</button>
         <button class="action-btn" style="background:var(--accent-light);border-color:var(--accent);color:var(--accent);" onclick="viewPayHistory('${m.id}','${m.email}')">📋 History</button>
         <button class="dash-save" style="padding:4px 12px;font-size:12px;background:var(--purple);" onclick="closePeriod('${m.id}','${m.email}')">✓ Close period & pay</button>
+        <button class="action-btn" onclick="swapRole('${m.id}','${m.role}')" title="Toggle between contractor and manager">${m.role==='manager'?'→ Make contractor':'→ Make manager'}</button>
         <button class="btn-remove" onclick="removeManager('${m.id}','${m.email}')">Remove</button>
       </div>
     </div>
@@ -1016,6 +1017,10 @@ function renderClientsTable(clients){
         <div class="detail-item"><div class="dl">Referral code</div><div class="dv" style="font-family:monospace;">${c.referral_code||'-'}</div></div>
         <div class="detail-item"><div class="dl">Created by</div><div class="dv">${c.created_by_email||'-'}</div></div>
         <div class="detail-item"><div class="dl">Active</div><div class="dv">${c.is_active?'OK Yes':'No No'}</div></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+        <button class="action-btn" style="background:#1a6b5a;color:white;border-color:#1a6b5a;" onclick="uploadSiteHtml('${c.website_id}','${c.email}')">🌐 Upload website HTML</button>
+        <button class="action-btn" style="background:#3b82f6;color:white;border-color:#3b82f6;" onclick="markPreviewReady('${c.id}','${c.email}')">👁 Mark preview ready</button>
       </div>
       <div class="pricing-edit">
         <label>Plan</label>
@@ -1743,7 +1748,7 @@ function renderPipeline(leads) {
             '<select onchange="updateLeadStage(' + l.id + ',this.value)" style="padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:12px;">' +
             Object.entries(STAGE_LABELS).map(function(e) { return '<option value="' + e[0] + '"' + (l.stage === e[0] ? ' selected' : '') + '>' + e[1] + '</option>' }).join('') +
             '</select>' : '') +
-          (getRole() === 'admin' ? '<button onclick="deleteLead(' + l.id + ')" style="background:none;border:1px solid var(--border);color:var(--ink-muted);padding:5px 10px;border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;">Delete</button>' : '') +
+          (['admin','manager'].includes(getRole()) ? '<button onclick="deleteLead(' + l.id + ')" style="background:none;border:1px solid #ef444466;color:#ef4444;padding:5px 10px;border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;">Delete</button>' : '') +
           '</div></div></div>'
       }).join('') + '</div>'
   }
@@ -1811,9 +1816,12 @@ async function claimLead(id) {
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
     })
     var d = await res.json()
-    if (d.message) loadPipeline()
-    else alert(d.error || 'Could not claim lead')
-  } catch(e) { alert('Could not connect to server') }
+    if (d.message) {
+      loadPipeline()
+    } else {
+      alert(d.error || 'Could not claim lead')
+    }
+  } catch(e) { alert('Could not connect to server — make sure you are logged in') }
 }
 
 async function updateLeadStage(id, stage) {
@@ -2571,5 +2579,23 @@ async function markPreviewReady(clientId, clientEmail) {
       alert('Marked as preview ready! Now send the client a "Website Ready" email from the Email Center to notify them.')
       loadAdminData()
     } else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect to server') }
+}
+
+// ── SWAP STAFF ROLE ───────────────────────────────────────
+async function swapRole(clientId, currentRole) {
+  var newRole = currentRole === 'manager' ? 'contractor' : 'manager'
+  if (!confirm('Change this person\'s role from ' + currentRole + ' to ' + newRole + '? They will need to log out and back in for the change to take effect.')) return
+  try {
+    var res = await fetch(API + '/admin/set-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ client_id: clientId, role: newRole })
+    })
+    var d = await res.json()
+    if (d.message) {
+      alert('Role updated to ' + newRole + '. They will need to log out and log back in.')
+      loadAdminData()
+    } else alert(d.error || 'Failed to update role')
   } catch(e) { alert('Could not connect to server') }
 }

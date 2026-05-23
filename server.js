@@ -75,12 +75,12 @@ app.post('/signup', async (req, res) => {
       if (existing.rows.length > 0) return res.status(400).json({ error: 'Email already registered' })
       const password_hash = await bcrypt.hash(password, 10)
       const client = await pool.query(
-        'INSERT INTO clients (email,password_hash,role,is_admin,subscription_status) VALUES ($1,$2,$3,FALSE,$4) RETURNING id,email',
+        'INSERT INTO clients (email,password_hash,role,is_admin,subscription_status,commission_rate) VALUES ($1,$2,$3,FALSE,$4,10) RETURNING id,email',
         [emailLower, password_hash, 'contractor', 'active']
       )
       await pool.query('UPDATE manager_codes SET used=TRUE, assigned_to=$1 WHERE code=$2', [client.rows[0].id, invite_code.trim()])
-      const token = jwt.sign({ id: client.rows[0].id, email: emailLower, role: 'manager' }, process.env.JWT_SECRET, { expiresIn: '7d' })
-      return res.json({ message: 'Manager account created', token, role: 'manager' })
+      const token = jwt.sign({ id: client.rows[0].id, email: emailLower, role: 'contractor' }, process.env.JWT_SECRET, { expiresIn: '30d' })
+      return res.json({ message: 'Contractor account created', token, role: 'contractor' })
     }
 
     const invite = await pool.query('SELECT * FROM invite_codes WHERE code=$1 AND used=FALSE', [invite_code.toUpperCase().trim()])
@@ -870,7 +870,7 @@ app.post('/admin/leads/:id/claim', authMiddleware, staffMiddleware, async (req, 
     if (lead.rows[0]?.claimed_by && lead.rows[0].claimed_by !== req.user.id) {
       return res.status(400).json({ error: 'Already claimed by ' + lead.rows[0].claimed_by_email })
     }
-    await pool.query('UPDATE leads SET claimed_by=$1, claimed_by_email=$2, updated_at=NOW() WHERE id=$3',
+    await pool.query('UPDATE leads SET claimed_by=$1, claimed_by_email=$2 WHERE id=$3',
       [req.user.id, req.user.email, req.params.id])
     res.json({ message: 'Claimed' })
   } catch(err) { res.status(500).json({ error: err.message }) }
@@ -883,7 +883,7 @@ app.post('/admin/leads/:id/stage', authMiddleware, staffMiddleware, async (req, 
     if (lead.rows[0]?.claimed_by && lead.rows[0].claimed_by !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Only the person who claimed this lead can update its stage' })
     }
-    await pool.query('UPDATE leads SET stage=$1, updated_at=NOW() WHERE id=$2', [stage, req.params.id])
+    await pool.query('UPDATE leads SET stage=$1 WHERE id=$2', [stage, req.params.id])
     res.json({ message: 'Stage updated' })
   } catch(err) { res.status(500).json({ error: err.message }) }
 })
@@ -1302,8 +1302,8 @@ app.get('/admin/domain-requests', authMiddleware, async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }) }
 })
 
-app.post('/admin/domain-requests/:id/complete', authMiddleware, async (req, res) => {
-  if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' })
+app.post('/admin/domain-requests/:id/complete', authMiddleware, staffMiddleware, async (req, res) => {
+  if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Only admins and managers can mark domain requests complete' })
   try {
     const req2 = await pool.query('SELECT * FROM domain_requests WHERE id=$1', [req.params.id])
     const dr = req2.rows[0]
