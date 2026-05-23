@@ -451,13 +451,18 @@ app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
     const totalCommissions = parseFloat(commissionsResult.rows[0]?.total)||0
     const netRevenue = Math.round(totalRevenue - totalCommissions)
     const managers = await pool.query(`
-      SELECT c.id, c.email, c.role, c.commission_rate,
-        COUNT(w.id)::int as websites_created,
-        COALESCE(SUM(w.setup_fee), 0)::numeric as total_brought_in
+      SELECT c.id, c.email, c.role, c.commission_rate, c.manager_commission_rate,
+        COUNT(DISTINCT w.id)::int as websites_created,
+        COALESCE(SUM(DISTINCT w.setup_fee) FILTER (WHERE w.id IS NOT NULL), 0)::numeric as total_brought_in,
+        COUNT(DISTINCT wb.id)::int as briefs_sent,
+        COUNT(DISTINCT w_all.id)::int as websites_all_time,
+        COALESCE(SUM(DISTINCT w_all.setup_fee) FILTER (WHERE w_all.id IS NOT NULL), 0)::numeric as total_all_time
       FROM clients c
       LEFT JOIN websites w ON w.created_by = c.id AND w.is_active = TRUE
+      LEFT JOIN asset_forms wb ON wb.sent_by = c.id
+      LEFT JOIN websites w_all ON w_all.created_by = c.id AND w_all.is_active = TRUE
       WHERE c.role IN ('manager','contractor')
-      GROUP BY c.id, c.email, c.role, c.commission_rate
+      GROUP BY c.id, c.email, c.role, c.commission_rate, c.manager_commission_rate
     `)
     const monthlyChart = await pool.query(`
       SELECT DATE_TRUNC('month', c.created_at) as month,
@@ -1310,7 +1315,7 @@ app.post('/admin/domain-requests/:id/complete', authMiddleware, staffMiddleware,
     const req2 = await pool.query('SELECT * FROM domain_requests WHERE id=$1', [req.params.id])
     const dr = req2.rows[0]
     if (!dr) return res.status(404).json({ error: 'Not found' })
-    await pool.query('UPDATE domain_requests SET status=$1, completed_at=NOW() WHERE id=$2', ['completed', req.params.id])
+    await pool.query(`UPDATE domain_requests SET status='completed' WHERE id=$1`, [req.params.id])
     // Notify contractor
     await resend.emails.send({
       from: 'Sitefloa <hello@sitefloa.com>',
@@ -1901,6 +1906,14 @@ app.post('/admin/send-custom-email', authMiddleware, staffMiddleware, async (req
       `
     })
   } catch (err) { console.error('Custom email error:', err) }
+})
+
+// ── DELETE SUBMITTED BRIEF (admin only) ─────────────
+app.delete('/admin/website-briefs/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM website_briefs WHERE id=$1', [req.params.id])
+    res.json({ message: 'Brief deleted' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
 })
 
 // ── GET SUBMITTED WEBSITE BRIEFS ────────────────────

@@ -703,25 +703,48 @@ function renderStaffList(managers){
   const all=[...managers.filter(m=>m.role==='contractor'),...managers.filter(m=>m.role==='manager'||!m.role)]
   wrap.innerHTML=all.map(m=>{
     const total=parseFloat(m.total_brought_in)||0
+    const totalAll=parseFloat(m.total_all_time)||0
     const rate=parseFloat(m.commission_rate||10)
+    const orgRate=parseFloat(m.manager_commission_rate||0)
     const commission=Math.round(total*rate/100)
-    const roleTag=m.role==='contractor'
+    const commissionAll=Math.round(totalAll*rate/100)
+    const isManager=m.role==='manager'
+    const roleTag=!isManager
       ?'<span style="background:#e8f4f1;color:var(--accent);border:1px solid var(--accent);border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;text-transform:uppercase;margin-left:6px;">Contractor</span>'
       :'<span style="background:#ede9ff;color:#7c3aed;border:1px solid #c4b5fd;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;text-transform:uppercase;margin-left:6px;">Manager</span>'
-    return `<div class="staff-row">
-      <div class="staff-info"><div class="staff-email">${m.email}${roleTag}</div><div class="staff-meta">Commission: ${rate}% of launch fees &middot; ${m.websites_created||0} clients this period</div></div>
-      <div class="staff-stats">
-        <div><div class="sv">${m.websites_created||0}</div><div class="sl">Clients</div></div>
-        <div><div class="sv">$${total.toFixed(0)}</div><div class="sl">Launch fees</div></div>
-        <div><div class="sv" style="color:var(--accent);">$${commission}</div><div class="sl">Commission</div></div>
+    return `<div class="staff-row" style="flex-direction:column;align-items:stretch;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+        <div class="staff-info">
+          <div class="staff-email">${m.email}${roleTag}</div>
+          <div class="staff-meta">Own sales: ${rate}% commission${isManager?' · Org: '+orgRate+'% of all launch fees':''}</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
+          <button onclick="toggleStaffPeriod('${m.id}')" id="period-toggle-${m.id}" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:4px 10px;font-family:var(--sans);font-size:11px;cursor:pointer;">This period</button>
+          <button onclick="toggleStaffPeriod('${m.id}')" style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:4px 10px;font-family:var(--sans);font-size:11px;cursor:pointer;display:none;" id="alltime-toggle-${m.id}">All time</button>
+        </div>
       </div>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-        <input type="number" value="${rate}" style="width:60px;padding:4px 8px;font-size:12px;" id="cr-${m.id}" min="0" max="100">
-        <span style="font-size:12px;color:var(--ink-muted);">%</span>
-        <button class="action-btn" onclick="updateCommission('${m.id}')">Save %</button>
-        <button class="action-btn" style="background:var(--accent-light);border-color:var(--accent);color:var(--accent);" onclick="viewPayHistory('${m.id}','${m.email}')">📋 History</button>
+      <div id="stats-period-${m.id}" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;">
+        <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">${m.websites_created||0}</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Clients</div></div>
+        <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">${m.briefs_sent||0}</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Briefs sent</div></div>
+        <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">$${total.toFixed(0)}</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Launch fees</div></div>
+        <div style="background:#e8f4f1;border:1px solid var(--accent);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;color:var(--accent);">$${commission}</div><div style="font-size:11px;color:var(--accent);margin-top:2px;">Commission</div></div>
+      </div>
+      <div id="stats-alltime-${m.id}" style="display:none;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;">
+        <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">${m.websites_all_time||0}</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Clients (all time)</div></div>
+        <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">${m.briefs_sent||0}</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Briefs sent</div></div>
+        <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">$${totalAll.toFixed(0)}</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Launch fees (all time)</div></div>
+        <div style="background:#e8f4f1;border:1px solid var(--accent);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;color:var(--accent);">$${commissionAll}</div><div style="font-size:11px;color:var(--accent);margin-top:2px;">Commission (all time)</div></div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+        <span style="font-size:12px;color:var(--ink-muted);">Own sales %:</span>
+        <input type="number" value="${rate}" style="width:56px;padding:4px 8px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius);" id="cr-${m.id}" min="0" max="100">
+        <button class="action-btn" onclick="updateCommission('${m.id}')">Save</button>
+        ${isManager ? `<span style="font-size:12px;color:var(--ink-muted);margin-left:8px;">Org % of all launch fees:</span>
+        <input type="number" value="${orgRate}" style="width:56px;padding:4px 8px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius);" id="mcr-${m.id}" min="0" max="100">
+        <button class="action-btn" onclick="updateManagerOrgRate('${m.id}')">Save</button>` : ''}
+        <button class="action-btn" style="background:var(--accent-light);border-color:var(--accent);color:var(--accent);margin-left:4px;" onclick="viewPayHistory('${m.id}','${m.email}')">📋 History</button>
         <button class="dash-save" style="padding:4px 12px;font-size:12px;background:var(--purple);" onclick="closePeriod('${m.id}','${m.email}')">✓ Close period & pay</button>
-        <button class="action-btn" onclick="swapRole('${m.id}','${m.role}')" title="Toggle between contractor and manager">${m.role==='manager'?'→ Make contractor':'→ Make manager'}</button>
+        <button class="action-btn" onclick="swapRole('${m.id}','${m.role}')">${isManager?'→ Make contractor':'→ Make manager'}</button>
         <button class="btn-remove" onclick="removeManager('${m.id}','${m.email}')">Remove</button>
       </div>
     </div>
@@ -730,6 +753,41 @@ function renderStaffList(managers){
       <div id="pay-history-inner-${m.id}"><p style="font-size:13px;color:var(--ink-muted);">Loading...</p></div>
     </div>`
   }).join('')
+}
+
+function toggleStaffPeriod(id) {
+  var periodDiv = document.getElementById('stats-period-' + id)
+  var allDiv = document.getElementById('stats-alltime-' + id)
+  var periodBtn = document.getElementById('period-toggle-' + id)
+  var allBtn = document.getElementById('alltime-toggle-' + id)
+  var showingPeriod = periodDiv.style.display !== 'none'
+  periodDiv.style.display = showingPeriod ? 'none' : 'grid'
+  allDiv.style.display = showingPeriod ? 'grid' : 'none'
+  if (periodBtn) { periodBtn.style.display = showingPeriod ? '' : 'none'; periodBtn.style.background = 'var(--cream)'; periodBtn.style.color = 'var(--ink)'; periodBtn.style.border = '1px solid var(--border)' }
+  if (allBtn) { allBtn.style.display = showingPeriod ? 'none' : ''; allBtn.style.background = showingPeriod ? 'var(--accent)' : 'var(--cream)'; allBtn.style.color = showingPeriod ? 'white' : 'var(--ink)'; allBtn.style.border = showingPeriod ? 'none' : '1px solid var(--border)' }
+  // Swap button states
+  if (showingPeriod) {
+    if (periodBtn) { periodBtn.style.background='var(--cream)'; periodBtn.style.color='var(--ink)'; periodBtn.style.border='1px solid var(--border)' }
+    if (allBtn) { allBtn.style.background='var(--accent)'; allBtn.style.color='white'; allBtn.style.border='none' }
+  } else {
+    if (periodBtn) { periodBtn.style.background='var(--accent)'; periodBtn.style.color='white'; periodBtn.style.border='none' }
+    if (allBtn) { allBtn.style.background='var(--cream)'; allBtn.style.color='var(--ink)'; allBtn.style.border='1px solid var(--border)' }
+  }
+}
+
+async function updateManagerOrgRate(id) {
+  var rate = parseInt(document.getElementById('mcr-' + id)?.value)
+  if (isNaN(rate)) return alert('Please enter a valid rate')
+  try {
+    var res = await fetch(API + '/admin/set-manager-rate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ client_id: id, rate: rate })
+    })
+    var d = await res.json()
+    if (d.message) alert('Org commission rate updated to ' + rate + '%')
+    else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect to server') }
 }
 
 async function closePeriod(managerId, email){
@@ -1943,7 +2001,10 @@ function renderSubmittedBriefs(briefs) {
         '</div>' +
         '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">' +
         actionBtn +
+        '<div style="display:flex;gap:6px;">' +
+        (getRole() === 'admin' ? '<button onclick="deleteBrief(' + b.id + ')" style="background:#fee2e2;color:#ef4444;border:1px solid #ef4444;border-radius:var(--radius);padding:6px 10px;font-family:var(--sans);font-size:12px;cursor:pointer;">Delete</button>' : '') +
         '<button onclick="showBriefModal(this)" data-brief="' + safeJson.replace(/"/g,'&quot;') + '" style="background:var(--accent-light);color:var(--accent);border:1px solid var(--accent);border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">View brief</button>' +
+        '</div>' +
         '</div></div></div>'
     }).join('') + '</div>'
 }
@@ -2713,4 +2774,18 @@ async function loadContractorBonus() {
     var section2 = document.getElementById('bonus-goal-section')
     if (section2) section2.style.display = 'none'
   }
+}
+
+// ── DELETE SUBMITTED BRIEF (admin only) ──────────────────
+async function deleteBrief(id) {
+  if (!confirm('Delete this brief permanently? This cannot be undone.')) return
+  try {
+    var res = await fetch(API + '/admin/website-briefs/' + id, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    if (d.message) loadSubmittedBriefs()
+    else alert(d.error || 'Failed to delete')
+  } catch(e) { alert('Could not connect to server') }
 }
