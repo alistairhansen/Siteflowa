@@ -9,6 +9,43 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="/style.css">
+<style>
+  /* Scrollable dashboard list sections */
+  #pipeline-wrap, #mgr-pipeline-wrap,
+  #sent-emails-wrap,
+  #all-chats-wrap,
+  #submitted-briefs-wrap,
+  #asset-forms-wrap,
+  #mgr-asset-forms-wrap,
+  #admin-inquiries-list,
+  #mgr-inquiries-list,
+  #domain-requests-wrap {
+    max-height: 340px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  #pipeline-wrap::-webkit-scrollbar,
+  #mgr-pipeline-wrap::-webkit-scrollbar,
+  #sent-emails-wrap::-webkit-scrollbar,
+  #all-chats-wrap::-webkit-scrollbar,
+  #submitted-briefs-wrap::-webkit-scrollbar,
+  #asset-forms-wrap::-webkit-scrollbar,
+  #mgr-asset-forms-wrap::-webkit-scrollbar,
+  #admin-inquiries-list::-webkit-scrollbar,
+  #mgr-inquiries-list::-webkit-scrollbar,
+  #domain-requests-wrap::-webkit-scrollbar { width: 6px; }
+  #pipeline-wrap::-webkit-scrollbar-thumb,
+  #mgr-pipeline-wrap::-webkit-scrollbar-thumb,
+  #sent-emails-wrap::-webkit-scrollbar-thumb,
+  #all-chats-wrap::-webkit-scrollbar-thumb,
+  #submitted-briefs-wrap::-webkit-scrollbar-thumb,
+  #asset-forms-wrap::-webkit-scrollbar-thumb,
+  #mgr-asset-forms-wrap::-webkit-scrollbar-thumb,
+  #admin-inquiries-list::-webkit-scrollbar-thumb,
+  #mgr-inquiries-list::-webkit-scrollbar-thumb,
+  #domain-requests-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
 </head>
 <body><nav>
   <div class="nav-logo" onclick="showPage('home')">

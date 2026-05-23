@@ -965,7 +965,10 @@ function renderClientsTable(clients){
       <td><button class="action-btn" onclick="toggleDetail('${c.id}')"></button></td>
       <td>${c.email}</td><td>${c.business_name||'<span style="color:var(--ink-muted)">Not set</span>'}</td>
       <td><span class="plan-pill ${c.plan||'standard'}">${(c.plan||'standard').charAt(0).toUpperCase()+(c.plan||'standard').slice(1)}</span></td>
-      <td><span class="status-badge ${c.is_active?'active':c.subscription_status==='suspended'?'suspended':c.subscription_status==='pending_payment'?'pending':'inactive'}">${c.is_active?'Active':c.subscription_status==='suspended'?'Suspended':c.subscription_status==='pending_payment'?'Pending':'Inactive'}</span></td>
+      <td>
+        <span class="status-badge ${c.is_active?'active':c.subscription_status==='suspended'?'suspended':c.subscription_status==='pending_payment'?'pending':'inactive'}">${c.is_active?'Active':c.subscription_status==='suspended'?'Suspended':c.subscription_status==='pending_payment'?'Pending':'Inactive'}</span>
+        <div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">${{'account_created':'No account yet','pending_payment':'Awaiting payment','deposit_paid':'Deposit paid','building':'Being built','brief_submitted':'Brief received','preview_ready':'Preview ready','review':'In review','launched':'Live \u2705'}[c.onboarding_stage]||c.onboarding_stage||'Not started'}</div>
+      </td>
       <td>$${c.setup_fee||299}</td><td>$${c.monthly_fee||49}/mo</td>
       <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;">${c.created_by_email||'-'}</td>
       <td>${new Date(c.created_at).toLocaleDateString()}</td>
@@ -1742,6 +1745,122 @@ function renderSubmittedBriefs(briefs) {
     }).join('') + '</div>'
 }
 
+function buildClaudePrompt(b, fd) {
+  var plan = b.plan || 'standard'
+  var planLimits = {
+    basic:    { photos: 2,   services: 3,   pages: 1,   label: 'Basic (1 page, max 2 photos, no monthly fee)' },
+    standard: { photos: 8,   services: 10,  pages: 4,   label: 'Standard (4 pages, max 8 photos, custom domain)' },
+    premium:  { photos: 999, services: 999, pages: 999, label: 'Premium (unlimited pages & photos, custom domain, priority support)' }
+  }
+  var lim = planLimits[plan] || planLimits.standard
+  var servicesList = Array.isArray(fd.services) ? fd.services.map(function(s,i){return (i+1)+'. '+s}).join('\n') : (fd.services || 'None provided')
+  var photosList   = Array.isArray(fd.photos)   ? fd.photos.map(function(p,i){return (i+1)+'. '+p}).join('\n')   : (fd.photos   || 'None provided — use placeholder images')
+  var hoursText = 'Not provided'
+  if (fd.hours && typeof fd.hours === 'object' && Object.keys(fd.hours).length) {
+    hoursText = Object.entries(fd.hours).map(function(e){ return e[0]+': '+(e[1].open||'closed')+' - '+(e[1].close||'closed') }).join('\n')
+  }
+  return [
+    'Build a professional, fully responsive website for the following business using the Sitefloa SITE_CONFIG format.',
+    '',
+    '═══════════════════════════════════════════',
+    'PLAN TIER: ' + lim.label,
+    'LIMIT: Max ' + lim.pages + ' page(s), max ' + (lim.photos < 999 ? lim.photos : 'unlimited') + ' photos.',
+    '═══════════════════════════════════════════',
+    '',
+    'BUSINESS INFO',
+    '─────────────',
+    'Business Name:  ' + (fd.business_name || b.business_name || ''),
+    'Business Type:  ' + (fd.business_type || 'Not specified'),
+    'Description:    ' + (fd.description || ''),
+    'Phone:          ' + (fd.phone || 'Not provided'),
+    'Address:        ' + (fd.address || 'Not provided'),
+    'Email:          ' + (fd.business_email || b.email || 'Not provided'),
+    'Tagline:        ' + (fd.tagline || 'None'),
+    'Existing site:  ' + (fd.existing_website || 'None'),
+    '',
+    'DESIGN PREFERENCES',
+    '──────────────────',
+    'Style:          ' + (fd.style || 'Clean & professional'),
+    'Brand colours:  ' + (fd.colors || fd.colours || 'Use professional defaults'),
+    'Inspiration:    ' + (fd.inspiration || 'None provided'),
+    '',
+    'SERVICES / MENU ITEMS',
+    '─────────────────────',
+    servicesList,
+    '',
+    'PHOTOS (include all of these)',
+    '─────────────────────────────',
+    photosList,
+    '',
+    'BUSINESS HOURS',
+    '──────────────',
+    hoursText,
+    '',
+    'ADDITIONAL NOTES',
+    '────────────────',
+    (fd.notes || 'None'),
+    '',
+    '═══════════════════════════════════════════',
+    'TECHNICAL REQUIREMENTS',
+    '═══════════════════════════════════════════',
+    '',
+    'PLATFORM & API',
+    '  api:       https://siteflowa.onrender.com',
+    '  subdomain: [set by admin when creating the website profile]',
+    '',
+    'SITE_CONFIG FORMAT',
+    '  Declare a schema object with every editable field:',
+    '    text, textarea, email, tel, photo, photo_array, repeater, hours, badges',
+    '  Each field: { label, type, section, plan, placeholder, default }',
+    '  Use real business info above as defaults — never Lorem ipsum.',
+    '',
+    'ON LOAD BEHAVIOUR',
+    '  1. fetch /site/[subdomain]',
+    '  2. Deep-merge API response with SITE_CONFIG defaults',
+    '  3. If is_active === false → show clean offline page',
+    '',
+    'PLAN VISIBILITY',
+    '  basic    → hero, about, hours, contact only',
+    '  standard → adds services, photo gallery',
+    '  premium  → adds everything: team, testimonials, blog, extra pages',
+    '  This site is ' + plan.toUpperCase() + ' — only include sections for this tier.',
+    '',
+    'EDITABLE BY CLIENT (wire to SITE_CONFIG schema)',
+    '  - Business name, tagline, description',
+    '  - Phone, email, address',
+    '  - Business hours (hours type)',
+    '  - Services/menu items (repeater: name, description, price)',
+    '  - Photo gallery (photo_array type)',
+    '  - Hero photo (photo type)',
+    '  - Social media links (text type)',
+    '  - Brand colour (text type → CSS variable)',
+    '',
+    'READ-ONLY / DISPLAY ONLY',
+    '  - Subscription status badge',
+    '  - Plan tier label',
+    '  - Analytics / page view count',
+    '',
+    'ANALYTICS SNIPPET (include before </body>)',
+    '  <script>',
+    '    (function(){',
+    '      var s=document.createElement("script");',
+    '      s.src="https://siteflowa.onrender.com/analytics.js";',
+    '      s.setAttribute("data-subdomain","[subdomain]");',
+    '      document.body.appendChild(s);',
+    '    })();',
+    '  <\/script>',
+    '',
+    'BUILD RULES',
+    '  - Single self-contained HTML file, NO external JS dependencies',
+    '  - All CSS and JS inlined',
+    '  - Fully responsive (mobile-first)',
+    '  - SEO meta tags (title, description, og:image)',
+    '  - All photos listed above MUST appear in the website',
+    '  - Match style: ' + (fd.style || 'Clean & professional'),
+    '  - Can have FEWER features than tier allows, but NEVER more'
+  ].join('\n')
+}
+
 function showBriefModal(btn) {
   try {
     var b = JSON.parse(btn.getAttribute('data-brief').replace(/&quot;/g,'"'))
@@ -1749,6 +1868,9 @@ function showBriefModal(btn) {
     try { fd = typeof b.form_data === 'string' ? JSON.parse(b.form_data) : (b.form_data || {}) } catch(e) {}
     var existing = document.getElementById('brief-view-modal')
     if (existing) existing.remove()
+    var prompt = buildClaudePrompt(b, fd)
+    window._currentBriefPrompt = prompt
+
     function row(label, val) {
       if (!val) return ''
       var display = Array.isArray(val) ? val.join(', ') : String(val)
@@ -1756,38 +1878,79 @@ function showBriefModal(btn) {
         '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:3px;">' + label + '</div>' +
         '<div style="font-size:14px;white-space:pre-wrap;">' + display.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div></div>'
     }
+
+    var safeFilename = (b.business_name || 'brief').replace(/[^a-z0-9]/gi,'-').toLowerCase()
     var modal = document.createElement('div')
     modal.id = 'brief-view-modal'
     modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.7);display:flex;align-items:center;justify-content:center;padding:20px;'
-    modal.innerHTML = '<div style="background:white;border-radius:16px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.2);">' +
-      '<div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:white;z-index:1;">' +
+    modal.innerHTML =
+      '<div style="background:white;border-radius:16px;width:100%;max-width:760px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.2);">' +
+      '<div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
       '<div><div style="font-family:var(--serif);font-size:20px;">' + (b.business_name || 'Brief') + '</div>' +
       '<div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">' + (b.email || '') + ' &middot; ' + (b.plan || 'standard') + ' plan</div></div>' +
-      '<button onclick="document.getElementById(\'brief-view-modal\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-muted);">\u2715</button>' +
+      '<button onclick="document.getElementById(\'brief-view-modal\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-muted);">&times;</button>' +
       '</div>' +
-      '<div style="padding:20px 24px;">' +
+      '<div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;">' +
+      '<button onclick="briefModalTab(\'details\')" id="brief-tab-details" style="flex:1;padding:11px;background:var(--accent);color:white;border:none;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;">Brief Details</button>' +
+      '<button onclick="briefModalTab(\'prompt\')"  id="brief-tab-prompt"  style="flex:1;padding:11px;background:var(--cream);color:var(--ink);border:none;font-family:var(--sans);font-size:13px;cursor:pointer;">Claude Prompt</button>' +
+      '</div>' +
+      '<div id="brief-panel-details" style="flex:1;overflow-y:auto;padding:20px 24px;">' +
       row('Business name', fd.business_name || b.business_name) +
       row('Business type', fd.business_type) +
       row('Description', fd.description) +
-      row('Phone', fd.phone) +
-      row('Address', fd.address) +
-      row('Business email', fd.business_email) +
-      row('Tagline', fd.tagline) +
-      row('Style', fd.style) +
-      row('Brand colours', fd.colors || fd.colours) +
-      row('Inspiration', fd.inspiration) +
-      row('Services', fd.services) +
+      row('Phone', fd.phone) + row('Address', fd.address) +
+      row('Business email', fd.business_email) + row('Tagline', fd.tagline) +
+      row('Style', fd.style) + row('Brand colours', fd.colors || fd.colours) +
+      row('Inspiration', fd.inspiration) + row('Services', fd.services) +
       row('Photos', fd.photos) +
-      row('Hours', fd.hours ? JSON.stringify(fd.hours) : null) +
-      row('Existing website', fd.existing_website) +
-      row('Notes', fd.notes) +
-      '</div></div>'
+      row('Hours', fd.hours ? JSON.stringify(fd.hours, null, 2) : null) +
+      row('Existing website', fd.existing_website) + row('Notes', fd.notes) +
+      '</div>' +
+      '<div id="brief-panel-prompt" style="flex:1;overflow-y:auto;padding:20px 24px;display:none;">' +
+      '<p style="font-size:13px;color:var(--ink-muted);margin-bottom:12px;">Copy or download this prompt — paste it into Claude to build the website.</p>' +
+      '<div style="display:flex;gap:8px;margin-bottom:14px;">' +
+      '<button onclick="copyBriefPrompt()" style="background:var(--accent);color:white;border:none;padding:8px 18px;border-radius:var(--radius);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;">&#128203; Copy prompt</button>' +
+      '<button onclick="downloadBriefPrompt(\''+ safeFilename +'\')" style="background:white;color:var(--ink);border:1px solid var(--border);padding:8px 18px;border-radius:var(--radius);font-family:var(--sans);font-size:13px;cursor:pointer;">&#11015;&#65039; Download .txt</button>' +
+      '</div>' +
+      '<pre id="brief-prompt-text" style="background:#1a1a2e;color:#e8e8e8;border-radius:10px;padding:18px;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word;margin:0;">' +
+      prompt.replace(/</g,'&lt;').replace(/>/g,'&gt;') +
+      '</pre></div></div>'
     modal.onclick = function(e) { if (e.target === modal) modal.remove() }
     document.body.appendChild(modal)
-  } catch(e) { alert('Could not load brief details') }
+  } catch(e) { console.error(e); alert('Could not load brief details') }
 }
 
-// ── MOBILE MENU ──────────────────────────────────────────
+function briefModalTab(tab) {
+  var dp = document.getElementById('brief-panel-details')
+  var pp = document.getElementById('brief-panel-prompt')
+  var td = document.getElementById('brief-tab-details')
+  var tp = document.getElementById('brief-tab-prompt')
+  if (dp) dp.style.display = tab === 'details' ? '' : 'none'
+  if (pp) pp.style.display = tab === 'prompt'  ? '' : 'none'
+  if (td) { td.style.background = tab === 'details' ? 'var(--accent)' : 'var(--cream)'; td.style.color = tab === 'details' ? 'white' : 'var(--ink)' }
+  if (tp) { tp.style.background = tab === 'prompt'  ? 'var(--accent)' : 'var(--cream)'; tp.style.color = tab === 'prompt'  ? 'white' : 'var(--ink)' }
+}
+
+function copyBriefPrompt() {
+  if (!window._currentBriefPrompt) return
+  navigator.clipboard.writeText(window._currentBriefPrompt).then(function() {
+    alert('Prompt copied to clipboard!')
+  }).catch(function() {
+    var el = document.getElementById('brief-prompt-text')
+    if (el) { var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); document.execCommand('copy'); s.removeAllRanges(); alert('Prompt copied!') }
+  })
+}
+
+function downloadBriefPrompt(filename) {
+  if (!window._currentBriefPrompt) return
+  var blob = new Blob([window._currentBriefPrompt], { type: 'text/plain' })
+  var url = URL.createObjectURL(blob)
+  var a = document.createElement('a')
+  a.href = url; a.download = (filename || 'brief') + '-claude-prompt.txt'
+  document.body.appendChild(a); a.click()
+  document.body.removeChild(a); URL.revokeObjectURL(url)
+}
+
 function toggleMobileMenu() {
   document.querySelector('nav').classList.toggle('nav-mobile-open')
 }
