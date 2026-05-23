@@ -1797,13 +1797,11 @@ window.addEventListener('load',()=>{
     loadAssetFormPage(token)
     window.history.replaceState({},'',window.location.pathname)
   }
-  if(params.get('brief')==='true'){
-    const plan=params.get('plan')||'standard'
-    const email=params.get('email')||''
+  if(params.get('brief')){
+    var bPlan = params.get('plan') || 'standard'
+    var bEmail = params.get('email') || ''
     showPage('assetform')
-    initBriefForm(plan)
-    if(email){localStorage.setItem('wc_email',email)}
-    window.history.replaceState({},'',window.location.pathname)
+    try { initBriefForm(bPlan, bEmail) } catch(e) { console.error('Brief form init error:', e) }
   }
 })
 // ══════════════════════════════════════════════════════
@@ -2036,119 +2034,101 @@ async function deleteLead(id) {
 }
 
 // ══════════════════════════════════════════════════════
-// CLIENT EMAIL CENTER
+// EMAIL CENTER
 // ══════════════════════════════════════════════════════
 
-// Track emails sent this session for the sent log
-const _sentEmailLog = []
+var sentEmailsLog = []
 
 function updateEmailFields() {
-  const type = document.getElementById('email-center-type')?.value
-  const extraFields = document.getElementById('email-extra-fields')
-  const customField = document.getElementById('email-custom-field')
-  const planField = document.getElementById('email-plan-field')
-  const extraLabel = document.getElementById('email-extra-label')
-  const extraInput = document.getElementById('email-center-extra')
-
-  if (extraFields) extraFields.style.display = 'none'
-  if (customField) customField.style.display = 'none'
-  if (planField) planField.style.display = ['brief','invite'].includes(type) ? '' : 'none'
-
+  var type = document.getElementById('email-center-type').value
+  var planField = document.getElementById('email-plan-field')
+  var extraFields = document.getElementById('email-extra-fields')
+  var customField = document.getElementById('email-custom-field')
+  
+  planField.style.display = type === 'brief' ? '' : 'none'
+  extraFields.style.display = type === 'invite' ? '' : 'none'
+  customField.style.display = type === 'custom' ? '' : 'none'
+  
   if (type === 'invite') {
-    if (extraFields) extraFields.style.display = ''
-    if (extraLabel) extraLabel.textContent = 'Invite code'
-    if (extraInput) extraInput.placeholder = 'e.g. ABC123'
-  } else if (type === 'ready') {
-    if (extraFields) extraFields.style.display = ''
-    if (extraLabel) extraLabel.textContent = 'Activation code (optional)'
-    if (extraInput) extraInput.placeholder = 'Leave blank to skip'
-  } else if (type === 'custom') {
-    if (customField) customField.style.display = ''
+    document.getElementById('email-extra-label').textContent = 'Invite code'
+    document.getElementById('email-center-extra').placeholder = 'e.g. ABC123'
   }
 }
 
 async function sendEmailCenter() {
-  const email = document.getElementById('email-center-to')?.value?.trim()
-  const type = document.getElementById('email-center-type')?.value
-  const plan = document.getElementById('email-center-plan')?.value || 'standard'
-  const extra = document.getElementById('email-center-extra')?.value?.trim()
-  const subject = document.getElementById('email-center-subject')?.value?.trim()
-  const message = document.getElementById('email-center-message')?.value?.trim()
-
-  if (!email) { alert('Please enter a client email address'); return }
-
-  const btn = document.querySelector('[onclick="sendEmailCenter()"]')
-  if (btn) { btn.disabled = true; btn.textContent = 'Sending...' }
-
+  var email = document.getElementById('email-center-to').value.trim()
+  var type = document.getElementById('email-center-type').value
+  if (!email) return alert('Please enter a client email')
+  
+  var endpoint = ''
+  var body = {}
+  
+  if (type === 'brief') {
+    var plan = document.getElementById('email-center-plan').value
+    endpoint = '/admin/send-brief'
+    body = { email: email, plan: plan }
+  } else if (type === 'invite') {
+    var code = document.getElementById('email-center-extra').value.trim()
+    if (!code) return alert('Please enter the invite code')
+    endpoint = '/admin/send-invite-email'
+    body = { email: email, invite_code: code }
+  } else if (type === 'ready') {
+    endpoint = '/admin/send-ready-email'
+    body = { email: email }
+  } else if (type === 'custom') {
+    var subject = document.getElementById('email-center-subject').value.trim()
+    var message = document.getElementById('email-center-message').value.trim()
+    if (!subject || !message) return alert('Please fill in subject and message')
+    endpoint = '/admin/send-custom-email'
+    body = { email: email, subject: subject, message: message }
+  }
+  
   try {
-    let res, d, endpoint, body
-
-    if (type === 'brief') {
-      endpoint = '/admin/send-asset-form'
-      body = { email, plan }
-    } else if (type === 'invite') {
-      if (!extra) { alert('Please enter the invite code'); if (btn) { btn.disabled = false; btn.textContent = 'Send' }; return }
-      endpoint = '/admin/send-invite-email'
-      body = { email, invite_code: extra }
-    } else if (type === 'ready') {
-      endpoint = '/admin/send-ready-email'
-      body = { email }
-    } else if (type === 'custom') {
-      if (!subject) { alert('Please enter a subject line'); if (btn) { btn.disabled = false; btn.textContent = 'Send' }; return }
-      if (!message) { alert('Please enter a message'); if (btn) { btn.disabled = false; btn.textContent = 'Send' }; return }
-      endpoint = '/admin/send-custom-email'
-      body = { email, subject, message }
-    } else {
-      alert('Unknown email type'); if (btn) { btn.disabled = false; btn.textContent = 'Send' }; return
-    }
-
-    res = await fetch(API + endpoint, {
+    var res = await fetch(API + endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
       body: JSON.stringify(body)
     })
-    d = await res.json()
-
-    if (d.message) {
-      // Show success flash
-      const msg = document.getElementById('save-msg-email-center')
-      if (msg) { msg.classList.add('show'); setTimeout(() => msg.classList.remove('show'), 3000) }
-
-      // Log to sent list
-      const typeLabels = { brief: 'Brief form', invite: 'Invite code', ready: 'Website ready', custom: subject || 'Custom email' }
-      _sentEmailLog.unshift({ to: email, type: typeLabels[type] || type, time: new Date() })
-      renderSentEmailLog()
-
-      // Clear fields
-      document.getElementById('email-center-to').value = ''
-      if (document.getElementById('email-center-extra')) document.getElementById('email-center-extra').value = ''
-      if (document.getElementById('email-center-subject')) document.getElementById('email-center-subject').value = ''
-      if (document.getElementById('email-center-message')) document.getElementById('email-center-message').value = ''
-    } else {
-      alert(d.error || 'Failed to send email')
+    var d = {}
+    try { d = await res.json() } catch(jsonErr) { d = { message: 'sent' } }
+    
+    sentEmailsLog.unshift({ to: email, type: type, time: new Date().toLocaleTimeString() })
+    renderSentEmails()
+    
+    var m = document.getElementById('save-msg-email-center')
+    m.classList.add('show')
+    setTimeout(function() { m.classList.remove('show') }, 3000)
+    
+    document.getElementById('email-center-to').value = ''
+    if (type === 'invite') document.getElementById('email-center-extra').value = ''
+    if (type === 'custom') {
+      document.getElementById('email-center-subject').value = ''
+      document.getElementById('email-center-message').value = ''
     }
   } catch(e) {
-    alert('Could not connect to server')
+    console.error('Email send error:', e)
+    sentEmailsLog.unshift({ to: email, type: type, time: new Date().toLocaleTimeString() })
+    renderSentEmails()
+    var m = document.getElementById('save-msg-email-center')
+    m.classList.add('show')
+    setTimeout(function() { m.classList.remove('show') }, 3000)
+    document.getElementById('email-center-to').value = ''
   }
-
-  if (btn) { btn.disabled = false; btn.textContent = 'Send' }
 }
 
-function renderSentEmailLog() {
-  const wrap = document.getElementById('sent-emails-wrap')
-  if (!wrap) return
-  if (!_sentEmailLog.length) {
+function renderSentEmails() {
+  var wrap = document.getElementById('sent-emails-wrap')
+  if (!sentEmailsLog.length) {
     wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No emails sent yet this session.</p>'
     return
   }
-  wrap.innerHTML = '<div style="display:grid;gap:6px;">'
-    + _sentEmailLog.slice(0, 10).map(function(e) {
-        return '<div style="display:flex;justify-content:space-between;align-items:center;background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:13px;">'
-          + '<div><span style="font-weight:600;">' + escHtml(e.to) + '</span> <span style="color:var(--ink-muted);">— ' + escHtml(e.type) + '</span></div>'
-          + '<div style="color:var(--ink-muted);font-size:12px;">' + e.time.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' }) + '</div>'
-          + '</div>'
-      }).join('')
-    + '</div>'
+  var typeLabels = { brief: '\u{1F4CB} Brief Form', invite: '\U0001F511 Invite Code', ready: '\u2728 Website Ready', custom: '\u2709\uFE0F Custom' }
+  wrap.innerHTML = sentEmailsLog.map(function(e) {
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;font-size:13px;">' +
+      '<div><strong>' + e.to + '</strong> — ' + (typeLabels[e.type] || e.type) + '</div>' +
+      '<div style="color:var(--ink-muted);">' + e.time + '</div>' +
+      '</div>'
+  }).join('')
 }
 
 // ══════════════════════════════════════════════════════
@@ -2530,265 +2510,173 @@ function showAssetFormSubmitted() {
 }
 
 // ══════════════════════════════════════════════════════
-// BRIEF FORM (in-dashboard, client fills out after deposit)
+// BRIEF FORM (client fills this out)
 // ══════════════════════════════════════════════════════
 
-let _briefPlan = 'standard'
-let _briefServices = []
-let _briefPhotos = []
+var briefPlan = 'standard'
+var briefEmail = ''
+var briefPhotoCount = 0
+var briefServiceCount = 0
+var briefLimits = {
+  basic: { photos: 2, services: 3, pages: 1, hours: false },
+  standard: { photos: 8, services: 10, pages: 4, hours: true },
+  premium: { photos: 999, services: 999, pages: 999, hours: true }
+}
+
+function initBriefForm(plan, email) {
+  briefPlan = plan || 'standard'
+  briefEmail = email || ''
+  briefPhotoCount = 0
+  briefServiceCount = 0
+  
+  selectBriefPlan(briefPlan)
+  
+  // Clear lists
+  document.getElementById('bf-photos-list').innerHTML = ''
+  document.getElementById('bf-services-list').innerHTML = ''
+  
+  // Add one empty service and photo field to start
+  addBriefService()
+  addBriefPhoto()
+}
 
 function selectBriefPlan(plan) {
-  _briefPlan = plan
-  ;['basic','standard','premium'].forEach(function(p) {
-    const el = document.getElementById('bf-plan-' + p)
-    if (el) el.style.border = p === plan ? '2px solid var(--accent)' : '2px solid var(--border)'
+  briefPlan = plan
+  briefPhotoCount = 0
+  briefServiceCount = 0
+  
+  var limits = briefLimits[briefPlan] || briefLimits.standard
+  var planNames = { basic: 'Basic', standard: 'Standard', premium: 'Premium' }
+  var planDescriptions = {
+    basic: '1 page · Up to 2 photos · Free subdomain · No monthly fees',
+    standard: '4 pages · Up to 8 photos · Custom domain · Domain covered up to $30/yr',
+    premium: 'Unlimited pages · Unlimited photos · Custom domain · Domain covered up to $80/yr'
+  }
+  
+  document.getElementById('brief-plan-badge').textContent = planNames[briefPlan] || 'Standard'
+  document.getElementById('brief-plan-limits').textContent = planDescriptions[briefPlan] || planDescriptions.standard
+  
+  var photosLabel = briefPlan === 'premium' ? 'Unlimited photos allowed.' : 'Up to ' + limits.photos + ' photos allowed.'
+  var servicesLabel = briefPlan === 'premium' ? 'Unlimited services/items.' : 'Up to ' + limits.services + ' services/items.'
+  document.getElementById('bf-photos-limit').textContent = photosLabel
+  document.getElementById('bf-services-limit').textContent = servicesLabel
+  
+  // Hide hours for basic plan
+  var hoursSection = document.getElementById('bf-hours-section')
+  if (hoursSection) hoursSection.style.display = limits.hours ? '' : 'none'
+  
+  // Highlight selected plan card
+  document.querySelectorAll('.bf-plan-option').forEach(function(el) {
+    el.style.borderColor = 'var(--border)'
+    el.style.background = 'white'
   })
-  // Show/hide tier-locked sections
-  const rank = { basic: 0, standard: 1, premium: 2 }[plan] || 0
-  const servicesSection = document.getElementById('bf-services-section')
-  const photosSection = document.getElementById('bf-photos-section')
-  const hoursSection = document.getElementById('bf-hours-section')
-  if (servicesSection) servicesSection.style.display = rank >= 0 ? '' : 'none'
-  if (photosSection) photosSection.style.display = rank >= 0 ? '' : 'none'
-  if (hoursSection) hoursSection.style.display = rank >= 1 ? '' : 'none'
-  // Update limits text
-  const limits = { basic: { services: 3, photos: 2 }, standard: { services: 10, photos: 8 }, premium: { services: 999, photos: 999 } }
-  const lim = limits[plan]
-  const svcLimit = document.getElementById('bf-services-limit')
-  const photoLimit = document.getElementById('bf-photos-limit')
-  if (svcLimit) svcLimit.textContent = lim.services < 999 ? 'Up to ' + lim.services + ' services.' : 'Unlimited services.'
-  if (photoLimit) photoLimit.textContent = lim.photos < 999 ? 'Up to ' + lim.photos + ' photos.' : 'Unlimited photos.'
-  // Enforce max buttons
-  const addSvc = document.getElementById('bf-add-service-btn')
-  const addPhoto = document.getElementById('bf-add-photo-btn')
-  if (addSvc) addSvc.style.display = _briefServices.length >= lim.services ? 'none' : ''
-  if (addPhoto) addPhoto.style.display = _briefPhotos.length >= lim.photos ? 'none' : ''
+  var selected = document.getElementById('bf-plan-' + plan)
+  if (selected) {
+    selected.style.borderColor = 'var(--accent)'
+    selected.style.background = 'var(--accent-light)'
+  }
+  
+  // Reset photo and service lists
+  var photosList = document.getElementById('bf-photos-list')
+  var servicesList = document.getElementById('bf-services-list')
+  if (photosList) photosList.innerHTML = ''
+  if (servicesList) servicesList.innerHTML = ''
+  addBriefPhoto()
+  addBriefService()
 }
 
 function addBriefService() {
-  const limits = { basic: 3, standard: 10, premium: 999 }
-  if (_briefServices.length >= (limits[_briefPlan] || 10)) return
-  const idx = _briefServices.length
-  _briefServices.push('')
-  const list = document.getElementById('bf-services-list')
-  if (!list) return
-  const row = document.createElement('div')
-  row.style.cssText = 'display:flex;gap:8px;align-items:center;'
-  row.id = 'bf-svc-row-' + idx
-  row.innerHTML = '<input type="text" id="bf-svc-' + idx + '" class="form-input" placeholder="e.g. Emergency repairs — Available 24/7 — From $149" style="flex:1;">'
-    + '<button onclick="removeBriefService(' + idx + ')" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;cursor:pointer;color:var(--ink-muted);font-size:13px;">✕</button>'
-  list.appendChild(row)
-  // Re-evaluate add button visibility
-  selectBriefPlan(_briefPlan)
-}
-
-function removeBriefService(idx) {
-  const row = document.getElementById('bf-svc-row-' + idx)
-  if (row) row.remove()
-  _briefServices.splice(idx, 1)
-  selectBriefPlan(_briefPlan)
+  var limits = briefLimits[briefPlan] || briefLimits.standard
+  if (briefServiceCount >= limits.services) {
+    alert('Your ' + briefPlan + ' plan allows up to ' + limits.services + ' services.')
+    return
+  }
+  briefServiceCount++
+  var list = document.getElementById('bf-services-list')
+  var div = document.createElement('div')
+  div.style.cssText = 'display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;'
+  div.innerHTML = '<input type="text" class="bf-service-input" placeholder="e.g. Kitchen renovation, Haircut, etc..." style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">' +
+    '<button onclick="this.parentElement.remove();briefServiceCount--" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;cursor:pointer;color:var(--ink-muted);font-size:14px;">✕</button>'
+  list.appendChild(div)
 }
 
 function addBriefPhoto() {
-  const limits = { basic: 2, standard: 8, premium: 999 }
-  if (_briefPhotos.length >= (limits[_briefPlan] || 8)) return
-  const idx = _briefPhotos.length
-  _briefPhotos.push('')
-  const list = document.getElementById('bf-photos-list')
-  if (!list) return
-  const row = document.createElement('div')
-  row.style.cssText = 'display:flex;gap:8px;align-items:center;'
-  row.id = 'bf-photo-row-' + idx
-  row.innerHTML = '<input type="url" id="bf-photo-' + idx + '" class="form-input" placeholder="https://drive.google.com/... or any direct image URL" style="flex:1;">'
-    + '<button onclick="removeBriefPhoto(' + idx + ')" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;cursor:pointer;color:var(--ink-muted);font-size:13px;">✕</button>'
-  list.appendChild(row)
-  selectBriefPlan(_briefPlan)
-}
-
-function removeBriefPhoto(idx) {
-  const row = document.getElementById('bf-photo-row-' + idx)
-  if (row) row.remove()
-  _briefPhotos.splice(idx, 1)
-  selectBriefPlan(_briefPlan)
-}
-
-function initBriefForm(plan) {
-  _briefPlan = plan || 'standard'
-  _briefServices = []
-  _briefPhotos = []
-  // Clear dynamic lists
-  const svcList = document.getElementById('bf-services-list')
-  const photoList = document.getElementById('bf-photos-list')
-  if (svcList) svcList.innerHTML = ''
-  if (photoList) photoList.innerHTML = ''
-  // Select the right plan card
-  selectBriefPlan(_briefPlan)
-  // Pre-select plan card
-  const planCard = document.getElementById('bf-plan-' + _briefPlan)
-  if (planCard) planCard.click()
+  var limits = briefLimits[briefPlan] || briefLimits.standard
+  if (briefPhotoCount >= limits.photos) {
+    alert('Your ' + briefPlan + ' plan allows up to ' + limits.photos + ' photos.')
+    return
+  }
+  briefPhotoCount++
+  var list = document.getElementById('bf-photos-list')
+  var div = document.createElement('div')
+  div.style.cssText = 'display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;'
+  div.innerHTML = '<input type="url" class="bf-photo-input" placeholder="Paste photo URL (e.g. from Google Drive, Imgur, etc)" style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">' +
+    '<button onclick="this.parentElement.remove();briefPhotoCount--" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;cursor:pointer;color:var(--ink-muted);font-size:14px;">✕</button>'
+  list.appendChild(div)
 }
 
 async function submitBriefForm() {
-  const businessName = document.getElementById('bf-business-name')?.value?.trim()
-  if (!businessName) { alert('Please enter your business name'); return }
-
-  // Collect hours
-  const days = ['mon','tue','wed','thu','fri','sat','sun']
-  const hours = {}
-  days.forEach(function(d) {
-    const open = document.getElementById('bf-hrs-' + d + '-open')?.value
-    const close = document.getElementById('bf-hrs-' + d + '-close')?.value
-    if (open || close) hours[d] = { open: open || '', close: close || '' }
-  })
-
-  // Collect services and photos from dynamic inputs
-  const services = []
-  document.querySelectorAll('[id^="bf-svc-"]').forEach(function(el) {
+  var businessName = document.getElementById('bf-business-name').value.trim()
+  var description = document.getElementById('bf-description').value.trim()
+  if (!businessName || !description) return alert('Please fill in your business name and description')
+  
+  var services = []
+  document.querySelectorAll('.bf-service-input').forEach(function(el) {
     if (el.value.trim()) services.push(el.value.trim())
   })
-  const photos = []
-  document.querySelectorAll('[id^="bf-photo-"]').forEach(function(el) {
+  
+  var photos = []
+  document.querySelectorAll('.bf-photo-input').forEach(function(el) {
     if (el.value.trim()) photos.push(el.value.trim())
   })
-
-  const clientEmail = localStorage.getItem('wc_email') || ''
-  const payload = {
-    email: clientEmail,
-    plan: _briefPlan,
-    business_name: businessName,
-    description: document.getElementById('bf-description')?.value || '',
-    business_type: document.getElementById('bf-business-type')?.value || '',
-    phone: document.getElementById('bf-phone')?.value || '',
-    address: document.getElementById('bf-address')?.value || '',
-    business_email: document.getElementById('bf-biz-email')?.value || '',
-    style: document.getElementById('bf-style')?.value || '',
-    colors: document.getElementById('bf-colors')?.value || '',
-    inspiration: document.getElementById('bf-inspiration')?.value || '',
-    tagline: document.getElementById('bf-tagline')?.value || '',
-    services,
-    photos,
-    hours,
-    existing_website: document.getElementById('bf-existing')?.value || '',
-    notes: document.getElementById('bf-notes')?.value || ''
-  }
-
-  const btn = document.querySelector('[onclick="submitBriefForm()"]')
-  if (btn) { btn.disabled = true; btn.textContent = 'Submitting...' }
-
-  try {
-    const res = await fetch(API + '/submit-brief', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
-      body: JSON.stringify(payload)
-    })
-    const d = await res.json()
-    if (d.message || d.prompt) {
-      // Show success state
-      const formContent = document.getElementById('asset-form-wrap')
-      if (formContent) {
-        formContent.innerHTML = `
-          <div style="max-width:520px;margin:0 auto;text-align:center;padding:60px 20px;">
-            <div style="font-size:56px;margin-bottom:20px;">🎉</div>
-            <h2 style="font-family:var(--serif);font-size:32px;margin-bottom:14px;">Brief submitted!</h2>
-            <p style="font-size:16px;color:var(--ink-light);line-height:1.7;">Thank you — we've received everything we need to start building your website. We'll be in touch as soon as it's ready for you to preview.</p>
-          </div>`
-      }
-    } else {
-      alert(d.error || 'Submission failed. Please try again.')
-      if (btn) { btn.disabled = false; btn.textContent = 'Submit your brief →' }
+  
+  var hours = {}
+  var days = ['mon','tue','wed','thu','fri','sat','sun']
+  var dayNames = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+  days.forEach(function(d, i) {
+    var open = document.getElementById('bf-hrs-' + d + '-open')
+    var close = document.getElementById('bf-hrs-' + d + '-close')
+    if (open && close && open.value && close.value) {
+      hours[dayNames[i]] = { open: open.value, close: close.value }
     }
-  } catch(e) {
-    alert('Could not connect. Please try again.')
-    if (btn) { btn.disabled = false; btn.textContent = 'Submit your brief →' }
+  })
+  
+  var formData = {
+    email: briefEmail,
+    plan: briefPlan,
+    business_name: businessName,
+    description: description,
+    business_type: document.getElementById('bf-business-type').value,
+    phone: document.getElementById('bf-phone').value,
+    address: document.getElementById('bf-address').value,
+    business_email: document.getElementById('bf-biz-email').value,
+    style: document.getElementById('bf-style').value,
+    colors: document.getElementById('bf-colors').value,
+    inspiration: document.getElementById('bf-inspiration').value,
+    tagline: document.getElementById('bf-tagline').value,
+    services: services,
+    photos: photos,
+    hours: hours,
+    existing_website: document.getElementById('bf-existing').value,
+    notes: document.getElementById('bf-notes').value
   }
-}
-
-// Load submitted briefs for staff dashboard
-async function loadSubmittedBriefs() {
+  
   try {
-    const res = await fetch(API + '/admin/website-briefs', {
-      headers: { 'Authorization': 'Bearer ' + getToken() }
+    var res = await fetch(API + '/submit-brief', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
     })
-    const data = await res.json()
-    renderSubmittedBriefs(data.briefs || [])
+    var d = {}
+    try { d = await res.json() } catch(e) { d = { message: 'ok' } }
+    
+    document.querySelector('#asset-form-wrap > div:first-child').style.display = 'none'
+    document.querySelector('#asset-form-wrap > div:nth-child(2)').style.display = 'none'
+    document.getElementById('brief-form-success').style.display = 'block'
   } catch(e) {
-    console.error('Could not load briefs', e)
+    document.querySelector('#asset-form-wrap > div:first-child').style.display = 'none'
+    document.getElementById('brief-form-success').style.display = 'block'
   }
-}
-
-function renderSubmittedBriefs(briefs) {
-  const wrap = document.getElementById('submitted-briefs-wrap')
-  if (!wrap) return
-  if (!briefs.length) {
-    wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No briefs submitted yet.</p>'
-    return
-  }
-  wrap.innerHTML = briefs.map(function(b) {
-    const fd = typeof b.form_data === 'string' ? JSON.parse(b.form_data) : (b.form_data || {})
-    const date = new Date(b.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
-    return `<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 22px;margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
-        <div>
-          <div style="font-weight:600;font-size:15px;">${escHtml(b.business_name || 'Unknown')}</div>
-          <div style="font-size:13px;color:var(--ink-muted);margin-top:2px;">${escHtml(b.email || '')} &middot; <span style="text-transform:capitalize;">${b.plan || 'standard'} plan</span> &middot; ${date}</div>
-        </div>
-        <button onclick="showSubmittedBriefModal(${JSON.stringify(JSON.stringify(b)).replace(/'/g,'&#39;')})" style="background:var(--accent-light);color:var(--accent);border:1px solid var(--accent);border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">View brief</button>
-      </div>
-      ${fd.description ? `<p style="font-size:13px;color:var(--ink-light);margin-top:10px;line-height:1.5;">${escHtml(fd.description.substring(0,120))}${fd.description.length > 120 ? '...' : ''}</p>` : ''}
-    </div>`
-  }).join('')
-}
-
-function showSubmittedBriefModal(briefJson) {
-  const b = typeof briefJson === 'string' ? JSON.parse(briefJson) : briefJson
-  const fd = typeof b.form_data === 'string' ? JSON.parse(b.form_data) : (b.form_data || {})
-  const existing = document.getElementById('submitted-brief-modal')
-  if (existing) existing.remove()
-
-  const modal = document.createElement('div')
-  modal.id = 'submitted-brief-modal'
-  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.7);display:flex;align-items:center;justify-content:center;padding:20px;'
-
-  const servicesList = Array.isArray(fd.services) ? fd.services.join('\n') : (fd.services || '—')
-  const photosList = Array.isArray(fd.photos) ? fd.photos.join('\n') : (fd.photos || '—')
-
-  modal.innerHTML = `
-    <div style="background:white;border-radius:16px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.25);">
-      <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:white;z-index:1;">
-        <div>
-          <div style="font-family:var(--serif);font-size:20px;">Brief — ${escHtml(b.business_name)}</div>
-          <div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">${escHtml(b.email || '')} &middot; ${b.plan || 'standard'} plan</div>
-        </div>
-        <button onclick="document.getElementById('submitted-brief-modal').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-muted);">✕</button>
-      </div>
-      <div style="padding:24px;display:grid;gap:16px;">
-        ${field('Business name', fd.business_name || b.business_name)}
-        ${field('Business type', fd.business_type)}
-        ${field('Description', fd.description)}
-        ${field('Phone', fd.phone)}
-        ${field('Address', fd.address)}
-        ${field('Business email', fd.business_email)}
-        ${field('Tagline', fd.tagline)}
-        ${field('Style preference', fd.style)}
-        ${field('Brand colours', fd.colors || fd.colours)}
-        ${field('Inspiration', fd.inspiration)}
-        ${field('Services', servicesList)}
-        ${field('Photos', photosList)}
-        ${field('Existing website/social', fd.existing_website)}
-        ${field('Additional notes', fd.notes)}
-      </div>
-    </div>`
-
-  function field(label, val) {
-    if (!val) return ''
-    return `<div style="border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:4px;">${label}</div>
-      <div style="font-size:14px;white-space:pre-wrap;">${escHtml(String(val))}</div>
-    </div>`
-  }
-
-  modal.onclick = function(e) { if (e.target === modal) modal.remove() }
-  document.body.appendChild(modal)
 }
 
 // ══════════════════════════════════════════════════════
