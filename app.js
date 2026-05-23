@@ -1,5 +1,6 @@
 const API='https://siteflowa.onrender.com'
 let currentWebsite=null,setupFee=299,monthlyFee=49,discountApplied=false,siteSettings={},demoStep=0,demoAnswers={}
+var sentEmailsLog = []
 const SECTIONS=['gallery','hours','contact','services','menu','team']
 const SECTION_LABELS={gallery:'🖼️ Gallery',hours:'🕐 Hours',contact:'📞 Contact',services:'🔧 Services',menu:'🍽️ Menu',team:'👥 Team'}
 const DEMO_QS=[
@@ -1255,7 +1256,6 @@ async function payDeposit() {
 }
 
 // ── EMAIL CENTER ────────────────────────────────────
-var sentEmailsLog = []
 
 function updateEmailFields() {
   var type = document.getElementById('email-center-type').value
