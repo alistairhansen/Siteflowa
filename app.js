@@ -791,7 +791,6 @@ async function updateManagerOrgRate(id) {
 }
 
 async function closePeriod(managerId, email){
-  if(!confirm('Close pay period for '+email+'? This will calculate earnings, send their receipt, and log it.'))return
   try{
     // Single unified endpoint handles both contractors and managers
     const res=await fetch(API+'/admin/close-period',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({manager_id:managerId})})
@@ -1911,7 +1910,6 @@ async function updateLeadStage(id, stage) {
 }
 
 async function deleteLead(id) {
-  if (!confirm('Delete this lead?')) return
   try {
     await fetch(API + '/admin/leads/' + id, {
       method: 'DELETE',
@@ -2465,7 +2463,6 @@ function renderBonusGoals(goals) {
 }
 
 async function deleteBonusGoal(id) {
-  if (!confirm('Remove this bonus goal? Contractors will no longer see it.')) return
   try {
     var res = await fetch(API + '/admin/bonus-goals/' + id, {
       method: 'DELETE',
@@ -2687,7 +2684,6 @@ async function markPreviewReady(clientId, clientEmail) {
 // ── SWAP STAFF ROLE ───────────────────────────────────────
 async function swapRole(clientId, currentRole) {
   var newRole = currentRole === 'manager' ? 'contractor' : 'manager'
-  if (!confirm('Change this person\'s role from ' + currentRole + ' to ' + newRole + '? They will need to log out and back in for the change to take effect.')) return
   try {
     var res = await fetch(API + '/admin/set-role', {
       method: 'POST',
@@ -2790,7 +2786,6 @@ async function loadContractorBonus() {
 
 // ── DELETE SUBMITTED BRIEF (admin only) ──────────────────
 async function deleteBrief(id) {
-  if (!confirm('Delete this brief permanently? This cannot be undone.')) return
   try {
     var res = await fetch(API + '/admin/website-briefs/' + id, {
       method: 'DELETE',
