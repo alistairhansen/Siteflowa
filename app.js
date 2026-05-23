@@ -1307,14 +1307,19 @@ async function sendEmailCenter() {
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
       body: JSON.stringify(body)
     })
+    if (!res.ok) {
+      var errData = await res.json().catch(function() { return { error: 'Server error' } })
+      alert(errData.error || 'Failed to send (status ' + res.status + ')')
+      return
+    }
     var d = await res.json()
     if (d.message) {
+      sentEmailsLog.unshift({ to: email, type: type, time: new Date().toLocaleTimeString() })
+      renderSentEmails()
+      
       var m = document.getElementById('save-msg-email-center')
       m.classList.add('show')
       setTimeout(function() { m.classList.remove('show') }, 3000)
-      
-      sentEmailsLog.unshift({ to: email, type: type, time: new Date().toLocaleTimeString() })
-      renderSentEmails()
       
       document.getElementById('email-center-to').value = ''
       if (type === 'invite') document.getElementById('email-center-extra').value = ''
@@ -1326,7 +1331,8 @@ async function sendEmailCenter() {
       alert(d.error || 'Failed to send')
     }
   } catch(e) {
-    alert('Could not connect to server')
+    console.error('Email send error:', e)
+    alert('Could not connect to server. Check your internet connection.')
   }
 }
 
