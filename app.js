@@ -664,7 +664,7 @@ async function loadAdminData(){
     if(data.clients)renderClientsTable(data.clients.filter(c=>c.role==='client'||(!c.role&&!c.is_admin)))
     if(data.managers)renderStaffList(data.managers)
     if(data.monthly_chart)renderChart(data.monthly_chart)
-    loadAdminCodes();loadManagerCodes();loadInquiries('admin');loadSubmittedBriefs()
+    loadAdminCodes();loadManagerCodes();loadInquiries('admin')
   }catch(e){console.error(e)}
 }
 
@@ -879,7 +879,6 @@ async function loadManagerData(){
     renderManagerEarningsHistory(earnData)
 
     loadInquiries('manager')
-    loadSubmittedBriefs()
   }catch(e){console.error(e)}
 }
 
@@ -1521,75 +1520,4 @@ async function submitBriefForm() {
     document.querySelector('#asset-form-wrap > div:first-child').style.display = 'none'
     document.getElementById('brief-form-success').style.display = 'block'
   }
-}
-
-// ── SUBMITTED BRIEFS (staff view) ───────────────────
-async function loadSubmittedBriefs() {
-  try {
-    var res = await fetch(API + '/admin/website-briefs', { headers: { 'Authorization': 'Bearer ' + getToken() } })
-    var data = await res.json()
-    renderSubmittedBriefs(data.briefs || [])
-  } catch(e) { console.error('Could not load submitted briefs', e) }
-}
-
-function renderSubmittedBriefs(briefs) {
-  var wrap = document.getElementById('submitted-briefs-wrap')
-  if (!wrap) return
-  if (!briefs.length) { wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No briefs submitted yet.</p>'; return }
-  wrap.innerHTML = briefs.map(function(b) {
-    var fd = typeof b.form_data === 'string' ? JSON.parse(b.form_data) : (b.form_data || {})
-    var date = new Date(b.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
-    var bJson = JSON.stringify(b).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;')
-    return '<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 22px;margin-bottom:12px;">' +
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">' +
-      '<div><div style="font-weight:600;font-size:15px;">' + (b.business_name || 'Unknown') + '</div>' +
-      '<div style="font-size:13px;color:var(--ink-muted);margin-top:2px;">' + (b.email || '') + ' &middot; ' + (b.plan || 'standard') + ' plan &middot; ' + date + '</div></div>' +
-      '<button onclick="showSubmittedBriefModal(\'' + bJson + '\')" style="background:var(--accent-light);color:var(--accent);border:1px solid var(--accent);border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">View brief</button>' +
-      '</div>' +
-      (fd.description ? '<p style="font-size:13px;color:var(--ink-light);margin-top:10px;line-height:1.5;">' + fd.description.substring(0,120) + (fd.description.length > 120 ? '...' : '') + '</p>' : '') +
-      '</div>'
-  }).join('')
-}
-
-function showSubmittedBriefModal(briefJson) {
-  try {
-    var b = typeof briefJson === 'string' ? JSON.parse(briefJson.replace(/&quot;/g,'"')) : briefJson
-    var fd = typeof b.form_data === 'string' ? JSON.parse(b.form_data) : (b.form_data || {})
-    var existing = document.getElementById('submitted-brief-modal')
-    if (existing) existing.remove()
-    var modal = document.createElement('div')
-    modal.id = 'submitted-brief-modal'
-    modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.7);display:flex;align-items:center;justify-content:center;padding:20px;'
-    function field(label, val) {
-      if (!val) return ''
-      return '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:8px;">' +
-        '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:4px;">' + label + '</div>' +
-        '<div style="font-size:14px;white-space:pre-wrap;">' + String(val).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div></div>'
-    }
-    var servicesList = Array.isArray(fd.services) ? fd.services.join('\n') : (fd.services || '')
-    var photosList = Array.isArray(fd.photos) ? fd.photos.join('\n') : (fd.photos || '')
-    modal.innerHTML = '<div style="background:white;border-radius:16px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.25);">' +
-      '<div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:white;">' +
-      '<div><div style="font-family:var(--serif);font-size:20px;">Brief — ' + (b.business_name || '') + '</div>' +
-      '<div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">' + (b.email || '') + ' &middot; ' + (b.plan || 'standard') + ' plan</div></div>' +
-      '<button onclick="document.getElementById(\'submitted-brief-modal\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-muted);">\u2715</button></div>' +
-      '<div style="padding:24px;">' +
-      field('Business name', fd.business_name || b.business_name) +
-      field('Business type', fd.business_type) +
-      field('Description', fd.description) +
-      field('Phone', fd.phone) +
-      field('Address', fd.address) +
-      field('Business email', fd.business_email) +
-      field('Tagline', fd.tagline) +
-      field('Style preference', fd.style) +
-      field('Brand colours', fd.colors || fd.colours) +
-      field('Inspiration', fd.inspiration) +
-      field('Services', servicesList) +
-      field('Photos', photosList) +
-      field('Existing website/social', fd.existing_website) +
-      field('Additional notes', fd.notes) +
-      '</div></div>'
-    modal.onclick = function(e) { if (e.target === modal) modal.remove() }
-    document.body.appendChild(modal)
-  } catch(e) { console.error('Error showing brief modal:', e) }
 }
