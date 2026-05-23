@@ -571,6 +571,15 @@ async function fetchClientExtras(plan){
     if(data.referral_code&&plan!=='basic')document.getElementById('my-referral-code').textContent=data.referral_code.code
     if(data.client){
       const s=data.client.subscription_status
+  if(s==='suspended'){
+    showPage('dashboard')
+    const wrap=document.getElementById('dashboard-content')||document.body
+    // Show missed payment banner prominently
+    const banner=document.createElement('div')
+    banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:999;background:#dc2626;color:white;text-align:center;padding:14px 20px;font-family:var(--sans);font-size:15px;font-weight:600;'
+    banner.innerHTML='⚠️ Your website is paused due to a missed payment. <button onclick="payMissedPayment()" style="background:white;color:#dc2626;border:none;padding:6px 16px;border-radius:6px;font-weight:700;cursor:pointer;margin-left:12px;">Make payment</button>'
+    document.body.prepend(banner)
+  }
       document.getElementById('billing-status-text').textContent=s==='active'?'Active - Monthly plan':s==='suspended'?'Account suspended':'Pending payment'
       document.getElementById('overview-status').textContent=data.website?.is_active?'Active OK':'Inactive No'
     }
@@ -1035,7 +1044,6 @@ function renderManagerTable(clients){
       </div>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="action-btn" style="background:#1a6b5a;color:white;border-color:#1a6b5a;" onclick="uploadSiteHtml('${c.website_id}','${c.email}')">🌐 Upload website</button>
-        <button class="action-btn" style="background:#3b82f6;color:white;border-color:#3b82f6;" onclick="markPreviewReady('${c.id}','${c.email}')">👁 Mark preview ready</button>
       </div>
       <p class="readonly-notice">ℹ️ Contact admin to change pricing, plan, or delete this account.</p>
     </div></td></tr>
@@ -1063,13 +1071,24 @@ function renderClientsTable(clients){
   const tbody=document.getElementById('clients-table-body')
   if(!clients.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--ink-muted);padding:32px;">No clients yet.</td></tr>';return}
   tbody.innerHTML=clients.map(c=>`
-    <tr>
+    <tr style="${c.subscription_status==='suspended'?'background:#fff1f1;':''}">
       <td><button class="action-btn" onclick="toggleDetail('${c.id}')"></button></td>
       <td>${c.email}</td><td>${c.business_name||'<span style="color:var(--ink-muted)">Not set</span>'}</td>
       <td><span class="plan-pill ${c.plan||'standard'}">${(c.plan||'standard').charAt(0).toUpperCase()+(c.plan||'standard').slice(1)}</span></td>
       <td>
-        <span class="status-badge ${c.is_active?'active':c.subscription_status==='suspended'?'suspended':c.subscription_status==='pending_payment'?'pending':'inactive'}">${c.is_active?'Active':c.subscription_status==='suspended'?'Suspended':c.subscription_status==='pending_payment'?'Pending':'Inactive'}</span>
-        <div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">${{'account_created':'No account yet','pending_payment':'Awaiting payment','deposit_paid':'Deposit paid','building':'Being built','brief_submitted':'Brief received','preview_ready':'Preview ready','review':'In review','launched':'Live \u2705'}[c.onboarding_stage]||c.onboarding_stage||'Not started'}</div>
+        ${(()=>{
+          const isMissed = c.subscription_status==='suspended'
+          const isLive = c.is_active && c.onboarding_stage==='launched'
+          const depositPaid = c.deposit_paid || c.onboarding_stage==='deposit_paid'||c.onboarding_stage==='building'||c.onboarding_stage==='brief_submitted'||c.onboarding_stage==='preview_ready'||c.onboarding_stage==='launched'
+          const stageLabels = {'account_created':'No account yet','pending_payment':'Awaiting deposit','deposit_paid':'Deposit paid ✓','building':'WIP — Being built','brief_submitted':'Brief received','preview_ready':'In preview','review':'In review','launched':'Live ✅'}
+          const buildLabel = c.build_status==='wip'?'🔨 WIP':c.build_status==='preview'?'👁 In preview':c.build_status==='completed'?'':'';
+          if (isMissed) return '<span class="status-badge suspended">⚠️ Missed payment</span>'
+          if (isLive) return '<span class="status-badge active">Live ✅</span>'
+          let html = '<span class="status-badge '+(depositPaid?'active':'pending')+'">'+(depositPaid?'Deposit paid ✓':'Deposit pending')+'</span>'
+          if (buildLabel) html += '<div style="font-size:11px;font-weight:600;color:var(--accent);margin-top:3px;">'+buildLabel+'</div>'
+          else if (c.onboarding_stage) html += '<div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">'+(stageLabels[c.onboarding_stage]||c.onboarding_stage)+'</div>'
+          return html
+        })()}
       </td>
       <td>$${c.setup_fee||299}</td><td>$${c.monthly_fee||49}/mo</td>
       <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;">${c.created_by_email||'-'}</td>
@@ -1092,9 +1111,17 @@ function renderClientsTable(clients){
         <div class="detail-item"><div class="dl">Created by</div><div class="dv">${c.created_by_email||'-'}</div></div>
         <div class="detail-item"><div class="dl">Active</div><div class="dv">${c.is_active?'OK Yes':'No No'}</div></div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">
-        <button class="action-btn" style="background:#1a6b5a;color:white;border-color:#1a6b5a;" onclick="uploadSiteHtml('${c.website_id}','${c.email}')">🌐 Upload website HTML</button>
-        <button class="action-btn" style="background:#3b82f6;color:white;border-color:#3b82f6;" onclick="markPreviewReady('${c.id}','${c.email}')">👁 Mark preview ready</button>
+      <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Build status</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <button onclick="setBuildStatus('${c.id}','wip')" class="action-btn" style="${c.build_status==='wip'?'background:var(--accent);color:white;border-color:var(--accent);':''}">🔨 WIP</button>
+          <button onclick="setBuildStatus('${c.id}','preview')" class="action-btn" style="${c.build_status==='preview'?'background:#3b82f6;color:white;border-color:#3b82f6;':''}">👁 In Preview</button>
+          <button onclick="setBuildStatus('${c.id}','completed')" class="action-btn" style="${c.build_status==='completed'||c.onboarding_stage==='launched'?'background:#10b981;color:white;border-color:#10b981;':''}">✅ Completed</button>
+          <span style="font-size:12px;color:var(--ink-muted);margin-left:4px;">${c.build_status==='wip'?'Currently building':''}${c.build_status==='preview'?'Waiting on client approval':''}${c.build_status==='completed'||c.onboarding_stage==='launched'?'Website live':'Not started'}</span>
+        </div>
+        <div style="margin-top:10px;">
+          <button class="action-btn" style="background:#1a6b5a;color:white;border-color:#1a6b5a;" onclick="uploadSiteHtml('${c.website_id}','${c.email}')">🌐 Upload website HTML</button>
+        </div>
       </div>
       <div class="pricing-edit">
         <label>Plan</label>
@@ -2794,5 +2821,32 @@ async function deleteBrief(id) {
     var d = await res.json()
     if (d.message) loadSubmittedBriefs()
     else alert(d.error || 'Failed to delete')
+  } catch(e) { alert('Could not connect to server') }
+}
+
+// ── BUILD STATUS ──────────────────────────────────────────
+async function setBuildStatus(clientId, status) {
+  try {
+    var res = await fetch(API + '/admin/set-build-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ client_id: clientId, build_status: status })
+    })
+    var d = await res.json()
+    if (d.message) loadAdminData()
+    else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect to server') }
+}
+
+// ── MAKE MISSED PAYMENT ───────────────────────────────────
+async function payMissedPayment() {
+  try {
+    var res = await fetch(API + '/billing-portal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    if (d.url) window.location.href = d.url
+    else alert(d.error || 'Could not open billing portal. Please contact support.')
   } catch(e) { alert('Could not connect to server') }
 }

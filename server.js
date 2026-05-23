@@ -204,7 +204,7 @@ app.get('/my-dashboard', authMiddleware, async (req, res) => {
   try {
     const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.user.id])
     const refCode = await pool.query('SELECT * FROM referral_codes WHERE owner_client_id=$1', [req.user.id])
-    const client = await pool.query('SELECT id,email,subscription_status,created_at,plan,update_fee_required,update_fee_amount,onboarding_stage,deposit_paid,deposit_amount,domain_name,domain_yearly_fee FROM clients WHERE id=$1', [req.user.id])
+    const client = await pool.query('SELECT id,email,subscription_status,created_at,plan,update_fee_required,update_fee_amount,onboarding_stage,deposit_paid,deposit_amount,domain_name,domain_yearly_fee,suspended_at FROM clients WHERE id=$1', [req.user.id])
     const ws = website.rows[0] || null
     res.json({ client: client.rows[0], website: ws, referral_code: refCode.rows[0]||null })
   } catch (err) { res.status(500).json({ error: err.message }) }
@@ -412,7 +412,7 @@ app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
       ? `SELECT c.id, c.email, c.created_at, c.is_admin, c.role, c.subscription_status, c.plan,
              c.update_fee_required, c.update_fee_amount, c.commission_rate,
              c.domain_name, c.domain_cost, c.domain_yearly_fee,
-             w.id as website_id, w.business_name, w.subdomain, w.is_active,
+             w.id as website_id, w.business_name, w.subdomain, w.is_active, w.build_status,
              w.setup_fee, w.monthly_fee, w.client_email, w.sections, w.website_type,
              w.created_by, cb.email as created_by_email,
              r.code as referral_code, r.times_used as referral_uses
@@ -425,7 +425,7 @@ app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
       : `SELECT c.id, c.email, c.created_at, c.is_admin, c.role, c.subscription_status, c.plan,
              c.update_fee_required, c.update_fee_amount, c.commission_rate,
              c.domain_name, c.domain_cost, c.domain_yearly_fee,
-             w.id as website_id, w.business_name, w.subdomain, w.is_active,
+             w.id as website_id, w.business_name, w.subdomain, w.is_active, w.build_status,
              w.setup_fee, w.monthly_fee, w.client_email, w.sections, w.website_type,
              w.created_by, cb.email as created_by_email,
              r.code as referral_code, r.times_used as referral_uses
@@ -1530,8 +1530,13 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
     const customerId = invoice.customer
     const client = await pool.query('SELECT id FROM clients WHERE stripe_customer_id=$1', [customerId])
     if (client.rows[0]) {
-      await pool.query('UPDATE clients SET subscription_status=$1 WHERE id=$2', ['suspended', client.rows[0].id])
+      await pool.query("UPDATE clients SET subscription_status='suspended', suspended_at=NOW() WHERE id=$1", [client.rows[0].id])
       await pool.query('UPDATE websites SET is_active=FALSE WHERE client_id=$1', [client.rows[0].id])
+      // Email client about missed payment
+      const suspClient = await pool.query('SELECT email FROM clients WHERE id=$1', [client.rows[0].id])
+      if (suspClient.rows[0]) {
+        resend.emails.send({ from: 'Sitefloa <hello@sitefloa.com>', to: suspClient.rows[0].email, subject: 'Action required — your Sitefloa payment failed', html: '<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;"><h2 style="color:#dc2626;">Payment failed</h2><p>We couldn\'t process your monthly payment. Your website has been temporarily paused.</p><p>Please update your payment method to restore your website. If payment isn\'t received within 30 days, your website and account will be permanently deleted.</p><a href="https://sitefloa.com" style="display:inline-block;padding:12px 24px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;">Log in to make payment →</a></div>' }).catch(e => console.error('Suspension email error:', e))
+      }
     }
   }
 
@@ -1968,6 +1973,48 @@ app.post('/deposit-confirmed', authMiddleware, async (req, res) => {
     res.json({ message: 'Deposit confirmed', website: website.rows[0] || null })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
+
+// ── SET BUILD STATUS ──────────────────────────────────────
+app.post('/admin/set-build-status', authMiddleware, staffMiddleware, async (req, res) => {
+  const { client_id, build_status } = req.body
+  try {
+    if (build_status === 'completed') {
+      // Completed = clear build status, the onboarding_stage handles live display
+      await pool.query("UPDATE websites SET build_status=NULL WHERE client_id=$1", [client_id])
+    } else {
+      await pool.query("UPDATE websites SET build_status=$1 WHERE client_id=$2", [build_status, client_id])
+    }
+    res.json({ message: 'Build status updated' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── AUTO-DELETE OVERDUE SUSPENDED ACCOUNTS ─────────────────
+// Called on server startup and can be called periodically
+async function checkOverdueAccounts() {
+  try {
+    // Find clients suspended more than 30 days ago
+    const overdue = await pool.query(
+      "SELECT id, email FROM clients WHERE subscription_status='suspended' AND suspended_at IS NOT NULL AND suspended_at < NOW() - INTERVAL '30 days'"
+    )
+    for (const client of overdue.rows) {
+      // Email them before deletion
+      await resend.emails.send({
+        from: 'Sitefloa <hello@sitefloa.com>',
+        to: client.email,
+        subject: 'Your Sitefloa account has been deleted',
+        html: '<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;"><h2 style="color:#dc2626;">Account deleted</h2><p>Your Sitefloa website and account have been permanently deleted due to 30 days of non-payment.</p><p>If you believe this is an error, please contact us at hello@sitefloa.com.</p></div>'
+      }).catch(e => console.error('Deletion email error:', e))
+      // Delete website and client
+      await pool.query('DELETE FROM websites WHERE client_id=$1', [client.id])
+      await pool.query('DELETE FROM clients WHERE id=$1', [client.id])
+      console.log('Auto-deleted overdue account:', client.email)
+    }
+    if (overdue.rows.length > 0) console.log(`Auto-deleted ${overdue.rows.length} overdue accounts`)
+  } catch(err) { console.error('Overdue check error:', err) }
+}
+// Run overdue check every 24 hours
+setInterval(checkOverdueAccounts, 24 * 60 * 60 * 1000)
+checkOverdueAccounts() // Run on startup too
 
 // ── MARK CLIENT WEBSITE AS PREVIEW READY ────────────────
 app.post('/admin/mark-preview-ready', authMiddleware, staffMiddleware, async (req, res) => {
