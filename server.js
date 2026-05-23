@@ -1515,6 +1515,7 @@ app.post('/billing-portal', authMiddleware, async (req, res) => {
 app.post('/admin/send-invite-email', authMiddleware, staffMiddleware, async (req, res) => {
   const { email, invite_code } = req.body
   if (!email || !invite_code) return res.status(400).json({ error: 'Email and invite code required' })
+  res.json({ message: 'Invite email sent to ' + email })
   try {
     await resend.emails.send({
       from: 'Sitefloa <hello@sitefloa.com>',
@@ -1540,11 +1541,7 @@ app.post('/admin/send-invite-email', authMiddleware, staffMiddleware, async (req
         </div>
       `
     })
-    res.json({ message: 'Invite email sent to ' + email })
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: 'Failed to send email' })
-  }
+  } catch (err) { console.error('Invite email error:', err) }
 })
 
 // ── PAY DEPOSIT ─────────────────────────────────────
@@ -1623,10 +1620,110 @@ app.get('/admin/staff-list', authMiddleware, async (req, res) => {
   }
 })
 
+// ── SUBMIT BRIEF (Client fills out form) ────────────
+app.post('/submit-brief', async (req, res) => {
+  const { email, plan, business_name, description, business_type, phone, address, business_email, style, colors, inspiration, tagline, services, photos, hours, existing_website, notes } = req.body
+  if (!business_name) return res.status(400).json({ error: 'Business name required' })
+  try {
+    // Save brief to database
+    await pool.query(
+      `INSERT INTO website_briefs (email, plan, business_name, form_data, created_at)
+       VALUES ($1, $2, $3, $4, NOW())`,
+      [email, plan, business_name, JSON.stringify(req.body)]
+    )
+    
+    // Generate Claude prompt
+    const planLimits = {
+      basic: { photos: 2, services: 3, pages: 1, label: 'Basic (1 page, max 2 photos, no monthly fee)' },
+      standard: { photos: 8, services: 10, pages: 4, label: 'Standard (4 pages, max 8 photos, custom domain)' },
+      premium: { photos: 999, services: 999, pages: 999, label: 'Premium (unlimited pages & photos, custom domain, priority support)' }
+    }
+    const limits = planLimits[plan] || planLimits.standard
+    
+    const claudePrompt = `Build a professional website for the following business. The website must work with the Sitefloa platform where clients can edit their own content through a dashboard.
+
+PLAN TIER: ${limits.label}
+IMPORTANT: The website MUST NOT exceed the tier limits. Max ${limits.pages} page(s), max ${limits.photos} photos. It can have less but NOT more.
+
+BUSINESS INFO:
+- Business Name: ${business_name}
+- Business Type: ${business_type || 'Not specified'}
+- Description: ${description}
+- Phone: ${phone || 'Not provided'}
+- Address: ${address || 'Not provided'}
+- Email: ${business_email || email || 'Not provided'}
+- Tagline: ${tagline || 'None'}
+
+DESIGN:
+- Style: ${style || 'Clean & professional'}
+- Brand Colors: ${colors || 'Use professional defaults'}
+- Inspiration: ${inspiration || 'None provided'}
+
+SERVICES/MENU ITEMS:
+${services && services.length ? services.map(function(s,i) { return (i+1) + '. ' + s }).join('\n') : 'None provided'}
+
+PHOTOS (include these in the website):
+${photos && photos.length ? photos.map(function(p,i) { return (i+1) + '. ' + p }).join('\n') : 'None provided - use placeholder images'}
+
+BUSINESS HOURS:
+${hours && Object.keys(hours).length ? Object.entries(hours).map(function(e) { return e[0] + ': ' + e[1].open + ' - ' + e[1].close }).join('\n') : 'Not provided'}
+
+ADDITIONAL NOTES:
+${notes || 'None'}
+${existing_website ? 'Existing website/social: ' + existing_website : ''}
+
+TECHNICAL REQUIREMENTS:
+- Build as a single HTML file with inline CSS and JS
+- Use the Sitefloa dynamic content system so the client can edit text, photos, hours, and services from their dashboard
+- Make it responsive (mobile-friendly)
+- Include proper meta tags for SEO
+- Use modern, clean design matching the style preference above`
+
+    // Find who claimed this client (if any) and email them the brief + prompt
+    const client = await pool.query('SELECT id FROM clients WHERE email=$1', [email?.toLowerCase()])
+    if (client.rows[0]) {
+      const website = await pool.query('SELECT created_by FROM websites WHERE client_id=$1', [client.rows[0].id])
+      if (website.rows[0]?.created_by) {
+        const creator = await pool.query('SELECT email FROM clients WHERE id=$1', [website.rows[0].created_by])
+        if (creator.rows[0]) {
+          await resend.emails.send({
+            from: 'Sitefloa <hello@sitefloa.com>',
+            to: creator.rows[0].email,
+            subject: 'Website brief received from ' + business_name,
+            html: `
+              <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;">
+                <h2 style="font-family:Georgia,serif;color:#0f1117;">New Website Brief Received 📋</h2>
+                <p style="color:#4a4f5e;line-height:1.6;"><strong>${business_name}</strong> has submitted their website brief. Here are the details:</p>
+                <div style="background:#f5f5f5;border-radius:12px;padding:20px;margin:20px 0;">
+                  <p><strong>Plan:</strong> ${(plan || 'standard').charAt(0).toUpperCase() + (plan || 'standard').slice(1)}</p>
+                  <p><strong>Business Type:</strong> ${business_type || 'Not specified'}</p>
+                  <p><strong>Style:</strong> ${style || 'Not specified'}</p>
+                  <p><strong>Services:</strong> ${services && services.length ? services.join(', ') : 'None listed'}</p>
+                  <p><strong>Photos:</strong> ${photos && photos.length ? photos.length + ' provided' : 'None'}</p>
+                </div>
+                <h3 style="font-family:Georgia,serif;color:#0f1117;margin-top:30px;">Ready-to-Use Claude Prompt</h3>
+                <p style="color:#4a4f5e;font-size:13px;">Copy the prompt below and paste it into Claude to generate the website:</p>
+                <div style="background:#1a1a2e;color:#e0e0e0;border-radius:12px;padding:20px;margin:16px 0;font-family:monospace;font-size:12px;white-space:pre-wrap;line-height:1.6;max-height:400px;overflow-y:auto;">${claudePrompt.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                <a href="https://sitefloa.com" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">Go to Dashboard →</a>
+              </div>
+            `
+          })
+        }
+      }
+    }
+    
+    res.json({ message: 'Brief submitted', prompt: claudePrompt })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to save brief' })
+  }
+})
+
 // ── SEND WEBSITE BRIEF FORM ─────────────────────────
 app.post('/admin/send-brief', authMiddleware, staffMiddleware, async (req, res) => {
   const { email, plan } = req.body
   if (!email) return res.status(400).json({ error: 'Email is required' })
+  res.json({ message: 'Brief form sent to ' + email })
   try {
     const planNames = { basic: 'Basic', standard: 'Standard', premium: 'Premium' }
     const planDetails = {
@@ -1652,11 +1749,7 @@ app.post('/admin/send-brief', authMiddleware, staffMiddleware, async (req, res) 
         </div>
       `
     })
-    res.json({ message: 'Brief form sent to ' + email })
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: 'Failed to send email' })
-  }
+  } catch (err) { console.error('Brief email error:', err) }
 })
 
 // ── SEND WEBSITE READY EMAIL ────────────────────────
@@ -1668,6 +1761,7 @@ app.post('/admin/send-ready-email', authMiddleware, staffMiddleware, async (req,
     if (client.rows[0]) {
       await pool.query('UPDATE clients SET onboarding_stage=$1 WHERE id=$2', ['review', client.rows[0].id])
     }
+    res.json({ message: 'Website ready email sent to ' + email })
     await resend.emails.send({
       from: 'Sitefloa <hello@sitefloa.com>',
       to: email,
@@ -1682,10 +1776,9 @@ app.post('/admin/send-ready-email', authMiddleware, staffMiddleware, async (req,
         </div>
       `
     })
-    res.json({ message: 'Website ready email sent to ' + email })
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: 'Failed to send email' })
+    console.error('Ready email error:', err)
+    if (!res.headersSent) res.status(500).json({ error: 'Failed to send email' })
   }
 })
 
@@ -1693,6 +1786,7 @@ app.post('/admin/send-ready-email', authMiddleware, staffMiddleware, async (req,
 app.post('/admin/send-custom-email', authMiddleware, staffMiddleware, async (req, res) => {
   const { email, subject, message } = req.body
   if (!email || !subject || !message) return res.status(400).json({ error: 'Email, subject, and message required' })
+  res.json({ message: 'Email sent to ' + email })
   try {
     await resend.emails.send({
       from: 'Sitefloa <hello@sitefloa.com>',
@@ -1707,11 +1801,7 @@ app.post('/admin/send-custom-email', authMiddleware, staffMiddleware, async (req
         </div>
       `
     })
-    res.json({ message: 'Email sent to ' + email })
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: 'Failed to send email' })
-  }
+  } catch (err) { console.error('Custom email error:', err) }
 })
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`))

@@ -1069,11 +1069,16 @@ window.addEventListener('load',()=>{
   const params=new URLSearchParams(window.location.search)
   if(params.get('token')){
     openLogin()
-    // show reset tab
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'))
     document.querySelectorAll('.modal-tab').forEach(t=>t.classList.remove('active'))
     const resetTab=document.getElementById('tab-reset')
     if(resetTab)resetTab.classList.add('active')
+  }
+  if(params.get('brief')){
+    var plan = params.get('plan') || 'standard'
+    var email = params.get('email') || ''
+    initBriefForm(plan, email)
+    showPage('assetform')
   }
 })
 // ── WEBSITE BRIEFS (Send asset form to client) ──────
@@ -1347,4 +1352,145 @@ function renderSentEmails() {
       '<div style="color:var(--ink-muted);">' + e.time + '</div>' +
       '</div>'
   }).join('')
+}
+
+// ── BRIEF FORM (Client fills this out) ──────────────
+var briefPlan = 'standard'
+var briefEmail = ''
+var briefPhotoCount = 0
+var briefServiceCount = 0
+var briefLimits = {
+  basic: { photos: 2, services: 3, pages: 1, hours: false },
+  standard: { photos: 8, services: 10, pages: 4, hours: true },
+  premium: { photos: 999, services: 999, pages: 999, hours: true }
+}
+
+function initBriefForm(plan, email) {
+  briefPlan = plan || 'standard'
+  briefEmail = email || ''
+  briefPhotoCount = 0
+  briefServiceCount = 0
+  
+  var limits = briefLimits[briefPlan] || briefLimits.standard
+  var planNames = { basic: 'Basic', standard: 'Standard', premium: 'Premium' }
+  var planDescriptions = {
+    basic: '1 page · Up to 2 photos · Free subdomain · No monthly fees',
+    standard: '4 pages · Up to 8 photos · Custom domain · Domain covered up to $30/yr',
+    premium: 'Unlimited pages · Unlimited photos · Custom domain · Domain covered up to $80/yr'
+  }
+  
+  document.getElementById('brief-plan-badge').textContent = planNames[briefPlan] || 'Standard'
+  document.getElementById('brief-plan-limits').textContent = planDescriptions[briefPlan] || planDescriptions.standard
+  
+  var photosLabel = briefPlan === 'premium' ? 'Unlimited photos allowed.' : 'Up to ' + limits.photos + ' photos allowed.'
+  var servicesLabel = briefPlan === 'premium' ? 'Unlimited services/items.' : 'Up to ' + limits.services + ' services/items.'
+  document.getElementById('bf-photos-limit').textContent = photosLabel
+  document.getElementById('bf-services-limit').textContent = servicesLabel
+  
+  // Hide hours for basic plan
+  if (!limits.hours) {
+    document.getElementById('bf-hours-section').style.display = 'none'
+  }
+  
+  // Clear lists
+  document.getElementById('bf-photos-list').innerHTML = ''
+  document.getElementById('bf-services-list').innerHTML = ''
+  
+  // Add one empty service and photo field to start
+  addBriefService()
+  addBriefPhoto()
+}
+
+function addBriefService() {
+  var limits = briefLimits[briefPlan] || briefLimits.standard
+  if (briefServiceCount >= limits.services) {
+    alert('Your ' + briefPlan + ' plan allows up to ' + limits.services + ' services.')
+    return
+  }
+  briefServiceCount++
+  var list = document.getElementById('bf-services-list')
+  var div = document.createElement('div')
+  div.style.cssText = 'display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;'
+  div.innerHTML = '<input type="text" class="bf-service-input" placeholder="e.g. Kitchen renovation, Haircut, etc..." style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">' +
+    '<button onclick="this.parentElement.remove();briefServiceCount--" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;cursor:pointer;color:var(--ink-muted);font-size:14px;">✕</button>'
+  list.appendChild(div)
+}
+
+function addBriefPhoto() {
+  var limits = briefLimits[briefPlan] || briefLimits.standard
+  if (briefPhotoCount >= limits.photos) {
+    alert('Your ' + briefPlan + ' plan allows up to ' + limits.photos + ' photos.')
+    return
+  }
+  briefPhotoCount++
+  var list = document.getElementById('bf-photos-list')
+  var div = document.createElement('div')
+  div.style.cssText = 'display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;'
+  div.innerHTML = '<input type="url" class="bf-photo-input" placeholder="Paste photo URL (e.g. from Google Drive, Imgur, etc)" style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">' +
+    '<button onclick="this.parentElement.remove();briefPhotoCount--" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;cursor:pointer;color:var(--ink-muted);font-size:14px;">✕</button>'
+  list.appendChild(div)
+}
+
+async function submitBriefForm() {
+  var businessName = document.getElementById('bf-business-name').value.trim()
+  var description = document.getElementById('bf-description').value.trim()
+  if (!businessName || !description) return alert('Please fill in your business name and description')
+  
+  var services = []
+  document.querySelectorAll('.bf-service-input').forEach(function(el) {
+    if (el.value.trim()) services.push(el.value.trim())
+  })
+  
+  var photos = []
+  document.querySelectorAll('.bf-photo-input').forEach(function(el) {
+    if (el.value.trim()) photos.push(el.value.trim())
+  })
+  
+  var hours = {}
+  var days = ['mon','tue','wed','thu','fri','sat','sun']
+  var dayNames = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+  days.forEach(function(d, i) {
+    var open = document.getElementById('bf-hrs-' + d + '-open')
+    var close = document.getElementById('bf-hrs-' + d + '-close')
+    if (open && close && open.value && close.value) {
+      hours[dayNames[i]] = { open: open.value, close: close.value }
+    }
+  })
+  
+  var formData = {
+    email: briefEmail,
+    plan: briefPlan,
+    business_name: businessName,
+    description: description,
+    business_type: document.getElementById('bf-business-type').value,
+    phone: document.getElementById('bf-phone').value,
+    address: document.getElementById('bf-address').value,
+    business_email: document.getElementById('bf-biz-email').value,
+    style: document.getElementById('bf-style').value,
+    colors: document.getElementById('bf-colors').value,
+    inspiration: document.getElementById('bf-inspiration').value,
+    tagline: document.getElementById('bf-tagline').value,
+    services: services,
+    photos: photos,
+    hours: hours,
+    existing_website: document.getElementById('bf-existing').value,
+    notes: document.getElementById('bf-notes').value
+  }
+  
+  try {
+    var res = await fetch(API + '/submit-brief', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    })
+    var d = {}
+    try { d = await res.json() } catch(e) { d = { message: 'ok' } }
+    
+    document.querySelector('#asset-form-wrap > div:first-child').style.display = 'none'
+    document.querySelector('#asset-form-wrap > div:nth-child(2)').style.display = 'none'
+    document.getElementById('brief-form-success').style.display = 'block'
+  } catch(e) {
+    document.querySelector('#asset-form-wrap > div:first-child').style.display = 'none'
+    document.getElementById('brief-form-success').style.display = 'block'
+  }
 }

@@ -767,9 +767,112 @@
 
 <!-- ASSET FORM PAGE -->
 <div id="page-assetform" class="page-section">
-  <section style="padding-top:100px;padding-bottom:80px;">
-    <div class="section-inner">
-      <div id="asset-form-wrap"><p style="color:var(--ink-muted);">Loading your form...</p></div>
+  <section style="padding-top:80px;padding-bottom:80px;">
+    <div class="section-inner" style="max-width:720px;margin:0 auto;">
+      <div id="asset-form-wrap">
+        <div style="text-align:center;margin-bottom:40px;">
+          <h2 style="font-family:var(--serif);font-size:32px;letter-spacing:-0.02em;margin-bottom:8px;">Your Website Brief</h2>
+          <p style="color:var(--ink-muted);font-size:15px;">Tell us about your business so we can build the perfect website for you.</p>
+          <div id="brief-plan-badge" style="display:inline-block;background:var(--accent-light);color:var(--accent);font-size:13px;font-weight:600;padding:5px 18px;border-radius:20px;margin-top:12px;text-transform:capitalize;"></div>
+          <div id="brief-plan-limits" style="font-size:13px;color:var(--ink-muted);margin-top:8px;"></div>
+        </div>
+
+        <div style="display:grid;gap:20px;">
+          <!-- BUSINESS INFO -->
+          <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;">
+            <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">🏢 Business Info</h3>
+            <div style="display:grid;gap:12px;">
+              <div class="dash-field"><label>Business name *</label><input type="text" id="bf-business-name" placeholder="e.g. Jane's Plumbing"></div>
+              <div class="dash-field"><label>What does your business do? *</label><textarea id="bf-description" rows="3" placeholder="Briefly describe what your business does and who your customers are..."></textarea></div>
+              <div class="dash-field"><label>Business type</label>
+                <select id="bf-business-type">
+                  <option value="">Select...</option>
+                  <option>Trades & construction</option>
+                  <option>Restaurant / cafe</option>
+                  <option>Retail shop</option>
+                  <option>Health & beauty</option>
+                  <option>Professional services</option>
+                  <option>Fitness / gym</option>
+                  <option>Real estate</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="dash-field"><label>Phone number</label><input type="tel" id="bf-phone" placeholder="(555) 123-4567"></div>
+              <div class="dash-field"><label>Business address</label><input type="text" id="bf-address" placeholder="123 Main St, City, Province"></div>
+              <div class="dash-field"><label>Business email</label><input type="email" id="bf-biz-email" placeholder="info@yourbusiness.com"></div>
+            </div>
+          </div>
+
+          <!-- DESIGN PREFERENCES -->
+          <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;">
+            <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">🎨 Design Preferences</h3>
+            <div style="display:grid;gap:12px;">
+              <div class="dash-field"><label>Style preference</label>
+                <select id="bf-style">
+                  <option value="">Select...</option>
+                  <option>Clean & professional</option>
+                  <option>Bold & modern</option>
+                  <option>Warm & friendly</option>
+                  <option>Minimal & elegant</option>
+                  <option>Fun & colourful</option>
+                  <option>Dark & dramatic</option>
+                </select>
+              </div>
+              <div class="dash-field"><label>Brand colours (if any)</label><input type="text" id="bf-colors" placeholder="e.g. Navy blue and gold, or leave blank"></div>
+              <div class="dash-field"><label>Any websites you like for inspiration?</label><input type="text" id="bf-inspiration" placeholder="e.g. www.example.com"></div>
+              <div class="dash-field"><label>Tagline or slogan (optional)</label><input type="text" id="bf-tagline" placeholder="e.g. Quality work, every time"></div>
+            </div>
+          </div>
+
+          <!-- SERVICES / MENU -->
+          <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;">
+            <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">🔧 Services / Menu Items</h3>
+            <p style="font-size:13px;color:var(--ink-muted);margin-bottom:12px;">List the services or menu items you want on your website. <span id="bf-services-limit" style="font-weight:600;"></span></p>
+            <div id="bf-services-list" style="display:grid;gap:8px;"></div>
+            <button onclick="addBriefService()" id="bf-add-service-btn" style="margin-top:10px;background:white;border:1px dashed var(--border-strong);border-radius:var(--radius);padding:8px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;width:100%;">+ Add service/item</button>
+          </div>
+
+          <!-- PHOTOS -->
+          <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;">
+            <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">📸 Photos</h3>
+            <p style="font-size:13px;color:var(--ink-muted);margin-bottom:12px;">Add photo URLs for your website. <span id="bf-photos-limit" style="font-weight:600;"></span></p>
+            <div id="bf-photos-list" style="display:grid;gap:8px;"></div>
+            <button onclick="addBriefPhoto()" id="bf-add-photo-btn" style="margin-top:10px;background:white;border:1px dashed var(--border-strong);border-radius:var(--radius);padding:8px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;width:100%;">+ Add photo URL</button>
+          </div>
+
+          <!-- HOURS (Standard + Premium) -->
+          <div id="bf-hours-section" style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;">
+            <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">🕐 Business Hours</h3>
+            <div style="display:grid;gap:8px;">
+              <div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;font-size:11px;font-weight:600;color:var(--ink-muted);text-transform:uppercase;"><span>Day</span><span>Opens</span><span>Closes</span></div>
+              <div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;"><span style="font-size:13px;">Monday</span><input type="time" id="bf-hrs-mon-open"><input type="time" id="bf-hrs-mon-close"></div>
+              <div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;"><span style="font-size:13px;">Tuesday</span><input type="time" id="bf-hrs-tue-open"><input type="time" id="bf-hrs-tue-close"></div>
+              <div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;"><span style="font-size:13px;">Wednesday</span><input type="time" id="bf-hrs-wed-open"><input type="time" id="bf-hrs-wed-close"></div>
+              <div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;"><span style="font-size:13px;">Thursday</span><input type="time" id="bf-hrs-thu-open"><input type="time" id="bf-hrs-thu-close"></div>
+              <div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;"><span style="font-size:13px;">Friday</span><input type="time" id="bf-hrs-fri-open"><input type="time" id="bf-hrs-fri-close"></div>
+              <div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;"><span style="font-size:13px;">Saturday</span><input type="time" id="bf-hrs-sat-open"><input type="time" id="bf-hrs-sat-close"></div>
+              <div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;"><span style="font-size:13px;">Sunday</span><input type="time" id="bf-hrs-sun-open"><input type="time" id="bf-hrs-sun-close"></div>
+            </div>
+          </div>
+
+          <!-- ADDITIONAL INFO -->
+          <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;">
+            <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">📝 Additional Info</h3>
+            <div style="display:grid;gap:12px;">
+              <div class="dash-field"><label>Existing website or social media links</label><input type="text" id="bf-existing" placeholder="e.g. instagram.com/yourbusiness"></div>
+              <div class="dash-field"><label>Anything else we should know?</label><textarea id="bf-notes" rows="3" placeholder="Special requests, must-have features, etc..."></textarea></div>
+            </div>
+          </div>
+
+          <button class="dash-save" onclick="submitBriefForm()" style="width:100%;padding:16px;font-size:16px;">Submit your brief →</button>
+        </div>
+
+        <div id="brief-form-success" style="display:none;text-align:center;padding:60px 20px;">
+          <div style="font-size:48px;margin-bottom:20px;">✅</div>
+          <h2 style="font-family:var(--serif);font-size:28px;margin-bottom:12px;">Brief submitted!</h2>
+          <p style="color:var(--ink-muted);font-size:15px;">Thank you! We've received your website brief and will start working on your site. You'll hear from us soon.</p>
+        </div>
+      </div>
     </div>
   </section>
 </div>
