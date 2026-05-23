@@ -678,7 +678,7 @@ async function loadAdminData(){
     if(data.clients)renderClientsTable(data.clients.filter(c=>c.role==='client'||(!c.role&&!c.is_admin)))
     if(data.managers)renderStaffList(data.managers)
     if(data.monthly_chart)renderChart(data.monthly_chart)
-    loadAdminCodes();loadManagerCodes();loadInquiries('admin');loadPipeline();loadAssetForms();loadSubmittedBriefs()
+    loadAdminCodes();loadManagerCodes();loadInquiries('admin');loadPipeline();loadAssetForms();loadSubmittedBriefs();loadDomainRequests();loadBonusGoals()
   }catch(e){console.error(e)}
 }
 
@@ -699,22 +699,28 @@ function renderChart(rows){
 }
 function renderStaffList(managers){
   const wrap=document.getElementById('staff-list')
-  if(!managers||!managers.length){wrap.innerHTML='<p style="color:var(--ink-muted);font-size:14px;">No managers yet.</p>';return}
-  wrap.innerHTML=managers.map(m=>{
-    const total=parseFloat(m.total_brought_in)||0,commission=Math.round(total*(m.commission_rate||10)/100)
-    return`<div class="staff-row">
-      <div class="staff-info"><div class="staff-email">${m.email}</div><div class="staff-meta">Commission: ${m.commission_rate||10}%</div></div>
+  if(!managers||!managers.length){wrap.innerHTML='<p style="color:var(--ink-muted);font-size:14px;">No staff yet.</p>';return}
+  const all=[...managers.filter(m=>m.role==='contractor'),...managers.filter(m=>m.role==='manager'||!m.role)]
+  wrap.innerHTML=all.map(m=>{
+    const total=parseFloat(m.total_brought_in)||0
+    const rate=parseFloat(m.commission_rate||10)
+    const commission=Math.round(total*rate/100)
+    const roleTag=m.role==='contractor'
+      ?'<span style="background:#e8f4f1;color:var(--accent);border:1px solid var(--accent);border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;text-transform:uppercase;margin-left:6px;">Contractor</span>'
+      :'<span style="background:#ede9ff;color:#7c3aed;border:1px solid #c4b5fd;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;text-transform:uppercase;margin-left:6px;">Manager</span>'
+    return `<div class="staff-row">
+      <div class="staff-info"><div class="staff-email">${m.email}${roleTag}</div><div class="staff-meta">Commission: ${rate}% of launch fees &middot; ${m.websites_created||0} clients this period</div></div>
       <div class="staff-stats">
-        <div><div class="sv">${m.websites_created||0}</div><div class="sl">This period</div></div>
-        <div><div class="sv">$${total.toFixed(0)}</div><div class="sl">Brought in</div></div>
-        <div><div class="sv" style="color:var(--accent);">$${commission}</div><div class="sl">Earned</div></div>
+        <div><div class="sv">${m.websites_created||0}</div><div class="sl">Clients</div></div>
+        <div><div class="sv">$${total.toFixed(0)}</div><div class="sl">Launch fees</div></div>
+        <div><div class="sv" style="color:var(--accent);">$${commission}</div><div class="sl">Commission</div></div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-        <input type="number" value="${m.commission_rate||10}" style="width:60px;padding:4px 8px;font-size:12px;" id="cr-${m.id}" min="0" max="100">
+        <input type="number" value="${rate}" style="width:60px;padding:4px 8px;font-size:12px;" id="cr-${m.id}" min="0" max="100">
         <span style="font-size:12px;color:var(--ink-muted);">%</span>
         <button class="action-btn" onclick="updateCommission('${m.id}')">Save %</button>
         <button class="action-btn" style="background:var(--accent-light);border-color:var(--accent);color:var(--accent);" onclick="viewPayHistory('${m.id}','${m.email}')">📋 History</button>
-        <button class="dash-save" style="padding:4px 12px;font-size:12px;background:var(--purple);" onclick="closePeriod('${m.id}','${m.email}')">v Close period & pay</button>
+        <button class="dash-save" style="padding:4px 12px;font-size:12px;background:var(--purple);" onclick="closePeriod('${m.id}','${m.email}')">✓ Close period & pay</button>
         <button class="btn-remove" onclick="removeManager('${m.id}','${m.email}')">Remove</button>
       </div>
     </div>
@@ -726,12 +732,15 @@ function renderStaffList(managers){
 }
 
 async function closePeriod(managerId, email){
-  if(!confirm('Close pay period for '+email+'? This will calculate earnings, send receipt, and reset stats.'))return
+  if(!confirm('Close pay period for '+email+'? This will calculate earnings, send their receipt, and log it.'))return
   try{
+    // Single unified endpoint handles both contractors and managers
     const res=await fetch(API+'/admin/close-period',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({manager_id:managerId})})
     const d=await res.json()
-    if(d.message){alert('OK Period closed! Receipt sent to '+email+'. They earned $'+d.earnings+' from '+d.websites_count+' websites.');loadAdminData()}
-    else alert(d.error||'Failed')
+    if(d.message){
+      alert('Period closed! Receipt sent to '+email+'. They earned $'+d.earnings+' from '+d.websites_count+' client'+( d.websites_count!==1?'s':'')+'.')
+      loadAdminData()
+    } else alert(d.error||'Failed')
   }catch(e){alert('Could not connect')}
 }
 
@@ -949,7 +958,11 @@ function renderManagerTable(clients){
         <div class="detail-item"><div class="dl">Created by</div><div class="dv">${c.created_by_email||'-'}</div></div>
         <div class="detail-item"><div class="dl">Active</div><div class="dv">${c.is_active?'OK Yes':'No No'}</div></div>
       </div>
-      <p class="readonly-notice">i️ Contact admin to change pricing, plan, or delete this account.</p>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="action-btn" style="background:#1a6b5a;color:white;border-color:#1a6b5a;" onclick="uploadSiteHtml('${c.website_id}','${c.email}')">🌐 Upload website</button>
+        <button class="action-btn" style="background:#3b82f6;color:white;border-color:#3b82f6;" onclick="markPreviewReady('${c.id}','${c.email}')">👁 Mark preview ready</button>
+      </div>
+      <p class="readonly-notice">ℹ️ Contact admin to change pricing, plan, or delete this account.</p>
     </div></td></tr>
   `).join('')
 }
@@ -1075,7 +1088,7 @@ async function loadAdminCodes(){
     document.getElementById('admin-codes-list').innerHTML=!data.codes||!data.codes.length?'<span style="font-size:13px;color:var(--ink-muted);">No codes yet</span>':data.codes.map(c=>`<div class="manager-code-pill ${c.used?'used':''}">${c.code} ${c.used?'<span style="font-size:10px;">(used)</span>':'<span style="font-size:10px;color:#b71c1c;">* available</span>'}</div>`).join('')
   }catch(e){console.error(e)}
 }
-async function createManagerCode(){const code=document.getElementById('new-manager-code').value.trim();if(!code)return alert('Please enter a code');try{const res=await fetch(API+'/admin/create-manager-code',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({code})});const d=await res.json();if(d.message){document.getElementById('new-manager-code').value='';loadManagerCodes()}else alert(d.error||'Failed')}catch(e){alert('Could not connect')}}
+async function createManagerCode(){const code=(document.getElementById('new-manager-role-code')||document.getElementById('new-manager-code'))?.value.trim();if(!code)return alert('Please enter a code');try{const res=await fetch(API+'/admin/create-manager-code',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({code})});const d=await res.json();if(d.message){var el=document.getElementById('new-manager-role-code')||document.getElementById('new-manager-code');if(el)el.value='';loadManagerCodes()}else alert(d.error||'Failed')}catch(e){alert('Could not connect')}}
 async function createAdminCode(){const code=document.getElementById('new-admin-code').value.trim();if(!code)return alert('Please enter a code');try{const res=await fetch(API+'/admin/create-admin-code',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({code})});const d=await res.json();if(d.message){document.getElementById('new-admin-code').value='';loadAdminCodes()}else alert(d.error||'Failed')}catch(e){alert('Could not connect')}}
 async function removeManager(cid,email){if(!confirm('Remove manager access for '+email+'?'))return;try{const res=await fetch(API+'/admin/remove-manager/'+cid,{method:'DELETE',headers:{'Authorization':'Bearer '+getToken()}});const d=await res.json();if(d.message)loadAdminData();else alert(d.error||'Failed')}catch(e){alert('Could not connect')}}
 
@@ -1244,10 +1257,15 @@ function showHoldingPage(stage, website) {
 async function approveWebsite() {
   if (!confirm('Approve your website and make it live? You will be redirected to pay the remaining launch fee.')) return
   try {
+    // Calculate remaining fee: full setup_fee minus the deposit already paid
+    var fullFee = currentWebsite?.setup_fee || 299
+    var depositPct = (siteSettings?.deposit_percent || 50) / 100
+    var depositPaid = Math.round(fullFee * depositPct)
+    var remaining = Math.max(0, fullFee - depositPaid)
     var res = await fetch(API + '/create-checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
-      body: JSON.stringify({ setup_fee: 0, monthly_fee: currentWebsite?.monthly_fee || 49, plan: currentWebsite?.plan || 'standard', business_name: currentWebsite?.business_name || '' })
+      body: JSON.stringify({ setup_fee: remaining, monthly_fee: currentWebsite?.monthly_fee || 49, plan: currentWebsite?.plan || 'standard', business_name: currentWebsite?.business_name || '' })
     })
     var d = await res.json()
     if (d.url) {
@@ -1576,16 +1594,31 @@ async function submitBriefForm() {
     if (val) photos.push(val)
   })
   
+  // Collect hours from custom AM/PM selectors
   var hours = {}
   var days = ['mon','tue','wed','thu','fri','sat','sun']
   var dayNames = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
   days.forEach(function(d, i) {
-    var open = document.getElementById('bf-hrs-' + d + '-open')
-    var close = document.getElementById('bf-hrs-' + d + '-close')
-    if (open && close && open.value && close.value) {
-      hours[dayNames[i]] = { open: open.value, close: close.value }
+    var openH  = document.getElementById('bf-hrs-' + d + '-open-h')?.value
+    var openM  = document.getElementById('bf-hrs-' + d + '-open-m')?.value || '00'
+    var openAP = document.getElementById('bf-hrs-' + d + '-open-ap')?.textContent || 'AM'
+    var closeH = document.getElementById('bf-hrs-' + d + '-close-h')?.value
+    var closeM = document.getElementById('bf-hrs-' + d + '-close-m')?.value || '00'
+    var closeAP= document.getElementById('bf-hrs-' + d + '-close-ap')?.textContent || 'AM'
+    if (openH && openH !== '—' && closeH && closeH !== '—') {
+      hours[dayNames[i]] = {
+        open:  openH  + ':' + openM  + ' ' + openAP,
+        close: closeH + ':' + closeM + ' ' + closeAP
+      }
     }
   })
+
+  // Collect pages
+  var pages = []
+  document.querySelectorAll('.bf-page-input').forEach(function(el) {
+    if (el.value.trim()) pages.push(el.value.trim())
+  })
+  if (!pages.length) pages = ['Home']
   
   var formData = {
     email: briefEmail,
@@ -1604,8 +1637,16 @@ async function submitBriefForm() {
     photos: photos,
     hours: hours,
     existing_website: document.getElementById('bf-existing').value,
-    notes: document.getElementById('bf-notes').value
+    notes: document.getElementById('bf-notes').value,
+    pages: pages
   }
+  // Strip base64 data: URLs from photos — replace with filename or placeholder note
+  formData.photos = (formData.photos || []).map(function(p) {
+    if (typeof p === 'string' && p.startsWith('data:')) {
+      return '[Photo uploaded — will be sent separately]'
+    }
+    return p
+  })
   
   try {
     var res = await fetch(API + '/submit-brief', {
@@ -1623,6 +1664,27 @@ async function submitBriefForm() {
     document.querySelector('#asset-form-wrap > div:first-child').style.display = 'none'
     document.getElementById('brief-form-success').style.display = 'block'
   }
+}
+
+// ── VIEW TERMS ───────────────────────────────────────────
+function viewTOS() {
+  var modal = document.createElement('div')
+  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.7);display:flex;align-items:center;justify-content:center;padding:20px;'
+  modal.innerHTML = '<div id="tos-modal" style="background:white;border-radius:16px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;padding:32px;box-shadow:0 24px 60px rgba(0,0,0,0.2);">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">' +
+    '<div style="font-family:var(--serif);font-size:22px;">Terms of Service</div>' +
+    '<button onclick="document.getElementById(\'tos-modal\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-muted);">\u2715</button>' +
+    '</div>' +
+    '<div style="font-size:14px;line-height:1.7;color:var(--ink-light);">' +
+    '<p><strong>Sitefloa Contractor Agreement</strong></p>' +
+    '<p>As a Sitefloa contractor, you agree to represent the platform professionally, provide accurate information to clients, and meet agreed build timelines. Commission is earned on completed and paid website builds. Commissions are calculated on the full setup fee regardless of any discount codes applied to the client. Commissions are paid at the end of each pay period as set by admin. Sitefloa reserves the right to update these terms with reasonable notice.</p>' +
+    '<p><strong>Client Data</strong></p>' +
+    '<p>You agree to handle client information confidentially and not share it with third parties. All client relationships are owned by Sitefloa.</p>' +
+    '<p><strong>Payments</strong></p>' +
+    '<p>Commission payments are processed at period close. Any disputes must be raised within 7 days of period close. Sitefloa is not responsible for delays caused by incorrect payment details.</p>' +
+    '</div></div>'
+  modal.onclick = function(e) { if (e.target === modal) modal.remove() }
+  document.body.appendChild(modal)
 }
 
 // ── SALES PIPELINE ───────────────────────────────────────
@@ -1707,7 +1769,7 @@ function showAddLeadModal() {
     '<div class="dash-field"><label>Contact name</label><input type="text" id="nl-contact" placeholder="e.g. Jane Smith"></div>' +
     '<div class="dash-field"><label>Email</label><input type="email" id="nl-email" placeholder="jane@example.com"></div>' +
     '<div class="dash-field"><label>Phone</label><input type="tel" id="nl-phone" placeholder="(555) 123-4567"></div>' +
-    '<div class="dash-field"><label>Plan interest</label><select id="nl-plan"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>' +
+    '' +
     '<div class="dash-field"><label>Notes</label><textarea id="nl-notes" rows="2" placeholder="Any notes about this lead..."></textarea></div>' +
     '</div>' +
     '<div style="display:flex;gap:10px;margin-top:20px;">' +
@@ -1726,7 +1788,6 @@ async function submitAddLead() {
     contact_name: document.getElementById('nl-contact').value,
     email: document.getElementById('nl-email').value,
     phone: document.getElementById('nl-phone').value,
-    plan_interest: document.getElementById('nl-plan').value,
     notes: document.getElementById('nl-notes').value
   }
   try {
@@ -1826,21 +1887,39 @@ function renderSubmittedBriefs(briefs) {
   var wrap = document.getElementById('submitted-briefs-wrap')
   if (!wrap) return
   if (!briefs.length) { wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No briefs submitted yet.</p>'; return }
+  var myId = getToken() ? JSON.parse(atob(getToken().split('.')[1])).id : null
+  var myEmail = localStorage.getItem('wc_email') || ''
   wrap.innerHTML = '<div style="display:grid;gap:10px;">' +
     briefs.map(function(b) {
       var fd = {}
       try { fd = typeof b.form_data === 'string' ? JSON.parse(b.form_data) : (b.form_data || {}) } catch(e) {}
       var date = new Date(b.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
       var safeJson = JSON.stringify(b).replace(/\\/g,'\\\\').replace(/`/g,'\\`')
-      return '<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;">' +
+      var isClaimed = !!b.claimed_by
+      var claimedByMe = b.claimed_by == myId || b.claimed_by_email === myEmail
+      var bg = isClaimed ? (claimedByMe ? '#e8f4f1' : '#fff8e6') : 'var(--cream)'
+      var border = isClaimed ? (claimedByMe ? '1px solid #1a6b5a44' : '1px solid #f59e0b66') : '1px solid var(--border)'
+      var claimTag = isClaimed
+        ? '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:' + (claimedByMe ? 'var(--accent)' : '#b45309') + ';margin-top:4px;display:block;">' + (claimedByMe ? '✅ Claimed by you' : '🔒 Claimed by ' + (b.claimed_by_email || 'someone')) + '</span>'
+        : '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-muted);margin-top:4px;display:block;">⚪ Unclaimed</span>'
+      var actionBtn = ''
+      if (!isClaimed) {
+        actionBtn = '<button onclick="claimBrief(' + b.id + ')" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;margin-right:6px;">Claim</button>'
+      } else if (claimedByMe || getRole() === 'admin') {
+        actionBtn = '<button onclick="unclaimBrief(' + b.id + ')" style="background:white;color:var(--ink-muted);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;font-family:var(--sans);font-size:12px;cursor:pointer;white-space:nowrap;margin-right:6px;">Release</button>'
+      }
+      return '<div style="background:' + bg + ';border:' + border + ';border-radius:var(--radius-lg);padding:16px 20px;">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">' +
-        '<div>' +
+        '<div style="flex:1;">' +
         '<div style="font-weight:600;font-size:15px;">' + (b.business_name || 'Unknown') + '</div>' +
         '<div style="font-size:13px;color:var(--ink-muted);margin-top:2px;">' + (b.email || '') + ' &middot; ' + (b.plan || 'standard') + ' plan &middot; ' + date + '</div>' +
+        claimTag +
         (fd.description ? '<div style="font-size:13px;color:var(--ink-light);margin-top:6px;">' + fd.description.substring(0,100) + (fd.description.length > 100 ? '...' : '') + '</div>' : '') +
         '</div>' +
+        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">' +
+        actionBtn +
         '<button onclick="showBriefModal(this)" data-brief="' + safeJson.replace(/"/g,'&quot;') + '" style="background:var(--accent-light);color:var(--accent);border:1px solid var(--accent);border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">View brief</button>' +
-        '</div></div>'
+        '</div></div></div>'
     }).join('') + '</div>'
 }
 
@@ -1882,6 +1961,10 @@ function buildClaudePrompt(b, fd) {
     'Style:          ' + (fd.style || 'Clean & professional'),
     'Brand colours:  ' + (fd.colors || fd.colours || 'Use professional defaults'),
     'Inspiration:    ' + (fd.inspiration || 'None provided'),
+    '',
+    'PAGES REQUESTED',
+    '─────────────────',
+    (Array.isArray(fd.pages) && fd.pages.length ? fd.pages.join(', ') : 'Home (default)'),
     '',
     'SERVICES / MENU ITEMS',
     '─────────────────────',
@@ -2221,4 +2304,272 @@ function renderMgrSentEmails() {
       '<div><strong>' + e.to + '</strong> — ' + (labels[e.type] || e.type) + '</div>' +
       '<div style="color:var(--ink-muted);">' + e.time + '</div></div>'
   }).join('')
+}
+
+// ── BONUS GOALS ───────────────────────────────────────────
+async function createBonusGoal() {
+  var title  = document.getElementById('bonus-title')?.value.trim()
+  var target = document.getElementById('bonus-target')?.value
+  var amount = document.getElementById('bonus-amount')?.value
+  var endDate= document.getElementById('bonus-end-date')?.value
+  if (!title || !target || !amount) return alert('Please fill in title, target, and bonus amount')
+  try {
+    var res = await fetch(API + '/admin/bonus-goals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ title: title, target_clients: parseInt(target), bonus_amount: parseFloat(amount), end_date: endDate || null })
+    })
+    var d = await res.json()
+    if (d.goal) {
+      var m = document.getElementById('save-msg-bonus')
+      if (m) { m.classList.add('show'); setTimeout(function(){ m.classList.remove('show') }, 3000) }
+      document.getElementById('bonus-title').value = ''
+      document.getElementById('bonus-target').value = ''
+      document.getElementById('bonus-amount').value = ''
+      document.getElementById('bonus-end-date').value = ''
+      loadBonusGoals()
+    } else alert(d.error || 'Failed to create goal')
+  } catch(e) { alert('Could not connect to server') }
+}
+
+async function loadBonusGoals() {
+  try {
+    var res = await fetch(API + '/admin/bonus-goals', { headers: { 'Authorization': 'Bearer ' + getToken() } })
+    var data = await res.json()
+    renderBonusGoals(data.goals || [])
+  } catch(e) {
+    var w = document.getElementById('bonus-goals-wrap')
+    if (w) w.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">Could not load goals.</p>'
+  }
+}
+
+function renderBonusGoals(goals) {
+  var wrap = document.getElementById('bonus-goals-wrap')
+  if (!wrap) return
+  if (!goals.length) { wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No bonus goals set yet.</p>'; return }
+  wrap.innerHTML = goals.map(function(g) {
+    var endStr = g.end_date ? ' · Ends ' + new Date(g.end_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
+    var statusColor = g.active ? 'var(--accent)' : 'var(--ink-muted)'
+    var statusLabel = g.active ? '🟢 Active' : '⚫ Inactive'
+    return '<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">' +
+      '<div>' +
+      '<div style="font-weight:600;font-size:15px;">' + g.title + '</div>' +
+      '<div style="font-size:13px;color:var(--ink-muted);margin-top:3px;">Target: <strong>' + g.target_clients + ' clients</strong> · Bonus: <strong>$' + g.bonus_amount + '</strong>' + endStr + '</div>' +
+      '<div style="font-size:12px;color:' + statusColor + ';margin-top:3px;font-weight:600;">' + statusLabel + '</div>' +
+      '</div>' +
+      '<button onclick="deleteBonusGoal(' + g.id + ')" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;color:var(--ink-muted);cursor:pointer;">Remove</button>' +
+      '</div>'
+  }).join('')
+}
+
+async function deleteBonusGoal(id) {
+  if (!confirm('Remove this bonus goal?')) return
+  try {
+    var res = await fetch(API + '/admin/bonus-goals/' + id, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    if (d.message) loadBonusGoals()
+    else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect to server') }
+}
+
+// ── AM/PM TOGGLE ──────────────────────────────────────────
+function toggleAmPm(btnId) {
+  var btn = document.getElementById(btnId)
+  if (!btn) return
+  btn.textContent = btn.textContent === 'AM' ? 'PM' : 'AM'
+  btn.style.background = btn.textContent === 'PM' ? 'var(--accent)' : 'white'
+  btn.style.color       = btn.textContent === 'PM' ? 'white' : 'var(--ink)'
+  btn.style.borderColor = btn.textContent === 'PM' ? 'var(--accent)' : 'var(--border)'
+}
+
+// ── BRIEF FORM PAGES ──────────────────────────────────────
+var briefPageCount = 0
+var PAGE_SUGGESTIONS = ['Home', 'About Us', 'Services', 'Gallery', 'Menu', 'Contact', 'Testimonials', 'Team', 'Blog', 'FAQ', 'Portfolio', 'Booking']
+
+function addBriefPage() {
+  var limits = { basic: 1, standard: 4, premium: 12 }
+  var max = limits[briefPlan] || 4
+  if (briefPageCount >= max) {
+    alert('Your ' + briefPlan + ' plan allows up to ' + max + ' page' + (max > 1 ? 's' : '') + '.')
+    return
+  }
+  briefPageCount++
+  var list = document.getElementById('bf-pages-list')
+  if (!list) return
+  var idx = briefPageCount
+  var div = document.createElement('div')
+  div.id = 'bf-page-row-' + idx
+  div.style.cssText = 'display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;'
+
+  // Datalist for suggestions
+  var dlId = 'bf-page-suggestions-' + idx
+  var input = document.createElement('input')
+  input.type = 'text'; input.className = 'bf-page-input'
+  input.setAttribute('list', dlId)
+  input.placeholder = 'e.g. Home, About Us, Services, Gallery...'
+  input.style.cssText = 'padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;'
+
+  var dl = document.createElement('datalist')
+  dl.id = dlId
+  PAGE_SUGGESTIONS.forEach(function(s) { var opt = document.createElement('option'); opt.value = s; dl.appendChild(opt) })
+
+  var removeBtn = document.createElement('button')
+  removeBtn.type = 'button'; removeBtn.textContent = '✕'
+  removeBtn.style.cssText = 'background:none;border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;cursor:pointer;color:var(--ink-muted);font-size:14px;'
+  removeBtn.addEventListener('click', function() { div.remove(); briefPageCount-- })
+
+  div.appendChild(input); div.appendChild(dl); div.appendChild(removeBtn)
+  list.appendChild(div)
+}
+
+// ── BRIEF CLAIMING ────────────────────────────────────────
+async function claimBrief(id) {
+  try {
+    var res = await fetch(API + '/admin/website-briefs/' + id + '/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    if (d.message) loadSubmittedBriefs()
+    else alert(d.error || 'Could not claim brief')
+  } catch(e) { alert('Could not connect to server') }
+}
+
+async function unclaimBrief(id) {
+  if (!confirm('Release this brief? Others will be able to claim it.')) return
+  try {
+    var res = await fetch(API + '/admin/website-briefs/' + id + '/unclaim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    if (d.message) loadSubmittedBriefs()
+    else alert(d.error || 'Could not release brief')
+  } catch(e) { alert('Could not connect to server') }
+}
+
+// ── DOMAIN REQUESTS (admin/manager view) ─────────────────
+async function loadDomainRequests() {
+  var wrap = document.getElementById('domain-requests-wrap')
+  if (!wrap) return
+  try {
+    var res = await fetch(API + '/admin/domain-requests', { headers: { 'Authorization': 'Bearer ' + getToken() } })
+    var data = await res.json()
+    if (data.error) { wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No domain requests yet.</p>'; return }
+    renderDomainRequests(data.requests || [])
+  } catch(e) { wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">Could not load domain requests.</p>' }
+}
+
+function renderDomainRequests(requests) {
+  var wrap = document.getElementById('domain-requests-wrap')
+  if (!wrap) return
+  if (!requests.length) { wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No domain requests yet.</p>'; return }
+  wrap.innerHTML = requests.map(function(r) {
+    var date = new Date(r.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
+    var statusColor = r.status === 'completed' ? 'var(--accent)' : '#f59e0b'
+    var statusLabel = r.status === 'completed' ? '✅ Completed' : '⏳ Pending'
+    var dns = []
+    try { dns = Array.isArray(r.dns_records) ? r.dns_records : JSON.parse(r.dns_records || '[]') } catch(e) {}
+    return '<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:8px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">' +
+      '<div>' +
+      '<div style="font-weight:600;font-size:15px;">' + (r.business_name || 'Unknown') + ' — ' + (r.domain_name || '') + '</div>' +
+      '<div style="font-size:13px;color:var(--ink-muted);margin-top:2px;">Requested by: ' + (r.requested_by_email || '') + ' · ' + date + '</div>' +
+      '<div style="font-size:12px;color:' + statusColor + ';font-weight:600;margin-top:3px;">' + statusLabel + '</div>' +
+      (dns.length ? '<div style="margin-top:8px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--ink-muted);margin-bottom:4px;">DNS Records</div>' +
+        dns.map(function(d) { return '<div style="font-size:12px;font-family:monospace;background:white;border:1px solid var(--border);border-radius:4px;padding:3px 8px;display:inline-block;margin:2px;">' + d.type + ' ' + d.name + ' → ' + d.content + '</div>' }).join('') +
+        '</div>' : '') +
+      '</div>' +
+      (r.status !== 'completed' ? '<button onclick="completeDomainRequest(' + r.id + ')" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:8px 16px;font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;">Mark complete</button>' : '') +
+      '</div></div>'
+  }).join('')
+}
+
+async function completeDomainRequest(id) {
+  try {
+    var res = await fetch(API + '/admin/domain-requests/' + id + '/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    if (d.message) loadDomainRequests()
+    else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect to server') }
+}
+
+// ── UPLOAD SITE HTML (contractor/manager uploads finished website) ────────
+function uploadSiteHtml(websiteId, clientEmail) {
+  if (!websiteId || websiteId === 'undefined') return alert('No website profile found for this client yet. Create one first.')
+  var modal = document.createElement('div')
+  modal.id = 'upload-site-modal'
+  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.7);display:flex;align-items:center;justify-content:center;padding:20px;'
+  modal.innerHTML =
+    '<div style="background:white;border-radius:16px;width:100%;max-width:560px;padding:28px;box-shadow:0 24px 60px rgba(0,0,0,0.2);">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">' +
+    '<div style="font-family:var(--serif);font-size:20px;">Upload website for ' + clientEmail + '</div>' +
+    '<button onclick="document.getElementById(\'upload-site-modal\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-muted);">\u00d7</button>' +
+    '</div>' +
+    '<p style="font-size:13px;color:var(--ink-muted);margin-bottom:14px;">Paste the complete HTML file content below, or use the file picker.</p>' +
+    '<input type="file" id="site-html-file" accept=".html,.htm" style="margin-bottom:10px;font-size:13px;" onchange="loadHtmlFile(this)">' +
+    '<textarea id="site-html-content" rows="8" placeholder="Or paste HTML here..." style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:monospace;font-size:12px;resize:vertical;"></textarea>' +
+    '<div style="display:flex;gap:10px;margin-top:16px;">' +
+    '<button onclick="submitSiteHtml(\'' + websiteId + '\')" style="flex:1;padding:12px;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;">Upload website</button>' +
+    '<button onclick="document.getElementById(\'upload-site-modal\').remove()" style="padding:12px 20px;background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:14px;cursor:pointer;">Cancel</button>' +
+    '</div></div>'
+  modal.onclick = function(e) { if (e.target === modal) modal.remove() }
+  document.body.appendChild(modal)
+}
+
+function loadHtmlFile(input) {
+  var file = input.files[0]
+  if (!file) return
+  var reader = new FileReader()
+  reader.onload = function(e) {
+    var ta = document.getElementById('site-html-content')
+    if (ta) ta.value = e.target.result
+  }
+  reader.readAsText(file)
+}
+
+async function submitSiteHtml(websiteId) {
+  var html = document.getElementById('site-html-content')?.value.trim()
+  if (!html) return alert('Please paste or load an HTML file first')
+  if (!html.includes('<html') && !html.includes('<!DOCTYPE')) {
+    if (!confirm('This doesn\'t look like a full HTML file. Upload anyway?')) return
+  }
+  var btn = document.querySelector('#upload-site-modal button[onclick^="submitSiteHtml"]')
+  if (btn) { btn.disabled = true; btn.textContent = 'Uploading...' }
+  try {
+    var res = await fetch(API + '/admin/upload-site-html', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ website_id: websiteId, site_html: html })
+    })
+    var d = await res.json()
+    if (d.message) {
+      document.getElementById('upload-site-modal').remove()
+      alert('Website uploaded successfully! You can now mark it as preview ready.')
+    } else alert(d.error || 'Upload failed')
+  } catch(e) { alert('Could not connect to server') }
+  if (btn) { btn.disabled = false; btn.textContent = 'Upload website' }
+}
+
+// ── MARK PREVIEW READY (notify client to review + approve) ───────────────
+async function markPreviewReady(clientId, clientEmail) {
+  if (!confirm('Mark website as preview ready for ' + clientEmail + '? This will update their status and you\'ll need to send them the "website ready" email from the Email Center.')) return
+  try {
+    var res = await fetch(API + '/admin/mark-preview-ready', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ client_id: clientId, client_email: clientEmail })
+    })
+    var d = await res.json()
+    if (d.message) {
+      alert('Marked as preview ready! Now send the client a "Website Ready" email from the Email Center to notify them.')
+      loadAdminData()
+    } else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect to server') }
 }

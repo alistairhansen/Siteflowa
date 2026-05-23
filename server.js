@@ -446,18 +446,18 @@ app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
       const months = Math.max(1, Math.round((Date.now()-joined)/(1000*60*60*24*30)))
       return sum + setup + (c.is_active ? monthly*months : 0)
     }, 0)
-    // Commission paid out to managers
+    // Commission paid out to all staff
     const commissionsResult = await pool.query('SELECT COALESCE(SUM(total_earned),0) as total FROM pay_periods')
     const totalCommissions = parseFloat(commissionsResult.rows[0]?.total)||0
     const netRevenue = Math.round(totalRevenue - totalCommissions)
     const managers = await pool.query(`
-      SELECT c.id, c.email, c.commission_rate,
-        COUNT(w.id) as websites_created,
-        COALESCE(SUM(w.setup_fee + w.monthly_fee), 0) as total_brought_in
+      SELECT c.id, c.email, c.role, c.commission_rate,
+        COUNT(w.id)::int as websites_created,
+        COALESCE(SUM(w.setup_fee), 0)::numeric as total_brought_in
       FROM clients c
-      LEFT JOIN websites w ON w.created_by = c.id
-      WHERE c.role = 'manager'
-      GROUP BY c.id, c.email, c.commission_rate
+      LEFT JOIN websites w ON w.created_by = c.id AND w.is_active = TRUE
+      WHERE c.role IN ('manager','contractor')
+      GROUP BY c.id, c.email, c.role, c.commission_rate
     `)
     const monthlyChart = await pool.query(`
       SELECT DATE_TRUNC('month', c.created_at) as month,
@@ -707,20 +707,43 @@ app.post('/admin/close-period', authMiddleware, adminMiddleware, async (req, res
     const settings = await pool.query('SELECT * FROM site_settings LIMIT 1')
     const s = settings.rows[0] || {}
     const periodStart = s.current_period_start ? new Date(s.current_period_start) : new Date(new Date().setDate(1))
-    const managerData = await pool.query('SELECT * FROM clients WHERE id=$1', [manager_id])
-    const manager = managerData.rows[0]
-    if (!manager) return res.status(404).json({ error: 'Manager not found' })
-    const rate = manager.commission_rate || 10
+    const staffData = await pool.query('SELECT * FROM clients WHERE id=$1', [manager_id])
+    const manager = staffData.rows[0]
+    if (!manager) return res.status(404).json({ error: 'Staff member not found' })
+    const isManager = manager.role === 'manager'
+    const rate = parseFloat(manager.commission_rate || 10)
+
+    // Own client sales this period (works for both contractors and managers)
     const websites = await pool.query(`
       SELECT w.*, c.plan, c.email as client_email
       FROM websites w LEFT JOIN clients c ON c.id = w.client_id
-      WHERE w.created_by = $1 AND w.created_at >= $2
+      WHERE w.created_by = $1 AND w.is_active = TRUE
+        AND w.activated_at >= $2
     `, [manager_id, periodStart])
-    const earnings = websites.rows.reduce((sum, w) => sum + ((w.setup_fee || 299) * rate / 100), 0)
+
+    // Commission on own sales (always full fee, never discounted)
+    const ownEarnings = websites.rows.reduce((sum, w) => sum + ((w.setup_fee || 299) * rate / 100), 0)
+
+    // Managers ALSO earn % of all contractor launch fees this period
+    let managerOrgEarnings = 0
+    let totalContractorLaunchFees = 0
+    if (isManager) {
+      const mgCommRate = parseFloat(manager.manager_commission_rate || 10)
+      const contractorSales = await pool.query(`
+        SELECT COALESCE(SUM(w.setup_fee), 0) as total
+        FROM websites w
+        JOIN clients c ON c.id = w.created_by
+        WHERE c.role = 'contractor' AND w.is_active = TRUE AND w.activated_at >= $1
+      `, [periodStart])
+      totalContractorLaunchFees = parseFloat(contractorSales.rows[0]?.total || 0)
+      managerOrgEarnings = Math.round(totalContractorLaunchFees * mgCommRate / 100 * 100) / 100
+    }
+
+    const earnings = ownEarnings + managerOrgEarnings
     const periodEnd = new Date()
     await pool.query(
       'INSERT INTO pay_periods (manager_id, period_start, period_end, websites_count, total_earned, commission_rate, websites_data) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [manager_id, periodStart, periodEnd, websites.rows.length, Math.round(earnings), rate, JSON.stringify(websites.rows)]
+      [manager_id, periodStart, periodEnd, websites.rows.length, Math.round(earnings), rate, JSON.stringify({ own_sites: websites.rows, own_earnings: Math.round(ownEarnings), manager_org_earnings: Math.round(managerOrgEarnings), total_contractor_fees: Math.round(totalContractorLaunchFees) })]
     )
     await pool.query('UPDATE site_settings SET current_period_start=$1', [periodEnd])
     try {
@@ -735,7 +758,7 @@ app.post('/admin/close-period', authMiddleware, adminMiddleware, async (req, res
             <div style="background:#e8f4f1;border-radius:12px;padding:24px;margin:24px 0;text-align:center;">
               <div style="font-size:13px;color:#1a6b5a;font-weight:600;text-transform:uppercase;margin-bottom:8px;">Total earned</div>
               <div style="font-size:48px;font-family:Georgia,serif;color:#1a6b5a;">$${Math.round(earnings)}</div>
-              <div style="font-size:13px;color:#4a4f5e;">${rate}% commission on ${websites.rows.length} website${websites.rows.length!==1?'s':''}</div>
+              <div style="font-size:13px;color:#4a4f5e;">${rate}% commission · ${websites.rows.length} client${websites.rows.length!==1?'s':''} your own${isManager?' + '+m.manager_commission_rate+'% of team launch fees':''}</div>
             </div>
             <table style="width:100%;border-collapse:collapse;font-size:14px;">
               <thead><tr style="border-bottom:2px solid #e5e3de;">
@@ -968,7 +991,7 @@ app.post('/create-deposit', authMiddleware, async (req, res) => {
       payment_method_types: ['card'],
       line_items: [{
         price_data: {
-          currency: 'cad',
+          currency: 'usd',
           product_data: { name: 'Sitefloa Website Deposit', description: 'Deposit to begin building your website. Remaining balance due at launch.' },
           unit_amount: Math.round(amount * 100)
         },
@@ -1330,13 +1353,13 @@ app.get('/admin/bonus-goals', authMiddleware, async (req, res) => {
 
 app.post('/admin/bonus-goals', authMiddleware, async (req, res) => {
   if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' })
-  const { title, target_clients, bonus_amount } = req.body
+  const { title, target_clients, bonus_amount, end_date } = req.body
   try {
     // Deactivate existing goals
     await pool.query('UPDATE bonus_goals SET active=FALSE')
     const result = await pool.query(
-      'INSERT INTO bonus_goals (title, target_clients, bonus_amount, created_by, active, period_start) VALUES ($1,$2,$3,$4,TRUE,NOW()) RETURNING *',
-      [title, target_clients, bonus_amount, req.user.id]
+      'INSERT INTO bonus_goals (title, target_clients, bonus_amount, end_date, created_by, active, period_start) VALUES ($1,$2,$3,$4,$5,TRUE,NOW()) RETURNING *',
+      [title, target_clients, bonus_amount, end_date || null, req.user.id]
     )
     res.json({ goal: result.rows[0] })
   } catch(err) { res.status(500).json({ error: err.message }) }
@@ -1413,7 +1436,7 @@ app.post('/create-checkout', authMiddleware, async (req, res) => {
       line_items: [
         {
           price_data: {
-            currency: 'cad',
+            currency: 'usd',
             product_data: {
               name: 'Sitefloa ' + (planNames[plan] || 'Standard') + ' Plan — Website Setup',
               description: 'One-time website build fee for ' + (business_name || 'your business'),
@@ -1424,7 +1447,7 @@ app.post('/create-checkout', authMiddleware, async (req, res) => {
         },
         {
           price_data: {
-            currency: 'cad',
+            currency: 'usd',
             product_data: {
               name: 'Sitefloa Monthly Subscription',
               description: 'First month free — billing starts 30 days from today',
@@ -1467,10 +1490,33 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
     const session = event.data.object
     const clientId = session.metadata?.client_id
     if (clientId) {
-      await pool.query('UPDATE clients SET subscription_status=$1, stripe_session_id=$2 WHERE id=$3',
-        ['active', session.id, clientId])
-      await pool.query('UPDATE websites SET is_active=TRUE WHERE client_id=$1', [clientId])
-      console.log('Payment confirmed for client:', clientId)
+      await pool.query(
+        "UPDATE clients SET subscription_status='active', stripe_session_id=$1, onboarding_stage='launched' WHERE id=$2",
+        [session.id, clientId]
+      )
+      await pool.query(
+        "UPDATE websites SET is_active=TRUE, activated_at=NOW() WHERE client_id=$1",
+        [clientId]
+      )
+      console.log('Final payment confirmed for client:', clientId)
+      // Notify the contractor who built this site
+      try {
+        const w = await pool.query(`
+          SELECT w.business_name, w.created_by, c.email as client_email
+          FROM websites w JOIN clients c ON c.id=w.client_id WHERE w.client_id=$1
+        `, [clientId])
+        if (w.rows[0]?.created_by) {
+          const creator = await pool.query('SELECT email FROM clients WHERE id=$1', [w.rows[0].created_by])
+          if (creator.rows[0]) {
+            await resend.emails.send({
+              from: 'Sitefloa <hello@sitefloa.com>',
+              to: creator.rows[0].email,
+              subject: '🚀 ' + (w.rows[0].business_name || 'Client') + ' has paid — website is live!',
+              html: '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;"><h2 style="font-family:Georgia,serif;color:#1a6b5a;">Website is live! 🚀</h2><p style="color:#4a4f5e;">Your client <strong>' + w.rows[0].client_email + '</strong> has approved their website and paid their launch fee. Their site is now live.</p><p style="color:#4a4f5e;">Your commission will be added to your next pay period.</p><a href="https://sitefloa.com" style="display:inline-block;margin:20px 0;padding:12px 24px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;">View Dashboard →</a></div>'
+            })
+          }
+        }
+      } catch(e) { console.error('Commission notify error:', e) }
     }
   }
 
@@ -1714,6 +1760,20 @@ ADDITIONAL BUILD RULES:
 - All photos provided above MUST be included in the website
 - The website can have FEWER features than the tier allows, but NEVER more`
 
+    // Notify ALL admins and managers about new brief
+    try {
+      const staff = await pool.query("SELECT email FROM clients WHERE role IN ('admin','manager')")
+      const briefSummary = '<div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;font-family:sans-serif;font-size:14px;"><p><strong>Business:</strong> ' + business_name + '</p><p><strong>Plan:</strong> ' + (plan||'standard') + '</p><p><strong>Email:</strong> ' + (email||'Not provided') + '</p><p><strong>Description:</strong> ' + (description||'Not provided') + '</p></div>'
+      for (const s of staff.rows) {
+        await resend.emails.send({
+          from: 'Sitefloa <hello@sitefloa.com>',
+          to: s.email,
+          subject: '📋 New brief submitted — ' + business_name,
+          html: '<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;"><h2 style="font-family:Georgia,serif;color:#0f1117;">New website brief! 📋</h2><p style="color:#4a4f5e;">A new brief has been submitted and is waiting to be claimed in the dashboard.</p>' + briefSummary + '<a href="https://sitefloa.com" style="display:inline-block;margin:20px 0;padding:12px 24px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;">View & Claim Brief →</a></div>'
+        }).catch(e => console.error('Brief notify error:', e))
+      }
+    } catch(e) { console.error('Staff notify error:', e) }
+
     // Find who claimed this client (if any) and email them the brief + prompt
     const client = await pool.query('SELECT id FROM clients WHERE email=$1', [email?.toLowerCase()])
     if (client.rows[0]) {
@@ -1842,20 +1902,41 @@ app.post('/admin/send-custom-email', authMiddleware, staffMiddleware, async (req
 // ── GET SUBMITTED WEBSITE BRIEFS ────────────────────
 app.get('/admin/website-briefs', authMiddleware, staffMiddleware, async (req, res) => {
   try {
-    const isContractor = req.user.role === 'contractor'
-    let result
-    if (isContractor) {
-      result = await pool.query(`
-        SELECT wb.* FROM website_briefs wb
-        LEFT JOIN clients c ON LOWER(c.email) = LOWER(wb.email)
-        LEFT JOIN websites w ON w.client_id = c.id
-        WHERE w.created_by = $1
-        ORDER BY wb.created_at DESC
-      `, [req.user.id])
-    } else {
-      result = await pool.query('SELECT * FROM website_briefs ORDER BY created_at DESC')
-    }
+    // All staff see all briefs — contractors can claim unclaimed ones
+    const result = await pool.query('SELECT * FROM website_briefs ORDER BY created_at DESC')
     res.json({ briefs: result.rows })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── CLAIM A BRIEF ────────────────────────────────────
+app.post('/admin/website-briefs/:id/claim', authMiddleware, staffMiddleware, async (req, res) => {
+  try {
+    const existing = await pool.query('SELECT * FROM website_briefs WHERE id=$1', [req.params.id])
+    if (!existing.rows[0]) return res.status(404).json({ error: 'Brief not found' })
+    if (existing.rows[0].claimed_by) {
+      return res.status(400).json({ error: 'This brief has already been claimed by ' + (existing.rows[0].claimed_by_email || 'someone') })
+    }
+    await pool.query(
+      'UPDATE website_briefs SET claimed_by=$1, claimed_by_email=$2, claimed_at=NOW() WHERE id=$3',
+      [req.user.id, req.user.email, req.params.id]
+    )
+    res.json({ message: 'Brief claimed' })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── UNCLAIM A BRIEF ──────────────────────────────────
+app.post('/admin/website-briefs/:id/unclaim', authMiddleware, staffMiddleware, async (req, res) => {
+  try {
+    const existing = await pool.query('SELECT * FROM website_briefs WHERE id=$1', [req.params.id])
+    if (!existing.rows[0]) return res.status(404).json({ error: 'Brief not found' })
+    if (existing.rows[0].claimed_by != req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'You can only unclaim your own briefs' })
+    }
+    await pool.query(
+      'UPDATE website_briefs SET claimed_by=NULL, claimed_by_email=NULL, claimed_at=NULL WHERE id=$1',
+      [req.params.id]
+    )
+    res.json({ message: 'Brief unclaimed' })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
@@ -1873,6 +1954,20 @@ app.post('/deposit-confirmed', authMiddleware, async (req, res) => {
     const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.user.id])
     res.json({ message: 'Deposit confirmed', website: website.rows[0] || null })
   } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── MARK CLIENT WEBSITE AS PREVIEW READY ────────────────
+app.post('/admin/mark-preview-ready', authMiddleware, staffMiddleware, async (req, res) => {
+  const { client_id } = req.body
+  try {
+    const existing = await pool.query('SELECT * FROM clients WHERE id=$1', [client_id])
+    if (!existing.rows[0]) return res.status(404).json({ error: 'Client not found' })
+    await pool.query(
+      "UPDATE clients SET onboarding_stage='preview_ready' WHERE id=$1",
+      [client_id]
+    )
+    res.json({ message: 'Client marked as preview ready' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
 })
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
