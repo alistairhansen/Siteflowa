@@ -23,7 +23,11 @@ function showPage(n){
   if(n==='manager')loadManagerData()
   if(n==='inquiry')initDemo()
 }
-function openLogin(){document.getElementById('login-modal').classList.add('open')}
+function openLogin(){
+  // Don't open login modal if we're in the password reset flow
+  if(window._resetToken) return
+  document.getElementById('login-modal').classList.add('open')
+}
 function closeLogin(){document.getElementById('login-modal').classList.remove('open')}
 function switchTab(t){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'))
@@ -1214,16 +1218,16 @@ window.addEventListener('load',()=>{
   const params=new URLSearchParams(window.location.search)
   if(params.get('token')){
     window._resetToken = params.get('token')
-    // Hide all pages first, then show reset
-    document.querySelectorAll('.page-section').forEach(function(p){ p.classList.remove('active') })
-    var resetPage = document.getElementById('page-reset')
-    if (resetPage) {
-      resetPage.classList.add('active')
-      // Close login modal if somehow open
+    function showResetPage() {
+      document.querySelectorAll('.page-section').forEach(function(p){ p.classList.remove('active') })
+      var rp = document.getElementById('page-reset')
+      if (rp) rp.classList.add('active')
       var modal = document.getElementById('login-modal')
       if (modal) modal.classList.remove('open')
     }
-    // Don't run anything else for this page load
+    showResetPage()
+    setTimeout(showResetPage, 200)
+    setTimeout(showResetPage, 800)
     return
   }
   if(params.get('brief')){
