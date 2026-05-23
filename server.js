@@ -1508,4 +1508,31 @@ app.post('/billing-portal', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
+// ── SEND WEBSITE BRIEF FORM ─────────────────────────
+app.post('/admin/send-brief', authMiddleware, async (req, res) => {
+  const { email, plan } = req.body
+  if (!email) return res.status(400).json({ error: 'Email is required' })
+  try {
+    const formLink = `https://sitefloa.com?brief=true&email=${encodeURIComponent(email)}&plan=${plan || 'standard'}`
+    await resend.emails.send({
+      from: 'Sitefloa <hello@sitefloa.com>',
+      to: email,
+      subject: 'Your website brief form — Sitefloa',
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;">
+          <h2 style="font-family:Georgia,serif;color:#0f1117;">Your Website Brief</h2>
+          <p style="color:#4a4f5e;line-height:1.6;">We're ready to start building your website! Please fill out the brief form so we have everything we need.</p>
+          <p style="color:#4a4f5e;line-height:1.6;">Your plan: <strong>${(plan || 'standard').charAt(0).toUpperCase() + (plan || 'standard').slice(1)}</strong></p>
+          <a href="${formLink}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">Fill out your brief →</a>
+          <p style="color:#4a4f5e;line-height:1.6;font-size:13px;">This helps us build your site exactly how you want it.</p>
+        </div>
+      `
+    })
+    res.json({ message: 'Brief form sent to ' + email })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to send email' })
+  }
+})
+
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`))

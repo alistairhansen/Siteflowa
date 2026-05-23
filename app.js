@@ -1072,3 +1072,31 @@ window.addEventListener('load',()=>{
     if(resetTab)resetTab.classList.add('active')
   }
 })
+// ── WEBSITE BRIEFS (Send asset form to client) ──────
+async function sendAssetFormShared(){
+  const email=document.getElementById('brief-email-shared').value.trim()
+  const plan=document.getElementById('brief-plan-shared').value
+  if(!email)return alert('Please enter a client email')
+  try{
+    const res=await fetch(API+'/admin/send-brief',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({email,plan})})
+    const d=await res.json()
+    if(d.message){
+      document.getElementById('brief-email-shared').value=''
+      const m=document.getElementById('save-msg-brief-shared');m.classList.add('show');setTimeout(()=>m.classList.remove('show'),3000)
+    }else alert(d.error||'Failed to send')
+  }catch(e){alert('Could not connect to server')}
+}
+
+async function sendAssetFormMgr(){
+  const email=document.getElementById('brief-email-mgr').value.trim()
+  const plan=document.getElementById('brief-plan-mgr').value
+  if(!email)return alert('Please enter a client email')
+  try{
+    const res=await fetch(API+'/admin/send-brief',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({email,plan})})
+    const d=await res.json()
+    if(d.message){
+      document.getElementById('brief-email-mgr').value=''
+      const m=document.getElementById('save-msg-brief-mgr');m.classList.add('show');setTimeout(()=>m.classList.remove('show'),3000)
+    }else alert(d.error||'Failed to send')
+  }catch(e){alert('Could not connect to server')}
+}
