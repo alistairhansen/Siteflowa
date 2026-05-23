@@ -222,27 +222,26 @@
 <div id="page-payment" class="page-section">
   <div class="payment-page">
     <div class="hero-eyebrow">One last step</div>
-    <h2>Activate your website</h2>
-    <p style="font-size:15px;color:var(--ink-muted);margin-bottom:16px;">Pay the one-time build fee and start your subscription to go live.</p>
+    <h2>Pay your deposit</h2>
+    <p style="font-size:15px;color:var(--ink-muted);margin-bottom:16px;">Pay the non-refundable deposit to get your website build started. Once paid, our team will begin building your site.</p>
     <div id="payment-plan-badge" style="display:inline-block;background:var(--accent-light);color:var(--accent);font-size:13px;font-weight:600;padding:5px 18px;border-radius:20px;margin-bottom:24px;text-transform:capitalize;"></div>
     <div class="payment-card">
       <h3>Order summary</h3>
-      <div class="price-line"><span>Website build fee (one-time)</span><span class="amount" id="pay-setup-fee">$299</span></div>
-      <div class="price-line"><span>Monthly subscription</span><span class="amount" id="pay-monthly-fee">$49/mo</span></div>
+      <div class="price-line"><span>Website build deposit (non-refundable)</span><span class="amount" id="pay-setup-fee">$299</span></div>
+      <div class="price-line"><span>Monthly subscription (starts after launch)</span><span class="amount" id="pay-monthly-fee">$49/mo</span></div>
       <div class="price-line"><span>Plan</span><span id="pay-plan-badge"></span></div>
-      <div class="price-line" style="font-size:13px;color:var(--ink-muted);"><span>First month</span><span style="color:var(--accent);font-weight:600;">FREE</span></div>
-      <div class="price-line" id="discount-line"><span>Referral discount (10% off launch fee)</span><span class="amount" id="discount-amount" style="color:var(--accent);">-$29.90</span></div>
-      <div class="price-line total"><span>Due today</span><span class="amount" id="pay-total">$348</span></div>
+      <div class="price-line" id="discount-line"><span>Referral discount (10% off deposit)</span><span class="amount" id="discount-amount" style="color:var(--accent);">-$29.90</span></div>
+      <div class="price-line total"><span>Deposit due today</span><span class="amount" id="pay-total">$299</span></div>
       <div class="referral-input-row">
         <input type="text" id="referral-code-input" placeholder="Have a referral code? Enter it here" style="text-transform:uppercase;">
         <button onclick="applyReferral()">Apply</button>
       </div>
     </div>
     <div style="background:var(--accent-light);border:1px solid rgba(26,107,90,0.2);border-radius:var(--radius);padding:14px 18px;margin-bottom:16px;font-size:13px;color:var(--accent);">
-      🎉 <strong>First month free</strong> — your subscription starts one month from today. You won't be charged monthly until <strong id="billing-start-date"></strong>.
+      💡 <strong>What happens next:</strong> After paying, our team starts building your website. You'll get an email when it's ready to review. Monthly billing only starts after your site goes live.
     </div>
-    <button class="pay-btn" onclick="simulatePayment()">🔒 Pay securely with Stripe</button>
-    <p class="payment-notice">You will be redirected to Stripe's secure checkout. Your card details are never stored on our servers.</p>
+    <button class="pay-btn" onclick="payDeposit()">🔒 Pay deposit securely</button>
+    <p class="payment-notice">Your deposit is non-refundable and covers the cost of building your custom website.</p>
   </div>
 </div>
 
@@ -478,7 +477,16 @@
           <input type="file" id="html-file-input" accept=".html" onchange="handleHtmlFileSelect(event)">
         </div>
       </div>
-      <div class="invite-code-result" id="invite-result"><p>Website created! Send this invite code to your client:</p><div class="code" id="invite-code-display">——</div><small>They enter this when creating their account.</small></div>
+      <div class="invite-code-result" id="invite-result">
+        <p>Website created! Send this invite code to your client:</p>
+        <div class="code" id="invite-code-display">——</div>
+        <small>They enter this when creating their account.</small>
+        <div style="margin-top:16px;display:flex;gap:10px;align-items:end;">
+          <div class="dash-field" style="flex:1;margin:0;"><label>Client email</label><input type="email" id="invite-email-send" placeholder="client@email.com"></div>
+          <button class="dash-save" onclick="sendInviteCodeEmail()" style="height:42px;">📧 Email code to client</button>
+        </div>
+        <span class="save-msg" id="save-msg-invite-email">Email sent!</span>
+      </div>
     </div>
       <div class="admin-section">
         <h3 id="as-chats">💬 Live client chats</h3>

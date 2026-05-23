@@ -31,7 +31,7 @@ function adminMiddleware(req, res, next) {
   next()
 }
 function staffMiddleware(req, res, next) {
-  if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Staff access required' })
+  if (!['admin','manager','contractor'].includes(req.user.role)) return res.status(403).json({ error: 'Staff access required' })
   next()
 }
 
@@ -131,6 +131,8 @@ app.post('/login', async (req, res) => {
       update_fee_amount: client.update_fee_amount,
       plan: client.plan || 'standard',
       is_admin: client.is_admin,
+      onboarding_stage: client.onboarding_stage || 'pending_payment',
+      deposit_paid: client.deposit_paid || false,
       website: website.rows[0] || null
     })
   } catch (err) {
@@ -404,8 +406,9 @@ app.post('/admin/site-settings', authMiddleware, adminMiddleware, async (req, re
 // ── ADMIN - stats ───────────────────────────────────────
 app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
   const isManager = req.user.role === 'manager'
+  const isContractor = req.user.role === 'contractor'
   try {
-    const clientsQuery = isManager
+    const clientsQuery = (isManager || isContractor)
       ? `SELECT c.id, c.email, c.created_at, c.is_admin, c.role, c.subscription_status, c.plan,
              c.update_fee_required, c.update_fee_amount, c.commission_rate,
              c.domain_name, c.domain_cost, c.domain_yearly_fee,
@@ -431,7 +434,7 @@ app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
       LEFT JOIN clients cb ON cb.id = w.created_by
       LEFT JOIN referral_codes r ON r.owner_client_id = c.id
       ORDER BY c.created_at DESC`
-    const clients = await pool.query(clientsQuery, isManager ? [req.user.id] : [])
+    const clients = await pool.query(clientsQuery, (isManager || isContractor) ? [req.user.id] : [])
     const nonStaff = clients.rows.filter(c => c.role === 'client' || (!c.role && !c.is_admin))
     const activeCount = nonStaff.filter(c => c.is_active).length
     const monthlyRevenue = nonStaff.filter(c => c.is_active).reduce((sum,c) => sum + (c.monthly_fee||49), 0)
@@ -1506,6 +1509,118 @@ app.post('/billing-portal', authMiddleware, async (req, res) => {
     })
     res.json({ url: session.url })
   } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── SEND INVITE CODE EMAIL ──────────────────────────
+app.post('/admin/send-invite-email', authMiddleware, staffMiddleware, async (req, res) => {
+  const { email, invite_code } = req.body
+  if (!email || !invite_code) return res.status(400).json({ error: 'Email and invite code required' })
+  try {
+    await resend.emails.send({
+      from: 'Sitefloa <hello@sitefloa.com>',
+      to: email,
+      subject: 'Your Sitefloa account is ready!',
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;">
+          <h2 style="font-family:Georgia,serif;color:#0f1117;">Welcome to Sitefloa!</h2>
+          <p style="color:#4a4f5e;line-height:1.6;">Great news — your website profile has been created and is ready for you to get started.</p>
+          <p style="color:#4a4f5e;line-height:1.6;">Here's how to set up your account:</p>
+          <ol style="color:#4a4f5e;line-height:1.8;">
+            <li>Go to <a href="https://sitefloa.com" style="color:#1a6b5a;font-weight:500;">sitefloa.com</a></li>
+            <li>Click <strong>"Client Login"</strong> in the top right</li>
+            <li>Click the <strong>"Create account"</strong> tab</li>
+            <li>Enter your email, choose a password, and paste your activation code below</li>
+          </ol>
+          <div style="background:#f4f0ff;border:2px dashed #9c4dcc;border-radius:12px;padding:20px;text-align:center;margin:24px 0;">
+            <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#9c4dcc;margin-bottom:8px;">Your Activation Code</div>
+            <div style="font-family:monospace;font-size:28px;font-weight:700;color:#0f1117;letter-spacing:2px;">${invite_code}</div>
+          </div>
+          <p style="color:#4a4f5e;line-height:1.6;">Once your account is created, you'll be able to pay the deposit to get your website build started.</p>
+          <p style="color:#4a4f5e;line-height:1.6;">Questions? Just reply to this email and we'll help you out.</p>
+        </div>
+      `
+    })
+    res.json({ message: 'Invite email sent to ' + email })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to send email' })
+  }
+})
+
+// ── PAY DEPOSIT ─────────────────────────────────────
+app.post('/pay-deposit', authMiddleware, async (req, res) => {
+  try {
+    const client = await pool.query('SELECT * FROM clients WHERE id=$1', [req.user.id])
+    const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [req.user.id])
+    if (!client.rows[0]) return res.status(404).json({ error: 'Client not found' })
+    
+    const plan = client.rows[0].plan || 'standard'
+    const setupFee = website.rows[0]?.setup_fee || 299
+    
+    // Update client to deposit paid, move to building stage
+    await pool.query(
+      'UPDATE clients SET deposit_paid=TRUE, onboarding_stage=$1 WHERE id=$2',
+      ['building', req.user.id]
+    )
+    
+    // Notify the website creator that deposit was paid
+    const creatorId = website.rows[0]?.created_by
+    if (creatorId) {
+      const creator = await pool.query('SELECT email FROM clients WHERE id=$1', [creatorId])
+      if (creator.rows[0]) {
+        await resend.emails.send({
+          from: 'Sitefloa <hello@sitefloa.com>',
+          to: creator.rows[0].email,
+          subject: 'Client deposit paid — ready to build!',
+          html: `
+            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;">
+              <h2 style="font-family:Georgia,serif;color:#0f1117;">Deposit Received! 🎉</h2>
+              <p style="color:#4a4f5e;line-height:1.6;"><strong>${client.rows[0].email}</strong> has paid their deposit for the <strong>${plan}</strong> plan.</p>
+              <p style="color:#4a4f5e;line-height:1.6;">Business: <strong>${website.rows[0]?.business_name || 'Not set'}</strong></p>
+              <p style="color:#4a4f5e;line-height:1.6;">You can now start building their website. Once complete, upload the HTML to their profile in your dashboard.</p>
+              <a href="https://sitefloa.com" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">Go to Dashboard →</a>
+            </div>
+          `
+        })
+      }
+    }
+    
+    res.json({ message: 'Deposit paid successfully' })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to process deposit' })
+  }
+})
+
+// ── TRANSFER CLIENT BETWEEN CONTRACTORS ─────────────
+app.post('/admin/transfer-client', authMiddleware, async (req, res) => {
+  if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Only admins and managers can transfer clients' })
+  const { website_id, new_creator_id } = req.body
+  if (!website_id || !new_creator_id) return res.status(400).json({ error: 'Website ID and new creator ID required' })
+  try {
+    const result = await pool.query(
+      'UPDATE websites SET created_by=$1 WHERE id=$2 RETURNING *',
+      [new_creator_id, website_id]
+    )
+    if (!result.rows[0]) return res.status(404).json({ error: 'Website not found' })
+    res.json({ message: 'Client transferred successfully', website: result.rows[0] })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Transfer failed' })
+  }
+})
+
+// Get list of contractors and managers for transfer dropdown
+app.get('/admin/staff-list', authMiddleware, async (req, res) => {
+  if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' })
+  try {
+    const staff = await pool.query(
+      "SELECT id, email, role FROM clients WHERE role IN ('contractor', 'manager') ORDER BY email"
+    )
+    res.json({ staff: staff.rows })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
 })
 
 // ── SEND WEBSITE BRIEF FORM ─────────────────────────

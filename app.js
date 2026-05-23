@@ -129,6 +129,8 @@ async function doLogin(){
       else if(role==='manager'){document.getElementById('mgr-email-display').textContent=email.toLowerCase();document.getElementById('mgr-avatar').textContent=email.substring(0,2).toUpperCase();showPage('manager')}
       else if(data.update_fee_required){document.getElementById('update-fee-amount').textContent='$'+data.update_fee_amount;document.getElementById('update-fee-total').textContent='$'+data.update_fee_amount;showPage('update-fee')}
       else if(data.subscription_status==='pending_payment'){currentWebsite=data.website;showPaymentPage(data.website,data.plan)}
+      else if(data.onboarding_stage==='building'&&data.website&&!data.website.site_html){showHoldingPage('building',data.website)}
+      else if(data.onboarding_stage==='review'||data.website?.site_html&&data.subscription_status!=='active'){showHoldingPage('review',data.website)}
       else loadClientDashboard(email.toLowerCase(),data.website,data.plan)
     }else showError('login-error',data.error||'Login failed')
   }catch(e){showError('login-error','Could not connect to server. Is it running?')}
@@ -968,6 +970,7 @@ function renderClientsTable(clients){
       <td>
         <button class="action-btn" onclick="toggleWebsite('${c.website_id}',${!c.is_active})">${c.is_active?'Pause':'Activate'}</button>
         <button class="action-btn warn" onclick="showUpdateFeeModal('${c.id}')">Fee</button>
+        <button class="action-btn" onclick="showTransferModal('${c.website_id}','${c.created_by_email||''}')">Transfer</button>
         <button class="action-btn danger" onclick="deleteClient('${c.id}','${c.email}')">Delete</button>
       </td>
     </tr>
@@ -1099,4 +1102,154 @@ async function sendAssetFormMgr(){
       const m=document.getElementById('save-msg-brief-mgr');m.classList.add('show');setTimeout(()=>m.classList.remove('show'),3000)
     }else alert(d.error||'Failed to send')
   }catch(e){alert('Could not connect to server')}
+}
+
+// ── CLIENT TRANSFER ─────────────────────────────────
+async function showTransferModal(websiteId, currentCreator) {
+  try {
+    const res = await fetch(API + '/admin/staff-list', { headers: { 'Authorization': 'Bearer ' + getToken() } })
+    const d = await res.json()
+    const staff = d.staff || []
+
+    const overlay = document.createElement('div')
+    overlay.className = 'transfer-overlay'
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;'
+
+    const modal = document.createElement('div')
+    modal.style.cssText = 'background:white;border-radius:18px;max-width:480px;width:90%;padding:32px;'
+    modal.innerHTML = '<h2 style="font-family:Georgia,serif;font-size:22px;margin:0 0 8px;">Transfer Client</h2>' +
+      '<p style="font-size:13px;color:#666;margin-bottom:20px;">Assign this client to a different contractor or manager.</p>' +
+      '<div style="margin-bottom:20px;"><label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#999;display:block;margin-bottom:6px;">New Creator</label>' +
+      '<select id="transfer-select" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;font-family:inherit;">' +
+      '<option value="">Select contractor or manager...</option>' +
+      staff.map(function(s) { return '<option value="' + s.id + '">' + s.email + ' (' + s.role + ')</option>' }).join('') +
+      '</select></div>' +
+      '<div style="display:flex;gap:10px;">' +
+      '<button onclick="doTransfer(\'' + websiteId + '\')" style="flex:1;padding:12px;background:#1a6b5a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;">Transfer</button>' +
+      '<button onclick="this.closest(\'.transfer-overlay\').remove()" style="padding:12px 20px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-size:14px;">Cancel</button>' +
+      '</div>'
+
+    overlay.appendChild(modal)
+    document.body.appendChild(overlay)
+
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove() })
+  } catch(e) {
+    alert('Could not load staff list')
+  }
+}
+
+async function doTransfer(websiteId) {
+  var sel = document.getElementById('transfer-select')
+  if (!sel || !sel.value) return alert('Please select a contractor or manager')
+  try {
+    var res = await fetch(API + '/admin/transfer-client', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ website_id: websiteId, new_creator_id: sel.value })
+    })
+    var d = await res.json()
+    if (d.message) {
+      alert('Client transferred successfully!')
+      document.querySelector('.transfer-overlay').remove()
+      loadAdminData()
+    } else {
+      alert(d.error || 'Transfer failed')
+    }
+  } catch(e) {
+    alert('Could not connect to server')
+  }
+}
+
+// ── SEND INVITE CODE EMAIL ──────────────────────────
+async function sendInviteCodeEmail() {
+  var email = document.getElementById('invite-email-send').value.trim()
+  var code = document.getElementById('invite-code-display').textContent
+  if (!email) return alert('Please enter the client email')
+  if (!code || code === '——') return alert('No invite code generated yet')
+  try {
+    var res = await fetch(API + '/admin/send-invite-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ email: email, invite_code: code })
+    })
+    var d = await res.json()
+    if (d.message) {
+      var m = document.getElementById('save-msg-invite-email')
+      m.classList.add('show')
+      setTimeout(function() { m.classList.remove('show') }, 3000)
+    } else {
+      alert(d.error || 'Failed to send')
+    }
+  } catch(e) {
+    alert('Could not connect to server')
+  }
+}
+
+// ── HOLDING PAGE (Building / Review stages) ─────────
+function showHoldingPage(stage, website) {
+  var wrap = document.getElementById('holding-content')
+  if (stage === 'building') {
+    wrap.innerHTML = '<div style="font-size:48px;margin-bottom:20px;">🏗️</div>' +
+      '<h2 style="font-family:Georgia,serif;font-size:28px;margin-bottom:12px;">We\'re building your website!</h2>' +
+      '<p style="color:#4a4f5e;font-size:15px;line-height:1.6;margin-bottom:24px;">Thank you for your deposit. Our team is now working on your website. We\'ll notify you by email as soon as it\'s ready for you to review.</p>' +
+      '<div style="background:#f0faf7;border:1px solid rgba(26,107,90,0.2);border-radius:12px;padding:20px;margin-bottom:24px;">' +
+      '<div style="font-size:13px;font-weight:600;color:#1a6b5a;margin-bottom:8px;">What happens next?</div>' +
+      '<ol style="font-size:14px;color:#4a4f5e;line-height:1.8;margin:0;padding-left:20px;">' +
+      '<li>We build your website based on your brief</li>' +
+      '<li>You\'ll get an email when it\'s ready to preview</li>' +
+      '<li>Review it and request any changes</li>' +
+      '<li>Approve it and we\'ll make it live!</li>' +
+      '</ol></div>' +
+      '<p style="color:#999;font-size:13px;">Business: <strong>' + (website?.business_name || '') + '</strong></p>' +
+      '<button onclick="doLogout()" style="margin-top:20px;padding:10px 24px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-size:14px;">Log out</button>'
+  } else if (stage === 'review') {
+    wrap.innerHTML = '<div style="font-size:48px;margin-bottom:20px;">✨</div>' +
+      '<h2 style="font-family:Georgia,serif;font-size:28px;margin-bottom:12px;">Your website is ready to review!</h2>' +
+      '<p style="color:#4a4f5e;font-size:15px;line-height:1.6;margin-bottom:24px;">Take a look at your new website below. If you\'re happy with it, click the approve button to make it live!</p>' +
+      (website?.subdomain ? '<a href="/sites/' + website.subdomain + '" target="_blank" style="display:inline-block;margin-bottom:24px;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">🌐 Preview your website</a>' : '') +
+      '<div style="margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">' +
+      '<button onclick="approveWebsite()" style="padding:14px 28px;background:#1a6b5a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:500;">✅ I\'m happy — make it live!</button>' +
+      '<button onclick="doLogout()" style="padding:14px 28px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-size:14px;">Log out</button>' +
+      '</div>'
+  }
+  showPage('holding')
+}
+
+// ── APPROVE WEBSITE (triggers final payment) ────────
+async function approveWebsite() {
+  if (!confirm('Approve your website and make it live? You will be redirected to pay the remaining launch fee.')) return
+  try {
+    var res = await fetch(API + '/create-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ setup_fee: 0, monthly_fee: currentWebsite?.monthly_fee || 49, plan: currentWebsite?.plan || 'standard', business_name: currentWebsite?.business_name || '' })
+    })
+    var d = await res.json()
+    if (d.url) {
+      window.location.href = d.url
+    } else {
+      alert(d.error || 'Could not create checkout session')
+    }
+  } catch(e) {
+    alert('Could not connect to server')
+  }
+}
+
+// ── PAY DEPOSIT ─────────────────────────────────────
+async function payDeposit() {
+  try {
+    var res = await fetch(API + '/pay-deposit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    if (d.message) {
+      alert('Deposit paid! We will start building your website now.')
+      showHoldingPage('building', currentWebsite)
+    } else {
+      alert(d.error || 'Payment failed')
+    }
+  } catch(e) {
+    alert('Could not connect to server')
+  }
 }
