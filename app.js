@@ -1213,10 +1213,18 @@ window.addEventListener('load',()=>{
   loadSiteSettings()
   const params=new URLSearchParams(window.location.search)
   if(params.get('token')){
-    showPage('reset')
-    // Store token so doResetPassword can read it
     window._resetToken = params.get('token')
-    window.history.replaceState({},'',window.location.pathname)
+    // Hide all pages first, then show reset
+    document.querySelectorAll('.page-section').forEach(function(p){ p.classList.remove('active') })
+    var resetPage = document.getElementById('page-reset')
+    if (resetPage) {
+      resetPage.classList.add('active')
+      // Close login modal if somehow open
+      var modal = document.getElementById('login-modal')
+      if (modal) modal.classList.remove('open')
+    }
+    // Don't run anything else for this page load
+    return
   }
   if(params.get('brief')){
     var bPlan = params.get('plan') || 'standard'
