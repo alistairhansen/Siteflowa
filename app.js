@@ -32,6 +32,7 @@ function switchTab(t){
   if(t==='login')document.querySelectorAll('.modal-tab')[0].classList.add('active')
   if(t==='signup')document.querySelectorAll('.modal-tab')[1].classList.add('active')
 }
+function showForgotPassword(){ switchTab('forgot') }
 function showError(id,msg){const el=document.getElementById(id);el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),5000)}
 function switchInquiryTab(tab,el){
   document.querySelectorAll('.inquiry-tab').forEach(t=>t.classList.remove('active'))
@@ -1067,6 +1068,17 @@ async function mgrCreateWebsite(){
   }catch(e){alert('Could not connect to server')}
 }
 
+function buildClientStatus(c) {
+  if (c.subscription_status==='suspended') return '<span class="status-badge suspended">⚠️ Missed payment</span>'
+  if (c.is_active && c.onboarding_stage==='launched') return '<span class="status-badge active">Live ✅</span>'
+  const depositPaid = c.deposit_paid || ['deposit_paid','building','brief_submitted','preview_ready','launched'].includes(c.onboarding_stage)
+  const stageLabels = {account_created:'No account yet',pending_payment:'Awaiting deposit',deposit_paid:'Deposit paid ✓',building:'WIP — Being built',brief_submitted:'Brief received',preview_ready:'In preview',review:'In review',launched:'Live ✅'}
+  const buildLabel = c.build_status==='wip'?'🔨 WIP':c.build_status==='preview'?'👁 In preview':''
+  let html = '<span class="status-badge '+(depositPaid?'active':'pending')+'">'+(depositPaid?'Deposit paid ✓':'Deposit pending')+'</span>'
+  if (buildLabel) html += '<div style="font-size:11px;font-weight:600;color:var(--accent);margin-top:3px;">'+buildLabel+'</div>'
+  else if (c.onboarding_stage) html += '<div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">'+(stageLabels[c.onboarding_stage]||c.onboarding_stage)+'</div>'
+  return html
+}
 function renderClientsTable(clients){
   const tbody=document.getElementById('clients-table-body')
   if(!clients.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--ink-muted);padding:32px;">No clients yet.</td></tr>';return}
@@ -1075,21 +1087,7 @@ function renderClientsTable(clients){
       <td><button class="action-btn" onclick="toggleDetail('${c.id}')"></button></td>
       <td>${c.email}</td><td>${c.business_name||'<span style="color:var(--ink-muted)">Not set</span>'}</td>
       <td><span class="plan-pill ${c.plan||'standard'}">${(c.plan||'standard').charAt(0).toUpperCase()+(c.plan||'standard').slice(1)}</span></td>
-      <td>
-        ${(()=>{
-          const isMissed = c.subscription_status==='suspended'
-          const isLive = c.is_active && c.onboarding_stage==='launched'
-          const depositPaid = c.deposit_paid || c.onboarding_stage==='deposit_paid'||c.onboarding_stage==='building'||c.onboarding_stage==='brief_submitted'||c.onboarding_stage==='preview_ready'||c.onboarding_stage==='launched'
-          const stageLabels = {'account_created':'No account yet','pending_payment':'Awaiting deposit','deposit_paid':'Deposit paid ✓','building':'WIP — Being built','brief_submitted':'Brief received','preview_ready':'In preview','review':'In review','launched':'Live ✅'}
-          const buildLabel = c.build_status==='wip'?'🔨 WIP':c.build_status==='preview'?'👁 In preview':c.build_status==='completed'?'':'';
-          if (isMissed) return '<span class="status-badge suspended">⚠️ Missed payment</span>'
-          if (isLive) return '<span class="status-badge active">Live ✅</span>'
-          let html = '<span class="status-badge '+(depositPaid?'active':'pending')+'">'+(depositPaid?'Deposit paid ✓':'Deposit pending')+'</span>'
-          if (buildLabel) html += '<div style="font-size:11px;font-weight:600;color:var(--accent);margin-top:3px;">'+buildLabel+'</div>'
-          else if (c.onboarding_stage) html += '<div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">'+(stageLabels[c.onboarding_stage]||c.onboarding_stage)+'</div>'
-          return html
-        })()}
-      </td>
+      <td>${buildClientStatus(c)}</td>
       <td>$${c.setup_fee||299}</td><td>$${c.monthly_fee||49}/mo</td>
       <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;">${c.created_by_email||'-'}</td>
       <td>${new Date(c.created_at).toLocaleDateString()}</td>
