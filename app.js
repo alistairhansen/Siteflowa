@@ -1,5 +1,6 @@
 const API='https://siteflowa.onrender.com'
 let currentWebsite=null,setupFee=299,monthlyFee=49,discountApplied=false,siteSettings={},demoStep=0,demoAnswers={}
+var sentEmailsLog = []
 const SECTIONS=['gallery','hours','contact','services','menu','team']
 const SECTION_LABELS={gallery:'🖼️ Gallery',hours:'🕐 Hours',contact:'📞 Contact',services:'🔧 Services',menu:'🍽️ Menu',team:'👥 Team'}
 const DEMO_QS=[
@@ -2037,8 +2038,6 @@ async function deleteLead(id) {
 // EMAIL CENTER
 // ══════════════════════════════════════════════════════
 
-var sentEmailsLog = []
-
 function updateEmailFields() {
   var type = document.getElementById('email-center-type').value
   var planField = document.getElementById('email-plan-field')
@@ -2096,8 +2095,7 @@ async function sendEmailCenter() {
     renderSentEmails()
     
     var m = document.getElementById('save-msg-email-center')
-    m.classList.add('show')
-    setTimeout(function() { m.classList.remove('show') }, 3000)
+    if (m) { m.classList.add('show'); setTimeout(function() { m.classList.remove('show') }, 3000) }
     
     document.getElementById('email-center-to').value = ''
     if (type === 'invite') document.getElementById('email-center-extra').value = ''
@@ -2109,9 +2107,8 @@ async function sendEmailCenter() {
     console.error('Email send error:', e)
     sentEmailsLog.unshift({ to: email, type: type, time: new Date().toLocaleTimeString() })
     renderSentEmails()
-    var m = document.getElementById('save-msg-email-center')
-    m.classList.add('show')
-    setTimeout(function() { m.classList.remove('show') }, 3000)
+    var mEl = document.getElementById('save-msg-email-center')
+    if (mEl) { mEl.classList.add('show'); setTimeout(function() { mEl.classList.remove('show') }, 3000) }
     document.getElementById('email-center-to').value = ''
   }
 }
