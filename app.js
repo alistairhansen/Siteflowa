@@ -1075,10 +1075,10 @@ window.addEventListener('load',()=>{
     if(resetTab)resetTab.classList.add('active')
   }
   if(params.get('brief')){
-    var plan = params.get('plan') || 'standard'
-    var email = params.get('email') || ''
-    initBriefForm(plan, email)
+    var bPlan = params.get('plan') || 'standard'
+    var bEmail = params.get('email') || ''
     showPage('assetform')
+    try { initBriefForm(bPlan, bEmail) } catch(e) { console.error('Brief form init error:', e) }
   }
 })
 // ── WEBSITE BRIEFS (Send asset form to client) ──────
@@ -1371,6 +1371,22 @@ function initBriefForm(plan, email) {
   briefPhotoCount = 0
   briefServiceCount = 0
   
+  selectBriefPlan(briefPlan)
+  
+  // Clear lists
+  document.getElementById('bf-photos-list').innerHTML = ''
+  document.getElementById('bf-services-list').innerHTML = ''
+  
+  // Add one empty service and photo field to start
+  addBriefService()
+  addBriefPhoto()
+}
+
+function selectBriefPlan(plan) {
+  briefPlan = plan
+  briefPhotoCount = 0
+  briefServiceCount = 0
+  
   var limits = briefLimits[briefPlan] || briefLimits.standard
   var planNames = { basic: 'Basic', standard: 'Standard', premium: 'Premium' }
   var planDescriptions = {
@@ -1388,17 +1404,27 @@ function initBriefForm(plan, email) {
   document.getElementById('bf-services-limit').textContent = servicesLabel
   
   // Hide hours for basic plan
-  if (!limits.hours) {
-    document.getElementById('bf-hours-section').style.display = 'none'
+  var hoursSection = document.getElementById('bf-hours-section')
+  if (hoursSection) hoursSection.style.display = limits.hours ? '' : 'none'
+  
+  // Highlight selected plan card
+  document.querySelectorAll('.bf-plan-option').forEach(function(el) {
+    el.style.borderColor = 'var(--border)'
+    el.style.background = 'white'
+  })
+  var selected = document.getElementById('bf-plan-' + plan)
+  if (selected) {
+    selected.style.borderColor = 'var(--accent)'
+    selected.style.background = 'var(--accent-light)'
   }
   
-  // Clear lists
-  document.getElementById('bf-photos-list').innerHTML = ''
-  document.getElementById('bf-services-list').innerHTML = ''
-  
-  // Add one empty service and photo field to start
-  addBriefService()
+  // Reset photo and service lists
+  var photosList = document.getElementById('bf-photos-list')
+  var servicesList = document.getElementById('bf-services-list')
+  if (photosList) photosList.innerHTML = ''
+  if (servicesList) servicesList.innerHTML = ''
   addBriefPhoto()
+  addBriefService()
 }
 
 function addBriefService() {

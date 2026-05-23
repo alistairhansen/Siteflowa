@@ -1673,11 +1673,46 @@ ${notes || 'None'}
 ${existing_website ? 'Existing website/social: ' + existing_website : ''}
 
 TECHNICAL REQUIREMENTS:
-- Build as a single HTML file with inline CSS and JS
-- Use the Sitefloa dynamic content system so the client can edit text, photos, hours, and services from their dashboard
-- Make it responsive (mobile-friendly)
+Build a Siteflowa client website using the SITE_CONFIG format.
+
+API & PLATFORM:
+- api: https://siteflowa.onrender.com
+- subdomain: [to be set by admin when creating profile]
+- schema: declare every editable field using types: text, textarea, email, tel, photo, photo_array, repeater, hours, badges
+- defaults: use the business info provided above as realistic default content
+
+ON LOAD BEHAVIOR:
+- fetch /site/[subdomain], merge with defaults
+- show offline page if is_active=false
+
+PLAN VISIBILITY RULES (${limits.label}):
+- Basic: hero/about/hours/contact sections only
+- Standard: adds services/gallery sections
+- Premium: adds everything including team, testimonials, blog
+- This website is ${(plan || 'standard').toUpperCase()} tier — only include sections allowed for this tier
+
+EDITABLE FIELDS (client can change these from their dashboard):
+- Business name, tagline, description
+- Phone, email, address
+- Business hours (if plan includes hours)
+- Services/menu items (repeater field)
+- Photos/gallery (photo_array field)
+- Team members (if premium)
+- Social media links
+
+READ-ONLY/DISPLAY ONLY:
+- Page views / analytics stats
+- Subscription status
+- Plan tier badge
+
+ADDITIONAL BUILD RULES:
+- Single self-contained HTML file, no external JS dependencies
+- Make it fully responsive (mobile-friendly)
 - Include proper meta tags for SEO
-- Use modern, clean design matching the style preference above`
+- Include the Siteflowa analytics tracking snippet
+- Use modern, clean design matching the style preference: ${style || 'Clean & professional'}
+- All photos provided above MUST be included in the website
+- The website can have FEWER features than the tier allows, but NEVER more`
 
     // Find who claimed this client (if any) and email them the brief + prompt
     const client = await pool.query('SELECT id FROM clients WHERE email=$1', [email?.toLowerCase()])
