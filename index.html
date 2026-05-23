@@ -12,7 +12,7 @@
 <style>
   /* Scrollable dashboard list sections */
   #pipeline-wrap, #mgr-pipeline-wrap,
-  #sent-emails-wrap,
+  #sent-emails-wrap, #mgr-sent-emails-wrap,
   #all-chats-wrap,
   #submitted-briefs-wrap,
   #asset-forms-wrap,
@@ -28,6 +28,7 @@
   #pipeline-wrap::-webkit-scrollbar,
   #mgr-pipeline-wrap::-webkit-scrollbar,
   #sent-emails-wrap::-webkit-scrollbar,
+  #mgr-sent-emails-wrap::-webkit-scrollbar,
   #all-chats-wrap::-webkit-scrollbar,
   #submitted-briefs-wrap::-webkit-scrollbar,
   #asset-forms-wrap::-webkit-scrollbar,
@@ -38,6 +39,7 @@
   #pipeline-wrap::-webkit-scrollbar-thumb,
   #mgr-pipeline-wrap::-webkit-scrollbar-thumb,
   #sent-emails-wrap::-webkit-scrollbar-thumb,
+  #mgr-sent-emails-wrap::-webkit-scrollbar-thumb,
   #all-chats-wrap::-webkit-scrollbar-thumb,
   #submitted-briefs-wrap::-webkit-scrollbar-thumb,
   #asset-forms-wrap::-webkit-scrollbar-thumb,
@@ -690,6 +692,42 @@
       <div id="mgr-earnings-history"><p style="color:var(--ink-muted);font-size:14px;">Loading earnings history...</p></div>
     </div>
 
+    <!-- EMAIL CENTER (managers & contractors) -->
+    <div class="admin-section">
+      <h3>📧 Client Email Center</h3>
+      <p class="section-desc">Send emails to clients — brief forms, invite codes, website ready notifications, and more.</p>
+      <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;">
+          <div class="dash-field"><label>Client email</label><input type="email" id="mgr-email-center-to" placeholder="client@email.com"></div>
+          <div class="dash-field"><label>Email type</label>
+            <select id="mgr-email-center-type" onchange="updateMgrEmailFields()">
+              <option value="brief">📋 Website Brief Form</option>
+              <option value="invite">🔑 Invite Code + Instructions</option>
+              <option value="ready">✨ Website Ready to Review</option>
+              <option value="custom">✉️ Custom Message</option>
+            </select>
+          </div>
+          <div class="dash-field" id="mgr-email-plan-field"><label>Plan</label>
+            <select id="mgr-email-center-plan">
+              <option value="basic">Basic</option>
+              <option value="standard" selected>Standard</option>
+              <option value="premium">Premium</option>
+            </select>
+          </div>
+          <button class="dash-save" onclick="sendMgrEmailCenter()" style="height:42px;">Send</button>
+        </div>
+        <div id="mgr-email-extra-fields" style="display:none;margin-top:12px;">
+          <div class="dash-field"><label id="mgr-email-extra-label">Invite code</label><input type="text" id="mgr-email-center-extra" placeholder=""></div>
+        </div>
+        <div id="mgr-email-custom-field" style="display:none;margin-top:12px;">
+          <div class="dash-field" style="grid-column:1/-1;"><label>Subject</label><input type="text" id="mgr-email-center-subject" placeholder="Email subject line"></div>
+          <div class="dash-field" style="grid-column:1/-1;margin-top:8px;"><label>Message</label><textarea id="mgr-email-center-message" rows="4" placeholder="Write your message here..."></textarea></div>
+        </div>
+        <span class="save-msg" id="save-msg-mgr-email-center">Email sent!</span>
+      </div>
+      <div id="mgr-sent-emails-wrap"><p style="color:var(--ink-muted);font-size:14px;">No emails sent yet this session.</p></div>
+    </div>
+
     <!-- CLIENTS TABLE -->
     <div class="clients-table-wrap">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
@@ -837,17 +875,17 @@
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;" id="bf-plan-cards">
               <div class="bf-plan-option" onclick="selectBriefPlan('basic')" id="bf-plan-basic" style="border:2px solid var(--border);border-radius:var(--radius-lg);padding:16px;cursor:pointer;text-align:center;">
                 <div style="font-weight:700;font-size:15px;">Basic</div>
-                <div style="font-size:12px;color:var(--ink-muted);margin-top:4px;">$29 one-time</div>
+                <div style="font-size:12px;color:var(--ink-muted);margin-top:4px;" id="bf-plan-basic-price">$199 setup</div>
                 <div style="font-size:11px;color:var(--ink-muted);margin-top:6px;">1 page · 2 photos<br>Free subdomain</div>
               </div>
               <div class="bf-plan-option" onclick="selectBriefPlan('standard')" id="bf-plan-standard" style="border:2px solid var(--border);border-radius:var(--radius-lg);padding:16px;cursor:pointer;text-align:center;">
                 <div style="font-weight:700;font-size:15px;">Standard</div>
-                <div style="font-size:12px;color:var(--ink-muted);margin-top:4px;">$49/mo + $299 setup</div>
+                <div style="font-size:12px;color:var(--ink-muted);margin-top:4px;" id="bf-plan-standard-price">$49/mo + $299 setup</div>
                 <div style="font-size:11px;color:var(--ink-muted);margin-top:6px;">4 pages · 8 photos<br>Custom domain</div>
               </div>
               <div class="bf-plan-option" onclick="selectBriefPlan('premium')" id="bf-plan-premium" style="border:2px solid var(--border);border-radius:var(--radius-lg);padding:16px;cursor:pointer;text-align:center;">
                 <div style="font-weight:700;font-size:15px;">Premium</div>
-                <div style="font-size:12px;color:var(--ink-muted);margin-top:4px;">$79/mo + $499 setup</div>
+                <div style="font-size:12px;color:var(--ink-muted);margin-top:4px;" id="bf-plan-premium-price">$79/mo + $499 setup</div>
                 <div style="font-size:11px;color:var(--ink-muted);margin-top:6px;">Unlimited pages & photos<br>Priority support</div>
               </div>
             </div>

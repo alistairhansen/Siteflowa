@@ -58,6 +58,13 @@ function applySettings(s){
     document.getElementById('plan-basic-setup').textContent='+ $'+s.plan_basic_setup+' one-time setup'
     document.getElementById('plan-standard-setup').textContent='+ $'+s.plan_standard_setup+' one-time setup'
     document.getElementById('plan-premium-setup').textContent='+ $'+s.plan_premium_setup+' one-time setup'
+    // Update brief form plan card prices to always match admin settings
+    var bfBasic = document.getElementById('bf-plan-basic-price')
+    var bfStd   = document.getElementById('bf-plan-standard-price')
+    var bfPrem  = document.getElementById('bf-plan-premium-price')
+    if (bfBasic) bfBasic.textContent = '$' + s.plan_basic_setup + ' setup · $' + s.plan_basic_price + '/mo'
+    if (bfStd)   bfStd.textContent   = '$' + s.plan_standard_price + '/mo + $' + s.plan_standard_setup + ' setup'
+    if (bfPrem)  bfPrem.textContent  = '$' + s.plan_premium_price  + '/mo + $' + s.plan_premium_setup  + ' setup'
   }
   const ei=document.getElementById('contact-email-item'),pi=document.getElementById('contact-phone-item'),ai=document.getElementById('contact-address-item')
   if(s.email){ei.style.display='flex';document.getElementById('contact-email-val').textContent=s.email}else ei.style.display='none'
@@ -1394,10 +1401,11 @@ function selectBriefPlan(plan) {
   
   var limits = briefLimits[briefPlan] || briefLimits.standard
   var planNames = { basic: 'Basic', standard: 'Standard', premium: 'Premium' }
+  var s = siteSettings || {}
   var planDescriptions = {
-    basic: '1 page · Up to 2 photos · Free subdomain · No monthly fees',
-    standard: '4 pages · Up to 8 photos · Custom domain · Domain covered up to $30/yr',
-    premium: 'Unlimited pages · Unlimited photos · Custom domain · Domain covered up to $80/yr'
+    basic:    '1 page · Up to 2 photos · Free subdomain · $' + (s.plan_basic_setup||199) + ' setup · $' + (s.plan_basic_price||29) + '/mo',
+    standard: '4 pages · Up to 8 photos · Custom domain · $' + (s.plan_standard_setup||299) + ' setup · $' + (s.plan_standard_price||49) + '/mo',
+    premium:  'Unlimited pages & photos · Custom domain · $' + (s.plan_premium_setup||499) + ' setup · $' + (s.plan_premium_price||79) + '/mo'
   }
   
   document.getElementById('brief-plan-badge').textContent = planNames[briefPlan] || 'Standard'
@@ -1455,11 +1463,94 @@ function addBriefPhoto() {
   }
   briefPhotoCount++
   var list = document.getElementById('bf-photos-list')
+  var idx = 'p' + Date.now()
   var div = document.createElement('div')
-  div.style.cssText = 'display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;'
-  div.innerHTML = '<input type="url" class="bf-photo-input" placeholder="Paste photo URL (e.g. from Google Drive, Imgur, etc)" style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">' +
-    '<button onclick="this.parentElement.remove();briefPhotoCount--" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;cursor:pointer;color:var(--ink-muted);font-size:14px;">✕</button>'
+  div.id = 'bf-photo-wrap-' + idx
+  div.style.cssText = 'position:relative;border:2px dashed var(--border);border-radius:var(--radius);background:var(--cream);padding:10px;margin-bottom:4px;transition:border-color 0.2s;'
+
+  // Build inner HTML without nested quote issues
+  var fileInputId  = 'bf-photo-file-' + idx
+  var urlInputId   = 'bf-photo-url-' + idx
+  var previewId    = 'bf-photo-preview-' + idx
+  var wrapId       = 'bf-photo-wrap-' + idx
+
+  var inner = document.createElement('div')
+  inner.style.cssText = 'display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start;'
+
+  var left = document.createElement('div')
+
+  var fileInput = document.createElement('input')
+  fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.id = fileInputId; fileInput.style.display = 'none'
+  fileInput.addEventListener('change', function() { if (this.files[0]) briefPhotoLoadFile(this.files[0], idx) })
+
+  var urlInput = document.createElement('input')
+  urlInput.type = 'url'; urlInput.className = 'bf-photo-input'; urlInput.id = urlInputId
+  urlInput.placeholder = 'Paste image URL — or drag a photo here / click Browse'
+  urlInput.style.cssText = 'padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;width:100%;box-sizing:border-box;'
+  urlInput.addEventListener('input', function() { briefPhotoUrlTyped(this, idx) })
+
+  var browseRow = document.createElement('div')
+  browseRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;'
+
+  var browseBtn = document.createElement('button')
+  browseBtn.type = 'button'
+  browseBtn.textContent = 'Browse'
+  browseBtn.style.cssText = 'background:white;border:1px solid var(--border);border-radius:var(--radius);padding:5px 12px;font-family:var(--sans);font-size:12px;cursor:pointer;'
+  browseBtn.addEventListener('click', function() { document.getElementById(fileInputId).click() })
+
+  var hint = document.createElement('span')
+  hint.textContent = 'or drag & drop an image file onto this row'
+  hint.style.cssText = 'font-size:11px;color:var(--ink-muted);'
+
+  var preview = document.createElement('img')
+  preview.id = previewId; preview.style.cssText = 'display:none;margin-top:8px;height:64px;border-radius:6px;object-fit:cover;'
+
+  browseRow.appendChild(browseBtn); browseRow.appendChild(hint)
+  left.appendChild(fileInput); left.appendChild(urlInput); left.appendChild(browseRow); left.appendChild(preview)
+
+  var removeBtn = document.createElement('button')
+  removeBtn.type = 'button'; removeBtn.textContent = '\u2715'
+  removeBtn.style.cssText = 'background:none;border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;cursor:pointer;color:var(--ink-muted);font-size:14px;'
+  removeBtn.addEventListener('click', function() { document.getElementById(wrapId).remove(); briefPhotoCount-- })
+
+  inner.appendChild(left); inner.appendChild(removeBtn)
+  div.appendChild(inner)
+
+  // Drag and drop
+  div.addEventListener('dragover', function(e) { e.preventDefault(); div.style.borderColor='var(--accent)'; div.style.background='var(--accent-light)' })
+  div.addEventListener('dragleave', function() { div.style.borderColor='var(--border)'; div.style.background='var(--cream)' })
+  div.addEventListener('drop', function(e) {
+    e.preventDefault(); div.style.borderColor='var(--border)'; div.style.background='var(--cream)'
+    var file = e.dataTransfer.files[0]
+    if (file && file.type.startsWith('image/')) briefPhotoLoadFile(file, idx)
+  })
   list.appendChild(div)
+}
+function briefPhotoFileSelected(input, idx) {
+  if (input.files && input.files[0]) briefPhotoLoadFile(input.files[0], idx)
+}
+
+function briefPhotoLoadFile(file, idx) {
+  var reader = new FileReader()
+  reader.onload = function(e) {
+    var dataUrl = e.target.result
+    var urlInput = document.getElementById('bf-photo-url-' + idx)
+    var preview  = document.getElementById('bf-photo-preview-' + idx)
+    if (urlInput) { urlInput.value = dataUrl; urlInput.dataset.filename = file.name }
+    if (preview)  { preview.src = dataUrl; preview.style.display = 'block' }
+  }
+  reader.readAsDataURL(file)
+}
+
+function briefPhotoUrlTyped(input, idx) {
+  var preview = document.getElementById('bf-photo-preview-' + idx)
+  if (!preview) return
+  var url = input.value.trim()
+  if (url && (url.startsWith('http') || url.startsWith('data:'))) {
+    preview.src = url; preview.style.display = 'block'
+  } else {
+    preview.style.display = 'none'
+  }
 }
 
 async function submitBriefForm() {
@@ -1474,7 +1565,8 @@ async function submitBriefForm() {
   
   var photos = []
   document.querySelectorAll('.bf-photo-input').forEach(function(el) {
-    if (el.value.trim()) photos.push(el.value.trim())
+    var val = el.value.trim()
+    if (val) photos.push(val)
   })
   
   var hours = {}
@@ -1972,4 +2064,154 @@ async function toggleDomainEmails() {
       alert(d.message)
     } else alert(d.error || 'Failed')
   } catch(e) { alert('Could not connect to server') }
+}
+
+// ── DOMAIN REQUESTS ───────────────────────────────────────
+function addDnsRecordRow() {
+  var wrap = document.getElementById('dr-records-wrap')
+  if (!wrap) return
+  var row = document.createElement('div')
+  row.className = 'dr-record-row'
+  row.style.cssText = 'display:grid;grid-template-columns:100px 1fr 1fr auto;gap:8px;margin-bottom:8px;'
+  row.innerHTML =
+    '<select class="dr-type" style="padding:8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;"><option>CNAME</option><option>A</option><option>TXT</option><option>MX</option></select>' +
+    '<input type="text" class="dr-name" placeholder="Name (e.g. @)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">' +
+    '<input type="text" class="dr-content" placeholder="Content/Target" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">' +
+    '<button onclick="this.closest(\'.dr-record-row\').remove()" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;cursor:pointer;color:var(--ink-muted);">\u2715</button>'
+  wrap.appendChild(row)
+}
+
+async function submitDomainRequest() {
+  var business = document.getElementById('dr-business')?.value.trim()
+  var domain   = document.getElementById('dr-domain')?.value.trim()
+  if (!business || !domain) return alert('Please enter the business name and domain name')
+
+  var dns_records = []
+  document.querySelectorAll('.dr-record-row').forEach(function(row) {
+    var type    = row.querySelector('.dr-type')?.value
+    var name    = row.querySelector('.dr-name')?.value.trim()
+    var content = row.querySelector('.dr-content')?.value.trim()
+    if (type && (name || content)) dns_records.push({ type: type, name: name || '@', content: content || '' })
+  })
+
+  // Find the website_id for this contractor's client (best effort — use most recent)
+  var website_id = null
+  try {
+    var statsRes = await fetch(API + '/admin/stats', { headers: { 'Authorization': 'Bearer ' + getToken() } })
+    var statsData = await statsRes.json()
+    if (statsData.clients && statsData.clients.length) {
+      var match = statsData.clients.find(function(c) { return (c.business_name||'').toLowerCase() === business.toLowerCase() })
+      website_id = match ? match.website_id : statsData.clients[0].website_id
+    }
+  } catch(e) {}
+
+  try {
+    var res = await fetch(API + '/domain-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ website_id: website_id, business_name: business, domain_name: domain, dns_records: dns_records })
+    })
+    var d = await res.json()
+    if (d.message || d.request) {
+      var m = document.getElementById('save-msg-domain-req')
+      if (m) { m.classList.add('show'); setTimeout(function(){ m.classList.remove('show') }, 3000) }
+      // Clear form
+      document.getElementById('dr-business').value = ''
+      document.getElementById('dr-domain').value = ''
+      document.getElementById('dr-records-wrap').innerHTML =
+        '<div class="dr-record-row" style="display:grid;grid-template-columns:100px 1fr 1fr auto;gap:8px;margin-bottom:8px;">' +
+        '<select class="dr-type" style="padding:8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;"><option>CNAME</option><option>A</option><option>TXT</option><option>MX</option></select>' +
+        '<input type="text" class="dr-name" placeholder="Name (e.g. @)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">' +
+        '<input type="text" class="dr-content" placeholder="Content/Target" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">' +
+        '<button onclick="this.closest(\'.dr-record-row\').remove()" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;cursor:pointer;color:var(--ink-muted);">\u2715</button></div>'
+    } else {
+      alert(d.error || 'Failed to submit request')
+    }
+  } catch(e) { alert('Could not connect to server') }
+}
+
+// ── MANAGER / CONTRACTOR EMAIL CENTER ────────────────────
+var mgrSentEmailsLog = []
+
+function updateMgrEmailFields() {
+  var type = document.getElementById('mgr-email-center-type')?.value
+  var planField   = document.getElementById('mgr-email-plan-field')
+  var extraFields = document.getElementById('mgr-email-extra-fields')
+  var customField = document.getElementById('mgr-email-custom-field')
+  if (planField)   planField.style.display   = type === 'brief' ? '' : 'none'
+  if (extraFields) extraFields.style.display = type === 'invite' ? '' : 'none'
+  if (customField) customField.style.display = type === 'custom' ? '' : 'none'
+  if (type === 'invite') {
+    var lbl = document.getElementById('mgr-email-extra-label')
+    var inp = document.getElementById('mgr-email-center-extra')
+    if (lbl) lbl.textContent = 'Invite code'
+    if (inp) inp.placeholder = 'e.g. ABC123'
+  }
+}
+
+async function sendMgrEmailCenter() {
+  var email = document.getElementById('mgr-email-center-to')?.value.trim()
+  var type  = document.getElementById('mgr-email-center-type')?.value
+  if (!email) return alert('Please enter a client email')
+
+  var endpoint = '', body = {}
+  if (type === 'brief') {
+    var plan = document.getElementById('mgr-email-center-plan')?.value || 'standard'
+    endpoint = '/admin/send-brief'; body = { email: email, plan: plan }
+  } else if (type === 'invite') {
+    var code = document.getElementById('mgr-email-center-extra')?.value.trim()
+    if (!code) return alert('Please enter the invite code')
+    endpoint = '/admin/send-invite-email'; body = { email: email, invite_code: code }
+  } else if (type === 'ready') {
+    endpoint = '/admin/send-ready-email'; body = { email: email }
+  } else if (type === 'custom') {
+    var subject = document.getElementById('mgr-email-center-subject')?.value.trim()
+    var message = document.getElementById('mgr-email-center-message')?.value.trim()
+    if (!subject || !message) return alert('Please fill in subject and message')
+    endpoint = '/admin/send-custom-email'; body = { email: email, subject: subject, message: message }
+  }
+
+  try {
+    var res = await fetch(API + endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify(body)
+    })
+    var d = {}
+    try { d = await res.json() } catch(e) { d = { message: 'sent' } }
+
+    mgrSentEmailsLog.unshift({ to: email, type: type, time: new Date().toLocaleTimeString() })
+    renderMgrSentEmails()
+    var m = document.getElementById('save-msg-mgr-email-center')
+    if (m) { m.classList.add('show'); setTimeout(function(){ m.classList.remove('show') }, 3000) }
+    var toEl = document.getElementById('mgr-email-center-to')
+    if (toEl) toEl.value = ''
+    if (type === 'invite') { var ex = document.getElementById('mgr-email-center-extra'); if (ex) ex.value = '' }
+    if (type === 'custom') {
+      var s = document.getElementById('mgr-email-center-subject'); if (s) s.value = ''
+      var msg = document.getElementById('mgr-email-center-message'); if (msg) msg.value = ''
+    }
+  } catch(e) {
+    mgrSentEmailsLog.unshift({ to: email, type: type, time: new Date().toLocaleTimeString() })
+    renderMgrSentEmails()
+    var m = document.getElementById('save-msg-mgr-email-center')
+    if (m) { m.classList.add('show'); setTimeout(function(){ m.classList.remove('show') }, 3000) }
+    var toEl = document.getElementById('mgr-email-center-to')
+    if (toEl) toEl.value = ''
+  }
+}
+
+function renderMgrSentEmails() {
+  var wrap = document.getElementById('mgr-sent-emails-wrap')
+  if (!wrap) return
+  if (!mgrSentEmailsLog.length) {
+    wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No emails sent yet this session.</p>'
+    return
+  }
+  var labels = { brief: '📋 Brief Form', invite: '🔑 Invite Code', ready: '✨ Website Ready', custom: '✉️ Custom' }
+  wrap.innerHTML = mgrSentEmailsLog.map(function(e) {
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;font-size:13px;">' +
+      '<div><strong>' + e.to + '</strong> — ' + (labels[e.type] || e.type) + '</div>' +
+      '<div style="color:var(--ink-muted);">' + e.time + '</div></div>'
+  }).join('')
 }
