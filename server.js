@@ -1346,7 +1346,7 @@ app.get('/bonus-goals', authMiddleware, async (req, res) => {
 app.get('/admin/bonus-goals', authMiddleware, async (req, res) => {
   if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' })
   try {
-    const result = await pool.query('SELECT * FROM bonus_goals ORDER BY created_at DESC')
+    const result = await pool.query('SELECT * FROM bonus_goals WHERE active=TRUE ORDER BY created_at DESC')
     res.json({ goals: result.rows })
   } catch(err) { res.status(500).json({ error: err.message }) }
 })
@@ -1368,7 +1368,7 @@ app.post('/admin/bonus-goals', authMiddleware, async (req, res) => {
 app.delete('/admin/bonus-goals/:id', authMiddleware, async (req, res) => {
   if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' })
   try {
-    await pool.query('UPDATE bonus_goals SET active=FALSE WHERE id=$1', [req.params.id])
+    await pool.query('DELETE FROM bonus_goals WHERE id=$1', [req.params.id])
     res.json({ message: 'Bonus goal removed' })
   } catch(err) { res.status(500).json({ error: err.message }) }
 })

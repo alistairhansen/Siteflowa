@@ -903,7 +903,7 @@ async function loadManagerData(){
     renderManagerEarningsHistory(earnData)
 
     loadInquiries('manager')
-    loadPipeline();loadMgrAssetForms();loadSubmittedBriefs()
+    loadPipeline();loadMgrAssetForms();loadSubmittedBriefs();loadContractorBonus()
   }catch(e){console.error(e)}
 }
 
@@ -2354,32 +2354,44 @@ async function loadBonusGoals() {
 function renderBonusGoals(goals) {
   var wrap = document.getElementById('bonus-goals-wrap')
   if (!wrap) return
-  if (!goals.length) { wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No bonus goals set yet.</p>'; return }
-  wrap.innerHTML = goals.map(function(g) {
-    var endStr = g.end_date ? ' · Ends ' + new Date(g.end_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
-    var statusColor = g.active ? 'var(--accent)' : 'var(--ink-muted)'
-    var statusLabel = g.active ? '🟢 Active' : '⚫ Inactive'
+  // Only show active goals in admin view
+  var active = goals.filter(function(g) { return g.active })
+  if (!active.length) { wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No active bonus goals.</p>'; return }
+  wrap.innerHTML = active.map(function(g) {
+    var endStr = ''
+    var daysLeft = ''
+    if (g.end_date) {
+      var end = new Date(g.end_date)
+      var now = new Date()
+      var diff = Math.ceil((end - now) / (1000 * 60 * 60 * 24))
+      endStr = ' · Ends ' + end.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+      daysLeft = diff > 0 ? diff + ' day' + (diff !== 1 ? 's' : '') + ' left' : 'Expired'
+    }
     return '<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">' +
-      '<div>' +
+      '<div style="flex:1;">' +
       '<div style="font-weight:600;font-size:15px;">' + g.title + '</div>' +
       '<div style="font-size:13px;color:var(--ink-muted);margin-top:3px;">Target: <strong>' + g.target_clients + ' clients</strong> · Bonus: <strong>$' + g.bonus_amount + '</strong>' + endStr + '</div>' +
-      '<div style="font-size:12px;color:' + statusColor + ';margin-top:3px;font-weight:600;">' + statusLabel + '</div>' +
+      (daysLeft ? '<div style="font-size:12px;color:' + (daysLeft === 'Expired' ? '#ef4444' : '#f59e0b') + ';font-weight:600;margin-top:3px;">' + daysLeft + '</div>' : '') +
+      '<div style="font-size:12px;color:var(--accent);font-weight:600;margin-top:3px;">🟢 Active</div>' +
       '</div>' +
-      '<button onclick="deleteBonusGoal(' + g.id + ')" style="background:none;border:1px solid var(--border);border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;color:var(--ink-muted);cursor:pointer;">Remove</button>' +
+      '<button onclick="deleteBonusGoal(' + g.id + ')" style="background:#fee2e2;border:1px solid #ef4444;border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;color:#ef4444;cursor:pointer;white-space:nowrap;">Remove</button>' +
       '</div>'
   }).join('')
 }
 
 async function deleteBonusGoal(id) {
-  if (!confirm('Remove this bonus goal?')) return
+  if (!confirm('Remove this bonus goal? Contractors will no longer see it.')) return
   try {
     var res = await fetch(API + '/admin/bonus-goals/' + id, {
       method: 'DELETE',
-      headers: { 'Authorization': 'Bearer ' + getToken() }
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
     })
     var d = await res.json()
-    if (d.message) loadBonusGoals()
-    else alert(d.error || 'Failed')
+    if (d.message) {
+      loadBonusGoals()
+    } else {
+      alert('Error: ' + (d.error || 'Failed to remove goal'))
+    }
   } catch(e) { alert('Could not connect to server') }
 }
 
@@ -2598,4 +2610,90 @@ async function swapRole(clientId, currentRole) {
       loadAdminData()
     } else alert(d.error || 'Failed to update role')
   } catch(e) { alert('Could not connect to server') }
+}
+
+// ── CONTRACTOR BONUS GOAL DISPLAY ────────────────────────
+async function loadContractorBonus() {
+  var section = document.getElementById('bonus-goal-section')
+  var display = document.getElementById('bonus-goal-display')
+  if (!section || !display) return
+
+  try {
+    // Fetch the active bonus goal
+    var goalRes = await fetch(API + '/bonus-goals', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var goalData = await goalRes.json()
+    var goal = goalData.goal || (Array.isArray(goalData) ? goalData[0] : null)
+
+    if (!goal || !goal.active) {
+      section.style.display = 'none'
+      return
+    }
+
+    // Fetch this contractor's progress toward the goal
+    var myId = JSON.parse(atob(getToken().split('.')[1])).id
+    var progRes = await fetch(API + '/bonus-progress/' + myId, {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var prog = await progRes.json()
+    var count   = prog.progress || 0
+    var target  = goal.target_clients || 1
+    var pct     = Math.min(100, Math.round((count / target) * 100))
+    var hit     = count >= target
+
+    // Days remaining
+    var daysLeftStr = ''
+    var expired = false
+    if (goal.end_date) {
+      var end  = new Date(goal.end_date)
+      var now  = new Date()
+      var diff = Math.ceil((end - now) / (1000 * 60 * 60 * 24))
+      if (diff <= 0) {
+        daysLeftStr = 'This goal has ended'
+        expired = true
+      } else {
+        daysLeftStr = diff + ' day' + (diff !== 1 ? 's' : '') + ' remaining'
+      }
+    }
+
+    section.style.display = ''
+
+    var barColor = hit ? '#10b981' : (expired ? '#6b7280' : 'var(--accent)')
+    var statusBanner = hit
+      ? '<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:var(--radius);padding:12px 16px;margin-top:14px;display:flex;align-items:center;gap:10px;">' +
+        '<span style="font-size:22px;">🎉</span>' +
+        '<div><div style="font-weight:700;color:#065f46;font-size:15px;">You hit the goal!</div>' +
+        '<div style="font-size:13px;color:#047857;margin-top:2px;">Your $' + goal.bonus_amount + ' bonus will be added to your earnings at the next pay period close.</div></div>' +
+        '</div>'
+      : (expired
+        ? '<div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-top:12px;font-size:13px;color:var(--ink-muted);">This goal period has ended.</div>'
+        : '<div style="font-size:13px;color:var(--ink-muted);margin-top:10px;">' + (target - count) + ' more client' + (target - count !== 1 ? 's' : '') + ' to go to earn your $' + goal.bonus_amount + ' bonus.</div>')
+
+    display.innerHTML =
+      '<div style="background:white;border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 24px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">' +
+      '<div>' +
+      '<div style="font-weight:700;font-size:17px;">' + goal.title + '</div>' +
+      '<div style="font-size:13px;color:var(--ink-muted);margin-top:3px;">Bring in <strong>' + target + ' new client' + (target !== 1 ? 's' : '') + '</strong> to earn <strong style="color:var(--accent);">$' + goal.bonus_amount + '</strong></div>' +
+      '</div>' +
+      (daysLeftStr ? '<div style="font-size:12px;font-weight:600;color:' + (expired ? '#6b7280' : '#f59e0b') + ';text-align:right;">' + daysLeftStr + '</div>' : '') +
+      '</div>' +
+      '<div style="margin-top:16px;">' +
+      '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">' +
+      '<span style="font-weight:600;">' + count + ' / ' + target + ' clients</span>' +
+      '<span style="color:var(--ink-muted);">' + pct + '%</span>' +
+      '</div>' +
+      '<div style="background:#e5e7eb;border-radius:999px;height:12px;overflow:hidden;">' +
+      '<div style="height:100%;border-radius:999px;background:' + barColor + ';width:' + pct + '%;transition:width 0.5s;"></div>' +
+      '</div>' +
+      '</div>' +
+      statusBanner +
+      '</div>'
+
+  } catch(e) {
+    console.error('Could not load bonus goal:', e)
+    var section2 = document.getElementById('bonus-goal-section')
+    if (section2) section2.style.display = 'none'
+  }
 }
