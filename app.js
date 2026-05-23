@@ -397,6 +397,13 @@ function togglePw(id,btn){
   if(inp.type==='password'){inp.type='text';btn.textContent='🙈'}
   else{inp.type='password';btn.textContent='👁'}
 }
+function togglePasswordVisibility(id){
+  const inp=document.getElementById(id)
+  if(!inp)return
+  const btn=inp.parentElement.querySelector('button')
+  if(inp.type==='password'){inp.type='text';if(btn)btn.textContent='🙈'}
+  else{inp.type='password';if(btn)btn.textContent='👁'}
+}
 function doLogout(){localStorage.removeItem('wc_token');localStorage.removeItem('wc_role');localStorage.removeItem('wc_email');showPage('home')}
 async function doForgotPassword(){
   const email=document.getElementById('forgot-email').value
