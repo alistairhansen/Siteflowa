@@ -2084,7 +2084,7 @@ async function sendEmailCenter() {
     let res, d, endpoint, body
 
     if (type === 'brief') {
-      endpoint = '/admin/send-brief'
+      endpoint = '/admin/send-asset-form'
       body = { email, plan }
     } else if (type === 'invite') {
       if (!extra) { alert('Please enter the invite code'); if (btn) { btn.disabled = false; btn.textContent = 'Send' }; return }

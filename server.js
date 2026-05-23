@@ -1811,7 +1811,6 @@ ADDITIONAL BUILD RULES:
 app.post('/admin/send-brief', authMiddleware, staffMiddleware, async (req, res) => {
   const { email, plan } = req.body
   if (!email) return res.status(400).json({ error: 'Email is required' })
-  res.json({ message: 'Brief form sent to ' + email })
   try {
     const planNames = { basic: 'Basic', standard: 'Standard', premium: 'Premium' }
     const planDetails = {
@@ -1837,7 +1836,11 @@ app.post('/admin/send-brief', authMiddleware, staffMiddleware, async (req, res) 
         </div>
       `
     })
-  } catch (err) { console.error('Brief email error:', err) }
+    res.json({ message: 'Brief form sent to ' + email })
+  } catch (err) {
+    console.error('Brief email error:', err)
+    res.status(500).json({ error: err.message })
+  }
 })
 
 // ── SEND WEBSITE READY EMAIL ────────────────────────
