@@ -1680,16 +1680,18 @@ async function loadAssetForms() {
   try {
     var res = await fetch(API + '/admin/asset-forms', { headers: { 'Authorization': 'Bearer ' + getToken() } })
     var data = await res.json()
+    if (data.error) { var w = document.getElementById('asset-forms-wrap'); if (w) w.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No brief forms sent yet.</p>'; return }
     renderAssetForms(data.forms || [], 'asset-forms-wrap')
-  } catch(e) { console.error('Could not load asset forms', e) }
+  } catch(e) { var w = document.getElementById('asset-forms-wrap'); if (w) w.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No brief forms sent yet.</p>' }
 }
 
 async function loadMgrAssetForms() {
   try {
     var res = await fetch(API + '/admin/asset-forms', { headers: { 'Authorization': 'Bearer ' + getToken() } })
     var data = await res.json()
+    if (data.error) { var w = document.getElementById('mgr-asset-forms-wrap'); if (w) w.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No brief forms sent yet.</p>'; return }
     renderAssetForms(data.forms || [], 'mgr-asset-forms-wrap')
-  } catch(e) { console.error('Could not load asset forms', e) }
+  } catch(e) { var w = document.getElementById('mgr-asset-forms-wrap'); if (w) w.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No brief forms sent yet.</p>' }
 }
 
 function renderAssetForms(forms, wrapId) {
@@ -1713,8 +1715,9 @@ async function loadSubmittedBriefs() {
   try {
     var res = await fetch(API + '/admin/website-briefs', { headers: { 'Authorization': 'Bearer ' + getToken() } })
     var data = await res.json()
+    if (data.error) { var w = document.getElementById('submitted-briefs-wrap'); if (w) w.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No briefs submitted yet.</p>'; return }
     renderSubmittedBriefs(data.briefs || [])
-  } catch(e) { console.error('Could not load submitted briefs', e) }
+  } catch(e) { var w = document.getElementById('submitted-briefs-wrap'); if (w) w.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No briefs submitted yet.</p>' }
 }
 
 function renderSubmittedBriefs(briefs) {
@@ -1782,4 +1785,28 @@ function showBriefModal(btn) {
     modal.onclick = function(e) { if (e.target === modal) modal.remove() }
     document.body.appendChild(modal)
   } catch(e) { alert('Could not load brief details') }
+}
+
+// ── MOBILE MENU ──────────────────────────────────────────
+function toggleMobileMenu() {
+  document.querySelector('nav').classList.toggle('nav-mobile-open')
+}
+function closeMobileMenu() {
+  document.querySelector('nav').classList.remove('nav-mobile-open')
+}
+
+// ── TOGGLE DOMAIN EMAILS ─────────────────────────────────
+async function toggleDomainEmails() {
+  try {
+    var res = await fetch(API + '/admin/toggle-domain-emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    if (d.message) {
+      var btn = document.getElementById('domain-email-toggle-btn')
+      if (btn) btn.textContent = d.enabled ? 'Turn off domain emails' : 'Turn on domain emails'
+      alert(d.message)
+    } else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect to server') }
 }
