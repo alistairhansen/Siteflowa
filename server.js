@@ -991,13 +991,15 @@ app.post('/create-deposit', authMiddleware, async (req, res) => {
       payment_method_types: ['card'],
       line_items: [{
         price_data: {
-          currency: 'usd',
+          currency: 'cad',
           product_data: { name: 'Sitefloa Website Deposit', description: 'Deposit to begin building your website. Remaining balance due at launch.' },
           unit_amount: Math.round(amount * 100)
         },
         quantity: 1
       }],
       mode: 'payment',
+      // Stripe Adaptive Pricing: shows customers their local currency, you receive CAD
+      currency_conversion: { enabled: true },
       payment_intent_data: { metadata: { client_id: req.user.id, payment_type: 'deposit', plan } },
       success_url: 'https://sitefloa.com?deposit=success',
       cancel_url: 'https://sitefloa.com?deposit=cancelled',
@@ -1436,7 +1438,7 @@ app.post('/create-checkout', authMiddleware, async (req, res) => {
       line_items: [
         {
           price_data: {
-            currency: 'usd',
+            currency: 'cad',
             product_data: {
               name: 'Sitefloa ' + (planNames[plan] || 'Standard') + ' Plan — Website Setup',
               description: 'One-time website build fee for ' + (business_name || 'your business'),
@@ -1447,7 +1449,7 @@ app.post('/create-checkout', authMiddleware, async (req, res) => {
         },
         {
           price_data: {
-            currency: 'usd',
+            currency: 'cad',
             product_data: {
               name: 'Sitefloa Monthly Subscription',
               description: 'First month free — billing starts 30 days from today',
@@ -1459,6 +1461,8 @@ app.post('/create-checkout', authMiddleware, async (req, res) => {
         }
       ],
       mode: 'subscription',
+      // Stripe Adaptive Pricing: shows customers their local currency, you receive CAD
+      currency_conversion: { enabled: true },
       subscription_data: {
         trial_period_days: 30,
         metadata: { client_id: req.user.id, plan: plan }
