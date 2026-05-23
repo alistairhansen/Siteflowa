@@ -134,7 +134,7 @@ async function doLogin(){
       closeLogin()
       const role=data.role||payload.role
       if(role==='admin'){document.getElementById('admin-email-display').textContent=email.toLowerCase();document.getElementById('admin-avatar').textContent=email.substring(0,2).toUpperCase();showPage('admin')}
-      else if(role==='manager'){document.getElementById('mgr-email-display').textContent=email.toLowerCase();document.getElementById('mgr-avatar').textContent=email.substring(0,2).toUpperCase();showPage('manager')}
+      else if(role==='manager'||role==='contractor'){document.getElementById('mgr-email-display').textContent=email.toLowerCase();document.getElementById('mgr-avatar').textContent=email.substring(0,2).toUpperCase();showPage('manager')}
       else if(data.update_fee_required){document.getElementById('update-fee-amount').textContent='$'+data.update_fee_amount;document.getElementById('update-fee-total').textContent='$'+data.update_fee_amount;showPage('update-fee')}
       else if(data.subscription_status==='pending_payment'){currentWebsite=data.website;showPaymentPage(data.website,data.plan)}
       else if(data.onboarding_stage==='building'&&data.website&&!data.website.site_html){showHoldingPage('building',data.website)}
@@ -156,7 +156,7 @@ async function doSignup(){
       localStorage.setItem('wc_token',data.token);localStorage.setItem('wc_email',email.toLowerCase());localStorage.setItem('wc_role',data.role)
       closeLogin()
       if(data.role==='admin'){document.getElementById('admin-email-display').textContent=email.toLowerCase();showPage('admin')}
-      else if(data.role==='manager'){document.getElementById('mgr-email-display').textContent=email.toLowerCase();showPage('manager')}
+      else if(data.role==='manager'||data.role==='contractor'){document.getElementById('mgr-email-display').textContent=email.toLowerCase();showPage('manager')}
       else{currentWebsite=data.website;showPaymentPage(data.website,data.plan)}
     }else showError('signup-error',data.error||'Signup failed')
   }catch(e){showError('signup-error','Could not connect to server. Is it running?')}
@@ -885,12 +885,29 @@ async function updateIqStatus(id,status,role){
 
 async function loadManagerData(){
   const token=getToken();if(!token)return
+  const role = getRole()
+  const isContractor = role === 'contractor'
+
+  // Update title and badge to reflect actual role
+  var titleEl = document.getElementById('mgr-dashboard-title')
+  var badgeEl = document.getElementById('mgr-role-badge')
+  if (titleEl) titleEl.textContent = isContractor ? 'Contractor Dashboard' : 'Manager Dashboard'
+  if (badgeEl) { badgeEl.textContent = isContractor ? 'Contractor' : 'Manager'; badgeEl.style.background = isContractor ? 'var(--accent-light)' : '#ede9ff'; badgeEl.style.color = isContractor ? 'var(--accent)' : '#7c3aed' }
+
   try{
     // load stats
     const res=await fetch(API+'/admin/stats',{headers:{'Authorization':'Bearer '+token}})
     const data=await res.json()
     if(data.stats)document.getElementById('mgr-stat-clients').textContent=data.stats.total_clients
-    if(data.clients)renderManagerTable(data.clients.filter(c=>c.role==='client'||(!c.role&&!c.is_admin)))
+    // Contractors only see their own clients; managers see all
+    if(data.clients){
+      var clients = data.clients.filter(c=>c.role==='client'||(!c.role&&!c.is_admin))
+      if(isContractor){
+        var myId = JSON.parse(atob(token.split('.')[1])).id
+        clients = clients.filter(c => c.created_by == myId)
+      }
+      renderManagerTable(clients)
+    }
 
     // load my earnings
     const earnRes=await fetch(API+'/manager/earnings',{headers:{'Authorization':'Bearer '+token}})
