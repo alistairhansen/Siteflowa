@@ -1253,3 +1253,94 @@ async function payDeposit() {
     alert('Could not connect to server')
   }
 }
+
+// ── EMAIL CENTER ────────────────────────────────────
+var sentEmailsLog = []
+
+function updateEmailFields() {
+  var type = document.getElementById('email-center-type').value
+  var planField = document.getElementById('email-plan-field')
+  var extraFields = document.getElementById('email-extra-fields')
+  var customField = document.getElementById('email-custom-field')
+  
+  planField.style.display = type === 'brief' ? '' : 'none'
+  extraFields.style.display = type === 'invite' ? '' : 'none'
+  customField.style.display = type === 'custom' ? '' : 'none'
+  
+  if (type === 'invite') {
+    document.getElementById('email-extra-label').textContent = 'Invite code'
+    document.getElementById('email-center-extra').placeholder = 'e.g. ABC123'
+  }
+}
+
+async function sendEmailCenter() {
+  var email = document.getElementById('email-center-to').value.trim()
+  var type = document.getElementById('email-center-type').value
+  if (!email) return alert('Please enter a client email')
+  
+  var endpoint = ''
+  var body = {}
+  
+  if (type === 'brief') {
+    var plan = document.getElementById('email-center-plan').value
+    endpoint = '/admin/send-brief'
+    body = { email: email, plan: plan }
+  } else if (type === 'invite') {
+    var code = document.getElementById('email-center-extra').value.trim()
+    if (!code) return alert('Please enter the invite code')
+    endpoint = '/admin/send-invite-email'
+    body = { email: email, invite_code: code }
+  } else if (type === 'ready') {
+    endpoint = '/admin/send-ready-email'
+    body = { email: email }
+  } else if (type === 'custom') {
+    var subject = document.getElementById('email-center-subject').value.trim()
+    var message = document.getElementById('email-center-message').value.trim()
+    if (!subject || !message) return alert('Please fill in subject and message')
+    endpoint = '/admin/send-custom-email'
+    body = { email: email, subject: subject, message: message }
+  }
+  
+  try {
+    var res = await fetch(API + endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify(body)
+    })
+    var d = await res.json()
+    if (d.message) {
+      var m = document.getElementById('save-msg-email-center')
+      m.classList.add('show')
+      setTimeout(function() { m.classList.remove('show') }, 3000)
+      
+      sentEmailsLog.unshift({ to: email, type: type, time: new Date().toLocaleTimeString() })
+      renderSentEmails()
+      
+      document.getElementById('email-center-to').value = ''
+      if (type === 'invite') document.getElementById('email-center-extra').value = ''
+      if (type === 'custom') {
+        document.getElementById('email-center-subject').value = ''
+        document.getElementById('email-center-message').value = ''
+      }
+    } else {
+      alert(d.error || 'Failed to send')
+    }
+  } catch(e) {
+    alert('Could not connect to server')
+  }
+}
+
+function renderSentEmails() {
+  var wrap = document.getElementById('sent-emails-wrap')
+  if (!sentEmailsLog.length) {
+    wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No emails sent yet this session.</p>'
+    return
+  }
+  var typeLabels = { brief: '📋 Brief Form', invite: '🔑 Invite Code', ready: '✨ Website Ready', custom: '✉️ Custom' }
+  wrap.innerHTML = sentEmailsLog.map(function(e) {
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;font-size:13px;">' +
+      '<div><strong>' + e.to + '</strong> — ' + (typeLabels[e.type] || e.type) + '</div>' +
+      '<div style="color:var(--ink-muted);">' + e.time + '</div>' +
+      '</div>'
+  }).join('')
+}

@@ -1628,6 +1628,13 @@ app.post('/admin/send-brief', authMiddleware, async (req, res) => {
   const { email, plan } = req.body
   if (!email) return res.status(400).json({ error: 'Email is required' })
   try {
+    const planNames = { basic: 'Basic', standard: 'Standard', premium: 'Premium' }
+    const planLimits = {
+      basic: { photos: 2, services: 1, pages: 1 },
+      standard: { photos: 6, services: 5, pages: 4 },
+      premium: { photos: 20, services: 'Unlimited', pages: 'Unlimited' }
+    }
+    const limits = planLimits[plan] || planLimits.standard
     const formLink = `https://sitefloa.com?brief=true&email=${encodeURIComponent(email)}&plan=${plan || 'standard'}`
     await resend.emails.send({
       from: 'Sitefloa <hello@sitefloa.com>',
@@ -1637,13 +1644,79 @@ app.post('/admin/send-brief', authMiddleware, async (req, res) => {
         <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;">
           <h2 style="font-family:Georgia,serif;color:#0f1117;">Your Website Brief</h2>
           <p style="color:#4a4f5e;line-height:1.6;">We're ready to start building your website! Please fill out the brief form so we have everything we need.</p>
-          <p style="color:#4a4f5e;line-height:1.6;">Your plan: <strong>${(plan || 'standard').charAt(0).toUpperCase() + (plan || 'standard').slice(1)}</strong></p>
+          <div style="background:#f0faf7;border:1px solid rgba(26,107,90,0.2);border-radius:12px;padding:16px;margin:16px 0;">
+            <div style="font-size:13px;font-weight:600;color:#1a6b5a;margin-bottom:8px;">Your Plan: ${planNames[plan] || 'Standard'}</div>
+            <div style="font-size:13px;color:#4a4f5e;">Up to ${limits.photos} photos · ${limits.services} service${limits.services !== 1 && limits.services !== 'Unlimited' ? 's' : ''} · ${limits.pages} page${limits.pages !== 1 && limits.pages !== 'Unlimited' ? 's' : ''}</div>
+          </div>
           <a href="${formLink}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">Fill out your brief →</a>
           <p style="color:#4a4f5e;line-height:1.6;font-size:13px;">This helps us build your site exactly how you want it.</p>
         </div>
       `
     })
     res.json({ message: 'Brief form sent to ' + email })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to send email' })
+  }
+})
+
+// ── SEND WEBSITE READY EMAIL ────────────────────────
+app.post('/admin/send-ready-email', authMiddleware, staffMiddleware, async (req, res) => {
+  const { email } = req.body
+  if (!email) return res.status(400).json({ error: 'Email is required' })
+  try {
+    // Find their website for the preview link
+    const client = await pool.query('SELECT id FROM clients WHERE email=$1', [email.toLowerCase()])
+    let previewLink = 'https://sitefloa.com'
+    if (client.rows[0]) {
+      const website = await pool.query('SELECT subdomain FROM websites WHERE client_id=$1', [client.rows[0].id])
+      if (website.rows[0]?.subdomain) {
+        previewLink = 'https://sitefloa.com/sites/' + website.rows[0].subdomain
+      }
+      // Update onboarding stage to review
+      await pool.query('UPDATE clients SET onboarding_stage=$1 WHERE id=$2', ['review', client.rows[0].id])
+    }
+    await resend.emails.send({
+      from: 'Sitefloa <hello@sitefloa.com>',
+      to: email,
+      subject: 'Your website is ready to review! ✨',
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;">
+          <h2 style="font-family:Georgia,serif;color:#0f1117;">Your Website is Ready! ✨</h2>
+          <p style="color:#4a4f5e;line-height:1.6;">Great news — we've finished building your website and it's ready for you to review.</p>
+          <p style="color:#4a4f5e;line-height:1.6;">Log in to your dashboard to preview your site. If you're happy with it, you can approve it and we'll make it live!</p>
+          <a href="${previewLink}" style="display:inline-block;margin:16px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">🌐 Preview your website</a>
+          <a href="https://sitefloa.com" style="display:inline-block;margin:8px 0;padding:14px 28px;background:#f5f5f5;color:#0f1117;text-decoration:none;border-radius:8px;font-weight:500;">Log in to your dashboard</a>
+          <p style="color:#4a4f5e;line-height:1.6;font-size:13px;margin-top:20px;">If you'd like any changes, just let us know through the chat in your dashboard.</p>
+        </div>
+      `
+    })
+    res.json({ message: 'Website ready email sent to ' + email })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to send email' })
+  }
+})
+
+// ── SEND CUSTOM EMAIL ───────────────────────────────
+app.post('/admin/send-custom-email', authMiddleware, staffMiddleware, async (req, res) => {
+  const { email, subject, message } = req.body
+  if (!email || !subject || !message) return res.status(400).json({ error: 'Email, subject, and message required' })
+  try {
+    await resend.emails.send({
+      from: 'Sitefloa <hello@sitefloa.com>',
+      to: email,
+      subject: subject,
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;">
+          <h2 style="font-family:Georgia,serif;color:#0f1117;">${subject}</h2>
+          <div style="color:#4a4f5e;line-height:1.8;white-space:pre-wrap;">${message}</div>
+          <hr style="border:none;border-top:1px solid #eee;margin:30px 0;">
+          <p style="color:#8b909e;font-size:12px;">Sitefloa - Professional websites for small business</p>
+        </div>
+      `
+    })
+    res.json({ message: 'Email sent to ' + email })
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Failed to send email' })

@@ -402,17 +402,38 @@
       <div id="pipeline-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading...</p></div>
     </div>
     <div class="admin-section" id="shared-briefs-section">
-      <h3>📋 Website Briefs</h3>
-      <p class="section-desc">Send clients a website brief form to collect everything needed to build their site. Once submitted you can generate a ready-to-use Claude build prompt from the responses.</p>
+      <h3>📧 Client Email Center</h3>
+      <p class="section-desc">Send different types of emails to clients — brief forms, invite codes, website ready notifications, and more.</p>
       <div style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:16px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
-          <div class="dash-field"><label>Client email</label><input type="email" id="brief-email-shared" placeholder="client@email.com"></div>
-          <div class="dash-field"><label>Plan</label><select id="brief-plan-shared"><option value="basic">Basic</option><option value="standard" selected>Standard</option><option value="premium">Premium</option></select></div>
-          <button class="dash-save" onclick="sendAssetFormShared()" style="height:42px;">Send form</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;">
+          <div class="dash-field"><label>Client email</label><input type="email" id="email-center-to" placeholder="client@email.com"></div>
+          <div class="dash-field"><label>Email type</label>
+            <select id="email-center-type" onchange="updateEmailFields()">
+              <option value="brief">📋 Website Brief Form</option>
+              <option value="invite">🔑 Invite Code + Instructions</option>
+              <option value="ready">✨ Website Ready to Review</option>
+              <option value="custom">✉️ Custom Message</option>
+            </select>
+          </div>
+          <div class="dash-field" id="email-plan-field"><label>Plan</label>
+            <select id="email-center-plan">
+              <option value="basic">Basic</option>
+              <option value="standard" selected>Standard</option>
+              <option value="premium">Premium</option>
+            </select>
+          </div>
+          <button class="dash-save" onclick="sendEmailCenter()" style="height:42px;">Send</button>
         </div>
-        <span class="save-msg" id="save-msg-brief-shared">Form sent!</span>
+        <div id="email-extra-fields" style="display:none;margin-top:12px;">
+          <div class="dash-field"><label id="email-extra-label">Invite code</label><input type="text" id="email-center-extra" placeholder=""></div>
+        </div>
+        <div id="email-custom-field" style="display:none;margin-top:12px;">
+          <div class="dash-field" style="grid-column:1/-1;"><label>Subject</label><input type="text" id="email-center-subject" placeholder="Email subject line"></div>
+          <div class="dash-field" style="grid-column:1/-1;margin-top:8px;"><label>Message</label><textarea id="email-center-message" rows="4" placeholder="Write your message here..."></textarea></div>
+        </div>
+        <span class="save-msg" id="save-msg-email-center">Email sent!</span>
       </div>
-      <div id="asset-forms-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading submitted briefs...</p></div>
+      <div id="sent-emails-wrap"><p style="color:var(--ink-muted);font-size:14px;">No emails sent yet this session.</p></div>
     </div>
     <div class="admin-section">
       <h3 id="as-company">⚙️ Site settings</h3>
