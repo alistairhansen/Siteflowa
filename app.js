@@ -1,6 +1,30 @@
 const API='https://siteflowa.onrender.com'
 let currentWebsite=null,setupFee=299,monthlyFee=49,discountApplied=false,siteSettings={},demoStep=0,demoAnswers={}
 var sentEmailsLog = []
+
+// ── PASSWORD RESET — checked immediately before anything else ──
+;(function(){
+  var t = new URLSearchParams(window.location.search).get('token')
+  if (!t) return
+  window._resetToken = t
+  // Run immediately and repeatedly until the DOM is ready
+  function activate() {
+    var pages = document.querySelectorAll('.page-section')
+    if (!pages.length) return // DOM not ready yet
+    pages.forEach(function(p){ p.classList.remove('active') })
+    var rp = document.getElementById('page-reset')
+    if (rp) { rp.classList.add('active'); rp.style.display='block' }
+    var modal = document.getElementById('login-modal')
+    if (modal) { modal.classList.remove('open'); modal.style.display='none' }
+  }
+  activate()
+  document.addEventListener('DOMContentLoaded', activate)
+  window.addEventListener('load', activate)
+  setInterval(function(){
+    if (window._resetToken) activate()
+  }, 300)
+})()
+
 const SECTIONS=['gallery','hours','contact','services','menu','team']
 const SECTION_LABELS={gallery:'🖼️ Gallery',hours:'🕐 Hours',contact:'📞 Contact',services:'🔧 Services',menu:'🍽️ Menu',team:'👥 Team'}
 const DEMO_QS=[
@@ -433,8 +457,9 @@ async function doResetPassword(){
     const res=await fetch(API+'/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,password})})
     const d=await res.json()
     if(d.message){
-      window._resetToken = null
-      // Show success state on the reset page
+      window._resetToken = null  // stops the keepalive interval
+      var modal = document.getElementById('login-modal')
+      if (modal) { modal.classList.remove('open'); modal.style.display = '' }
       const wrap = document.querySelector('#page-reset > div')
       if(wrap) wrap.innerHTML = '<div style="text-align:center;padding:20px 0;">' +
         '<div style="font-size:56px;margin-bottom:20px;">✅</div>' +
@@ -1217,17 +1242,7 @@ window.addEventListener('load',()=>{
   loadSiteSettings()
   const params=new URLSearchParams(window.location.search)
   if(params.get('token')){
-    window._resetToken = params.get('token')
-    function showResetPage() {
-      document.querySelectorAll('.page-section').forEach(function(p){ p.classList.remove('active') })
-      var rp = document.getElementById('page-reset')
-      if (rp) rp.classList.add('active')
-      var modal = document.getElementById('login-modal')
-      if (modal) modal.classList.remove('open')
-    }
-    showResetPage()
-    setTimeout(showResetPage, 200)
-    setTimeout(showResetPage, 800)
+    // Already handled at top of script — just ensure it stays shown
     return
   }
   if(params.get('brief')){
