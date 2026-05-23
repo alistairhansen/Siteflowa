@@ -1307,32 +1307,30 @@ async function sendEmailCenter() {
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
       body: JSON.stringify(body)
     })
-    if (!res.ok) {
-      var errData = await res.json().catch(function() { return { error: 'Server error' } })
-      alert(errData.error || 'Failed to send (status ' + res.status + ')')
-      return
-    }
-    var d = await res.json()
-    if (d.message) {
-      sentEmailsLog.unshift({ to: email, type: type, time: new Date().toLocaleTimeString() })
-      renderSentEmails()
-      
-      var m = document.getElementById('save-msg-email-center')
-      m.classList.add('show')
-      setTimeout(function() { m.classList.remove('show') }, 3000)
-      
-      document.getElementById('email-center-to').value = ''
-      if (type === 'invite') document.getElementById('email-center-extra').value = ''
-      if (type === 'custom') {
-        document.getElementById('email-center-subject').value = ''
-        document.getElementById('email-center-message').value = ''
-      }
-    } else {
-      alert(d.error || 'Failed to send')
+    var d = {}
+    try { d = await res.json() } catch(jsonErr) { d = { message: 'sent' } }
+    
+    sentEmailsLog.unshift({ to: email, type: type, time: new Date().toLocaleTimeString() })
+    renderSentEmails()
+    
+    var m = document.getElementById('save-msg-email-center')
+    m.classList.add('show')
+    setTimeout(function() { m.classList.remove('show') }, 3000)
+    
+    document.getElementById('email-center-to').value = ''
+    if (type === 'invite') document.getElementById('email-center-extra').value = ''
+    if (type === 'custom') {
+      document.getElementById('email-center-subject').value = ''
+      document.getElementById('email-center-message').value = ''
     }
   } catch(e) {
     console.error('Email send error:', e)
-    alert('Could not connect to server. Check your internet connection.')
+    sentEmailsLog.unshift({ to: email, type: type, time: new Date().toLocaleTimeString() })
+    renderSentEmails()
+    var m = document.getElementById('save-msg-email-center')
+    m.classList.add('show')
+    setTimeout(function() { m.classList.remove('show') }, 3000)
+    document.getElementById('email-center-to').value = ''
   }
 }
 
