@@ -775,7 +775,7 @@ function renderStaffList(managers){
     const orgRateRow=isManager
       ?'<span style="font-size:12px;color:var(--ink-muted);margin-left:8px;">Org % of all launch fees:</span>'
        +'<input type="number" value="'+orgRate+'" style="width:56px;padding:4px 8px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius);" id="mcr-'+id+'" min="0" max="100">'
-       +'<button class="action-btn" onclick="updateManagerOrgRate('+id+')">Save</button>'
+       +'<button class="action-btn" data-id="'+id+'" onclick="updateManagerOrgRateById(this)">Save</button>'
       :''
     return '<div class="staff-row" style="flex-direction:column;align-items:stretch;">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">'
@@ -800,12 +800,12 @@ function renderStaffList(managers){
       +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">'
       +'<span style="font-size:12px;color:var(--ink-muted);">Own sales %:</span>'
       +'<input type="number" value="'+rate+'" style="width:56px;padding:4px 8px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius);" id="cr-'+id+'" min="0" max="100">'
-      +'<button class="action-btn" onclick="updateCommission('+id+')">Save</button>'
+      +'<button class="action-btn" data-id="'+id+'" onclick="updateCommissionById(this)">Save</button>'
       +orgRateRow
-      +'<button class="action-btn" style="background:var(--accent-light);border-color:var(--accent);color:var(--accent);margin-left:4px;" onclick="viewPayHistoryById('+id+')" data-email="'+encEmail+'">📋 History</button>'
-      +'<button class="dash-save" style="padding:4px 12px;font-size:12px;background:var(--purple);" onclick="closePeriodById('+id+')" data-email="'+encEmail+'">✓ Close period &amp; pay</button>'
-      +'<button class="action-btn" onclick="swapRole('+id+','+JSON.stringify(role)+')">'+swapLabel+'</button>'
-      +'<button class="btn-remove" onclick="removeManagerById('+id+')" data-email="'+encEmail+'">Remove</button>'
+      +'<button class="action-btn staff-history-btn" style="background:var(--accent-light);border-color:var(--accent);color:var(--accent);margin-left:4px;" data-id="'+id+'" data-email="'+encEmail+'" onclick="viewPayHistoryById(this)">📋 History</button>'
+      +'<button class="dash-save staff-close-btn" style="padding:4px 12px;font-size:12px;background:var(--purple);" data-id="'+id+'" data-email="'+encEmail+'" onclick="closePeriodById(this)">✓ Close period &amp; pay</button>'
+      +'<button class="action-btn staff-swap-btn" data-id="'+id+'" data-role="'+role+'" onclick="swapRoleById(this)">'+swapLabel+'</button>'
+      +'<button class="btn-remove staff-remove-btn" data-id="'+id+'" data-email="'+encEmail+'" onclick="removeManagerById(this)">Remove</button>'
       +'</div>'
       +'<div id="pay-history-'+id+'" style="display:none;background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:8px;">'
       +'<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:10px;">Pay period history</div>'
@@ -2914,19 +2914,32 @@ async function openBillingPortal() {
   }
 }
 
-// ── STAFF ACTION WRAPPERS (read email from data attribute to avoid onclick quote issues) ──
-function viewPayHistoryById(id) {
-  var btn = document.querySelector('[onclick="viewPayHistoryById('+id+')"]')
-  var email = btn ? btn.getAttribute('data-email') : ''
+// ── STAFF ACTION WRAPPERS (use data attributes to avoid onclick quote/UUID issues) ──
+function viewPayHistoryById(btn) {
+  var id = btn.getAttribute('data-id')
+  var email = btn.getAttribute('data-email') || ''
   viewPayHistory(id, email)
 }
-function closePeriodById(id) {
-  var btn = document.querySelector('[onclick="closePeriodById('+id+')"]')
-  var email = btn ? btn.getAttribute('data-email') : ''
+function closePeriodById(btn) {
+  var id = btn.getAttribute('data-id')
+  var email = btn.getAttribute('data-email') || ''
   closePeriod(id, email)
 }
-function removeManagerById(id) {
-  var btn = document.querySelector('[onclick="removeManagerById('+id+')"]')
-  var email = btn ? btn.getAttribute('data-email') : ''
+function removeManagerById(btn) {
+  var id = btn.getAttribute('data-id')
+  var email = btn.getAttribute('data-email') || ''
   removeManager(id, email)
+}
+function swapRoleById(btn) {
+  var id = btn.getAttribute('data-id')
+  var role = btn.getAttribute('data-role') || 'contractor'
+  swapRole(id, role)
+}
+function updateCommissionById(btn) {
+  var id = btn.getAttribute('data-id')
+  updateCommission(id)
+}
+function updateManagerOrgRateById(btn) {
+  var id = btn.getAttribute('data-id')
+  updateManagerOrgRate(id)
 }
