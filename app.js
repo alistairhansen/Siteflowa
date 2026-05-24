@@ -1171,6 +1171,13 @@ function renderClientsTable(clients){
           <button class="action-btn" style="background:#1a6b5a;color:white;border-color:#1a6b5a;" onclick="uploadSiteHtml('${c.website_id}','${c.email}')">🌐 Upload website HTML</button>
         </div>
       </div>
+      <div class="pricing-edit" style="margin-bottom:10px;">
+        <label>Domain name</label>
+        <input type="text" id="dn-${c.id}" value="${c.domain_name||''}" placeholder="e.g. mybusiness.com" style="padding:6px 10px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);width:160px;">
+        <input type="number" id="dc-${c.id}" value="${c.domain_cost||''}" placeholder="Setup $" style="padding:6px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);width:80px;">
+        <input type="number" id="dy-${c.id}" value="${c.domain_yearly_fee||''}" placeholder="$/year" style="padding:6px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);width:80px;">
+        <button class="dash-save" onclick="updateClientDomain('${c.id}')" style="padding:8px 14px;font-size:13px;">Save domain</button>
+      </div>
       <div class="pricing-edit">
         <label>Plan</label>
         <select id="pl-${c.id}" style="width:110px;padding:6px 10px;font-size:13px;"><option value="basic" ${c.plan==='basic'?'selected':''}>Basic</option><option value="standard" ${(!c.plan||c.plan==='standard')?'selected':''}>Standard</option><option value="premium" ${c.plan==='premium'?'selected':''}>Premium</option></select>
@@ -2037,15 +2044,12 @@ async function loadSubmittedBriefs() {
 }
 
 function renderSubmittedBriefs(briefs) {
-  // Render into all instances of submitted-briefs-wrap (admin page + manager page both have one)
-  var wraps = document.querySelectorAll('#submitted-briefs-wrap, [id="submitted-briefs-wrap"]')
+  var wraps = document.querySelectorAll('[id="submitted-briefs-wrap"]')
   if (!wraps.length) return
-  var wrap = wraps[0] // use first for the main render, then copy to others
   if (!briefs.length) {
-    document.querySelectorAll('[id="submitted-briefs-wrap"]').forEach(function(el) { el.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No briefs submitted yet.</p>' })
+    wraps.forEach(function(el) { el.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No briefs submitted yet.</p>' })
     return
   }
-  var myId = getToken() ? JSON.parse(atob(getToken().split('.')[1])).id : null
   var myEmail = localStorage.getItem('wc_email') || ''
   var html = '<div style="display:grid;gap:10px;">' +
     briefs.map(function(b) {
@@ -2053,34 +2057,40 @@ function renderSubmittedBriefs(briefs) {
       try { fd = typeof b.form_data === 'string' ? JSON.parse(b.form_data) : (b.form_data || {}) } catch(e) {}
       var date = new Date(b.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
       var safeJson = JSON.stringify(b).replace(/\\/g,'\\\\').replace(/`/g,'\\`')
-      var isClaimed = !!b.claimed_by
-      var claimedByMe = b.claimed_by == myId || b.claimed_by_email === myEmail
-      var bg = isClaimed ? (claimedByMe ? '#e8f4f1' : '#fff8e6') : 'var(--cream)'
-      var border = isClaimed ? (claimedByMe ? '1px solid #1a6b5a44' : '1px solid #f59e0b66') : '1px solid var(--border)'
-      var claimTag = isClaimed
-        ? '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:' + (claimedByMe ? 'var(--accent)' : '#b45309') + ';margin-top:4px;display:block;">' + (claimedByMe ? '✅ Claimed by you' : '🔒 Claimed by ' + (b.claimed_by_email || 'someone')) + '</span>'
-        : '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-muted);margin-top:4px;display:block;">⚪ Unclaimed</span>'
-      var actionBtn = ''
-      if (!isClaimed) {
-        actionBtn = '<button onclick="claimBrief(&quot;' + b.id + '&quot;)" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;margin-right:6px;">Claim</button>'
-      } else if (claimedByMe || getRole() === 'admin') {
-        actionBtn = '<button onclick="unclaimBrief(&quot;' + b.id + '&quot;)" style="background:white;color:var(--ink-muted);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;font-family:var(--sans);font-size:12px;cursor:pointer;white-space:nowrap;margin-right:6px;">Release</button>'
+      var isCompleted = b.status === 'completed'
+      var isClaimed = !!b.claimed_by_email && !isCompleted
+      var claimedByMe = b.claimed_by_email === myEmail
+      var isAdmin = getRole() === 'admin' || getRole() === 'manager'
+      var bg = isCompleted ? '#d1fae5' : isClaimed ? (claimedByMe ? '#e8f4f1' : '#fff8e6') : 'var(--cream)'
+      var border = isCompleted ? '1px solid #6ee7b7' : isClaimed ? (claimedByMe ? '1px solid #1a6b5a44' : '1px solid #f59e0b66') : '1px solid var(--border)'
+      var statusTag = isCompleted
+        ? '<span style="font-size:11px;font-weight:700;color:#065f46;margin-top:4px;display:block;">\u2705 Completed</span>'
+        : isClaimed
+          ? '<span style="font-size:11px;font-weight:700;color:' + (claimedByMe ? 'var(--accent)' : '#b45309') + ';margin-top:4px;display:block;">' + (claimedByMe ? '\ud83d\udd12 Claimed by you' : '\ud83d\udd12 Claimed by ' + b.claimed_by_email) + '</span>'
+          : '<span style="font-size:11px;color:var(--ink-muted);margin-top:4px;display:block;">\u26aa Unclaimed</span>'
+      var actionBtns = ''
+      if (!isCompleted && !isClaimed) {
+        actionBtns = '<button onclick="claimBrief(&quot;' + b.id + '&quot;)" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;margin-bottom:4px;">Claim</button><br>'
+      } else if (!isCompleted && (claimedByMe || isAdmin)) {
+        actionBtns = '<button onclick="completeBrief(&quot;' + b.id + '&quot;)" style="background:#10b981;color:white;border:none;border-radius:var(--radius);padding:6px 12px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;margin-bottom:4px;">\u2705 Mark complete</button><br>'
+          + '<button onclick="unclaimBrief(&quot;' + b.id + '&quot;)" style="background:white;color:var(--ink-muted);border:1px solid var(--border);border-radius:var(--radius);padding:5px 10px;font-family:var(--sans);font-size:11px;cursor:pointer;margin-bottom:4px;">Release</button><br>'
       }
-      return '<div style="background:' + bg + ';border:' + border + ';border-radius:var(--radius-lg);padding:16px 20px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">' +
-        '<div style="flex:1;">' +
-        '<div style="font-weight:600;font-size:15px;">' + (b.business_name || 'Unknown') + '</div>' +
-        '<div style="font-size:13px;color:var(--ink-muted);margin-top:2px;">' + (b.email || '') + ' &middot; ' + (b.plan || 'standard') + ' plan &middot; ' + date + '</div>' +
-        claimTag +
-        (fd.description ? '<div style="font-size:13px;color:var(--ink-light);margin-top:6px;">' + fd.description.substring(0,100) + (fd.description.length > 100 ? '...' : '') + '</div>' : '') +
-        '</div>' +
-        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">' +
-        actionBtn +
-        '<div style="display:flex;gap:6px;">' +
-        (getRole() === 'admin' ? '<button onclick="deleteBrief(&quot;' + b.id + '&quot;)" style="background:#fee2e2;color:#ef4444;border:1px solid #ef4444;border-radius:var(--radius);padding:6px 10px;font-family:var(--sans);font-size:12px;cursor:pointer;">Delete</button>' : '') +
-        '<button onclick="showBriefModal(this)" data-brief="' + safeJson.replace(/"/g,'&quot;') + '" style="background:var(--accent-light);color:var(--accent);border:1px solid var(--accent);border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">View brief</button>' +
-        '</div>' +
-        '</div></div></div>'
+      var showContact = isCompleted || claimedByMe || isAdmin
+      var contactInfo = showContact
+        ? '<div style="font-size:13px;color:var(--ink-muted);margin-top:2px;">' + (b.email||'') + ' &middot; ' + (b.plan||'standard') + ' plan &middot; ' + date + '</div>'
+        : '<div style="font-size:13px;color:var(--ink-muted);margin-top:2px;">' + (b.plan||'standard') + ' plan &middot; ' + date + ' &middot; <em>Claim to see contact info</em></div>'
+      var viewBtn = (isCompleted || !isClaimed || claimedByMe || isAdmin)
+        ? '<button onclick="showBriefModal(this)" data-brief="' + safeJson.replace(/"/g,'&quot;') + '" style="background:var(--accent-light);color:var(--accent);border:1px solid var(--accent);border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;">View brief</button>'
+        : '<button disabled style="background:var(--cream);color:var(--ink-muted);border:1px solid var(--border);border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;cursor:not-allowed;">\ud83d\udd12 Locked</button>'
+      var deleteBtn = isAdmin ? '<br><button onclick="deleteBrief(&quot;' + b.id + '&quot;)" style="background:#fee2e2;color:#ef4444;border:1px solid #ef4444;border-radius:var(--radius);padding:5px 8px;font-family:var(--sans);font-size:11px;cursor:pointer;margin-top:4px;">Delete</button>' : ''
+      return '<div style="background:' + bg + ';border:' + border + ';border-radius:var(--radius-lg);padding:16px 20px;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">'
+        + '<div style="flex:1;"><div style="font-weight:600;font-size:15px;">' + (b.business_name||'Unknown') + '</div>'
+        + contactInfo + statusTag
+        + (showContact && fd.description ? '<div style="font-size:13px;color:var(--ink-light);margin-top:6px;">' + fd.description.substring(0,100) + (fd.description.length>100?'...':'') + '</div>' : '')
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">' + actionBtns + viewBtn + deleteBtn + '</div>'
+        + '</div></div>'
     }).join('') + '</div>'
   // Apply to all submitted-briefs-wrap elements on the page (admin + manager pages)
   document.querySelectorAll('[id="submitted-briefs-wrap"]').forEach(function(el) { el.innerHTML = html })
@@ -2663,15 +2673,39 @@ function renderDomainRequests(requests) {
   }).join('')
 }
 
-async function completeDomainRequest(id) {
+function completeDomainRequest(id) {
+  // Show cost input modal before marking complete
+  var existing = document.getElementById('domain-complete-modal')
+  if (existing) existing.remove()
+  var modal = document.createElement('div')
+  modal.id = 'domain-complete-modal'
+  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.7);display:flex;align-items:center;justify-content:center;padding:20px;'
+  modal.innerHTML = '<div style="background:white;border-radius:16px;width:100%;max-width:440px;padding:28px;box-shadow:0 24px 60px rgba(0,0,0,0.2);">' +
+    '<div style="font-family:var(--serif);font-size:20px;margin-bottom:6px;">Mark domain complete</div>' +
+    '<p style="font-size:13px;color:var(--ink-muted);margin-bottom:18px;">Optionally enter pricing to include in the approval email sent to the contractor.</p>' +
+    '<div class="dash-field" style="margin-bottom:12px;"><label>Domain setup cost ($)</label><input type="number" id="dc-cost" placeholder="e.g. 25" min="0" step="0.01"></div>' +
+    '<div class="dash-field" style="margin-bottom:20px;"><label>Annual renewal cost ($/year)</label><input type="number" id="dc-yearly" placeholder="e.g. 15" min="0" step="0.01"></div>' +
+    '<div style="display:flex;gap:10px;">' +
+    '<button onclick="submitDomainComplete(&quot;' + id + '&quot;)" style="flex:1;padding:12px;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;">Mark complete &amp; notify</button>' +
+    '<button onclick="document.getElementById(&quot;domain-complete-modal&quot;).remove()" style="padding:12px 20px;background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:14px;cursor:pointer;">Cancel</button>' +
+    '</div></div>'
+  modal.onclick = function(e) { if (e.target === modal) modal.remove() }
+  document.body.appendChild(modal)
+}
+
+async function submitDomainComplete(id) {
+  var cost   = document.getElementById('dc-cost')?.value || 0
+  var yearly = document.getElementById('dc-yearly')?.value || 0
   try {
     var res = await fetch(API + '/admin/domain-requests/' + id + '/complete', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ domain_cost: parseFloat(cost) || 0, domain_yearly_fee: parseFloat(yearly) || 0 })
     })
     var d = {}
     try { d = await res.json() } catch(e) { d = {} }
     if (res.ok && d.message) {
+      document.getElementById('domain-complete-modal').remove()
       loadDomainRequests()
     } else {
       alert('Error ' + res.status + ': ' + (d.error || 'Could not mark complete'))
@@ -2942,4 +2976,34 @@ function updateCommissionById(btn) {
 function updateManagerOrgRateById(btn) {
   var id = btn.getAttribute('data-id')
   updateManagerOrgRate(id)
+}
+
+// ── COMPLETE BRIEF ────────────────────────────────────────
+async function completeBrief(id) {
+  try {
+    var res = await fetch(API + '/admin/website-briefs/' + id + '/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    if (d.message) loadSubmittedBriefs()
+    else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect to server') }
+}
+
+// ── UPDATE CLIENT DOMAIN ──────────────────────────────────
+async function updateClientDomain(clientId) {
+  var domain = document.getElementById('dn-'+clientId)?.value.trim() || ''
+  var cost   = parseFloat(document.getElementById('dc-'+clientId)?.value) || 0
+  var yearly = parseFloat(document.getElementById('dy-'+clientId)?.value) || 0
+  try {
+    var res = await fetch(API + '/admin/update-domain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ client_id: clientId, domain_name: domain, domain_cost: cost, domain_yearly_fee: yearly })
+    })
+    var d = await res.json()
+    if (d.message) loadAdminData()
+    else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect to server') }
 }

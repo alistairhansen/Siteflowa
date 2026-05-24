@@ -1311,18 +1311,29 @@ app.get('/admin/domain-requests', authMiddleware, async (req, res) => {
 
 app.post('/admin/domain-requests/:id/complete', authMiddleware, staffMiddleware, async (req, res) => {
   if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Only admins and managers can mark domain requests complete' })
+  const { domain_cost, domain_yearly_fee } = req.body
   try {
     const req2 = await pool.query('SELECT * FROM domain_requests WHERE id=$1', [req.params.id])
     const dr = req2.rows[0]
     if (!dr) return res.status(404).json({ error: 'Not found' })
-    await pool.query(`UPDATE domain_requests SET status='completed' WHERE id=$1`, [req.params.id])
-    // Notify contractor — wrapped so email failure doesn't block the response
+    await pool.query(`UPDATE domain_requests SET status='completed', domain_cost=$1, domain_yearly_fee=$2 WHERE id=$3`,
+      [domain_cost || 0, domain_yearly_fee || 0, req.params.id])
+    // Update client's domain cost too if we have a website_id
+    if (dr.website_id && (domain_cost || domain_yearly_fee)) {
+      const w = await pool.query('SELECT client_id FROM websites WHERE id=$1', [dr.website_id])
+      if (w.rows[0]) {
+        await pool.query('UPDATE clients SET domain_cost=$1, domain_yearly_fee=$2 WHERE id=$3',
+          [domain_cost || 0, domain_yearly_fee || 0, w.rows[0].client_id])
+      }
+    }
     if (dr.requested_by_email) {
+      const costLine = domain_cost ? '<p><strong>Domain setup cost:</strong> $' + domain_cost + '</p>' : ''
+      const yearlyLine = domain_yearly_fee ? '<p><strong>Annual renewal:</strong> $' + domain_yearly_fee + '/year</p>' : ''
       resend.emails.send({
         from: 'Sitefloa <hello@sitefloa.com>',
         to: dr.requested_by_email,
-        subject: 'Your domain is ready — ' + (dr.domain_name || ''),
-        html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;"><h2 style="font-family:Georgia,serif;color:#1a6b5a;">Domain is ready!</h2><p>The domain <strong>${dr.domain_name}</strong> for <strong>${dr.business_name}</strong> has been set up.</p><p>Log in to your dashboard to connect it to the client's website.</p></div>`
+        subject: 'Domain approved — ' + (dr.domain_name || ''),
+        html: '<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;"><h2 style="font-family:Georgia,serif;color:#1a6b5a;">Domain is ready! ✅</h2><p>The domain <strong>' + dr.domain_name + '</strong> for <strong>' + dr.business_name + '</strong> has been set up and approved.</p>' + costLine + yearlyLine + '<p>Log in to your dashboard to connect it to the client website.</p><a href="https://sitefloa.com" style="display:inline-block;margin:20px 0;padding:12px 24px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;">View Dashboard →</a></div>'
       }).catch(e => console.error('Domain email error:', e))
     }
     res.json({ message: 'Domain request marked complete' })
@@ -1917,6 +1928,19 @@ app.delete('/admin/website-briefs/:id', authMiddleware, adminMiddleware, async (
   } catch(err) { res.status(500).json({ error: err.message }) }
 })
 
+// ── MARK BRIEF COMPLETE ───────────────────────────────
+app.post('/admin/website-briefs/:id/complete', authMiddleware, staffMiddleware, async (req, res) => {
+  try {
+    const existing = await pool.query('SELECT * FROM website_briefs WHERE id=$1', [req.params.id])
+    if (!existing.rows[0]) return res.status(404).json({ error: 'Brief not found' })
+    await pool.query(
+      "UPDATE website_briefs SET status='completed', completed_at=NOW() WHERE id=$1",
+      [req.params.id]
+    )
+    res.json({ message: 'Brief marked complete' })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
 // ── GET SUBMITTED WEBSITE BRIEFS ────────────────────
 app.get('/admin/website-briefs', authMiddleware, staffMiddleware, async (req, res) => {
   try {
@@ -1935,8 +1959,8 @@ app.post('/admin/website-briefs/:id/claim', authMiddleware, staffMiddleware, asy
       return res.status(400).json({ error: 'This brief has already been claimed by ' + (existing.rows[0].claimed_by_email || 'someone') })
     }
     await pool.query(
-      'UPDATE website_briefs SET claimed_by=$1, claimed_by_email=$2, claimed_at=NOW() WHERE id=$3',
-      [req.user.id, req.user.email, req.params.id]
+      'UPDATE website_briefs SET claimed_by_email=$1, claimed_at=NOW() WHERE id=$2',
+      [req.user.email, req.params.id]
     )
     res.json({ message: 'Brief claimed' })
   } catch (err) { res.status(500).json({ error: err.message }) }
@@ -1947,11 +1971,11 @@ app.post('/admin/website-briefs/:id/unclaim', authMiddleware, staffMiddleware, a
   try {
     const existing = await pool.query('SELECT * FROM website_briefs WHERE id=$1', [req.params.id])
     if (!existing.rows[0]) return res.status(404).json({ error: 'Brief not found' })
-    if (existing.rows[0].claimed_by != req.user.id && req.user.role !== 'admin') {
+    if (existing.rows[0].claimed_by_email !== req.user.email && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'You can only unclaim your own briefs' })
     }
     await pool.query(
-      'UPDATE website_briefs SET claimed_by=NULL, claimed_by_email=NULL, claimed_at=NULL WHERE id=$1',
+      'UPDATE website_briefs SET claimed_by_email=NULL, claimed_at=NULL WHERE id=$1',
       [req.params.id]
     )
     res.json({ message: 'Brief unclaimed' })
@@ -2015,6 +2039,21 @@ async function checkOverdueAccounts() {
 // Run overdue check every 24 hours
 setInterval(checkOverdueAccounts, 24 * 60 * 60 * 1000)
 checkOverdueAccounts() // Run on startup too
+
+// ── UPDATE CLIENT DOMAIN NAME / COST ─────────────────────
+app.post('/admin/update-domain', authMiddleware, staffMiddleware, async (req, res) => {
+  const { client_id, domain_name, domain_cost, domain_yearly_fee } = req.body
+  try {
+    await pool.query(
+      'UPDATE clients SET domain_name=$1, domain_cost=$2, domain_yearly_fee=$3 WHERE id=$4',
+      [domain_name||'', domain_cost||0, domain_yearly_fee||0, client_id]
+    )
+    if (domain_name) {
+      await pool.query('UPDATE websites SET domain_name=$1 WHERE client_id=$2', [domain_name, client_id])
+    }
+    res.json({ message: 'Domain updated' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
 
 // ── MARK CLIENT WEBSITE AS PREVIEW READY ────────────────
 app.post('/admin/mark-preview-ready', authMiddleware, staffMiddleware, async (req, res) => {
