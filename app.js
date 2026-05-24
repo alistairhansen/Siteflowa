@@ -767,6 +767,7 @@ function renderStaffList(managers){
     const commissionAll=Math.round(totalAll*rate/100)
     const isManager=m.role==='manager'
     const id=m.id, email=m.email, role=m.role||'contractor'
+    const encEmail = (email||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;')
     const roleTag=!isManager
       ?'<span style="background:#e8f4f1;color:var(--accent);border:1px solid var(--accent);border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;text-transform:uppercase;margin-left:6px;">Contractor</span>'
       :'<span style="background:#ede9ff;color:#7c3aed;border:1px solid #c4b5fd;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;text-transform:uppercase;margin-left:6px;">Manager</span>'
@@ -801,10 +802,10 @@ function renderStaffList(managers){
       +'<input type="number" value="'+rate+'" style="width:56px;padding:4px 8px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius);" id="cr-'+id+'" min="0" max="100">'
       +'<button class="action-btn" onclick="updateCommission('+id+')">Save</button>'
       +orgRateRow
-      +'<button class="action-btn" style="background:var(--accent-light);border-color:var(--accent);color:var(--accent);margin-left:4px;" onclick="viewPayHistory('+id+',\''+email.replace(/'/g,'\\x27')+'\')">📋 History</button>'
-      +'<button class="dash-save" style="padding:4px 12px;font-size:12px;background:var(--purple);" onclick="closePeriod('+id+',\''+email.replace(/'/g,'\\x27')+'\')">✓ Close period &amp; pay</button>'
-      +'<button class="action-btn" onclick="swapRole('+id+',\''+role+'\')">'+swapLabel+'</button>'
-      +'<button class="btn-remove" onclick="removeManager('+id+',\''+email.replace(/'/g,'\\x27')+'\')">Remove</button>'
+      +'<button class="action-btn" style="background:var(--accent-light);border-color:var(--accent);color:var(--accent);margin-left:4px;" onclick="viewPayHistoryById('+id+')" data-email="'+encEmail+'">📋 History</button>'
+      +'<button class="dash-save" style="padding:4px 12px;font-size:12px;background:var(--purple);" onclick="closePeriodById('+id+')" data-email="'+encEmail+'">✓ Close period &amp; pay</button>'
+      +'<button class="action-btn" onclick="swapRole('+id+','+JSON.stringify(role)+')">'+swapLabel+'</button>'
+      +'<button class="btn-remove" onclick="removeManagerById('+id+')" data-email="'+encEmail+'">Remove</button>'
       +'</div>'
       +'<div id="pay-history-'+id+'" style="display:none;background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:8px;">'
       +'<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:10px;">Pay period history</div>'
@@ -2911,4 +2912,21 @@ async function openBillingPortal() {
   } catch(e) {
     alert('Could not connect to server')
   }
+}
+
+// ── STAFF ACTION WRAPPERS (read email from data attribute to avoid onclick quote issues) ──
+function viewPayHistoryById(id) {
+  var btn = document.querySelector('[onclick="viewPayHistoryById('+id+')"]')
+  var email = btn ? btn.getAttribute('data-email') : ''
+  viewPayHistory(id, email)
+}
+function closePeriodById(id) {
+  var btn = document.querySelector('[onclick="closePeriodById('+id+')"]')
+  var email = btn ? btn.getAttribute('data-email') : ''
+  closePeriod(id, email)
+}
+function removeManagerById(id) {
+  var btn = document.querySelector('[onclick="removeManagerById('+id+')"]')
+  var email = btn ? btn.getAttribute('data-email') : ''
+  removeManager(id, email)
 }
