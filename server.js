@@ -852,7 +852,8 @@ app.get('/site/:subdomain', async (req, res) => {
 })
 
 // ── SERVE CLIENT SITE HTML ──────────────────────────────
-app.get('/client/:subdomain', async (req, res) => {
+// Both /sites/ and /client/ work so preview links always resolve
+async function serveClientSite(req, res) {
   const fs = require('fs')
   const { subdomain } = req.params
   try {
@@ -867,7 +868,9 @@ app.get('/client/:subdomain', async (req, res) => {
   } catch (err) {
     res.status(500).send('<h1>Error loading website</h1>')
   }
-})
+}
+app.get('/client/:subdomain', serveClientSite)
+app.get('/sites/:subdomain', serveClientSite)
 
 
 // ── LEADS / SALES PIPELINE ──────────────────────────────

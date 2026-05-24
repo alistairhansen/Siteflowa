@@ -1412,31 +1412,112 @@ async function sendInviteCodeEmail() {
 // ── HOLDING PAGE (Building / Review stages) ─────────
 function showHoldingPage(stage, website) {
   var wrap = document.getElementById('holding-content')
+  var clientId = getToken() ? JSON.parse(atob(getToken().split('.')[1])).id : null
+  var chatSection = clientId ? buildClientChatSection(clientId) : ''
+
   if (stage === 'building') {
-    wrap.innerHTML = '<div style="font-size:48px;margin-bottom:20px;">🏗️</div>' +
+    wrap.innerHTML =
+      '<div style="max-width:680px;margin:0 auto;">' +
+      '<div style="text-align:center;margin-bottom:32px;">' +
+      '<div style="font-size:48px;margin-bottom:16px;">🏗️</div>' +
       '<h2 style="font-family:Georgia,serif;font-size:28px;margin-bottom:12px;">We\'re building your website!</h2>' +
-      '<p style="color:#4a4f5e;font-size:15px;line-height:1.6;margin-bottom:24px;">Thank you for your deposit. Our team is now working on your website. We\'ll notify you by email as soon as it\'s ready for you to review.</p>' +
-      '<div style="background:#f0faf7;border:1px solid rgba(26,107,90,0.2);border-radius:12px;padding:20px;margin-bottom:24px;">' +
+      '<p style="color:#4a4f5e;font-size:15px;line-height:1.6;margin-bottom:20px;">Thank you for your deposit. Our team is now working on your website. We will notify you by email as soon as it is ready to preview.</p>' +
+      '<div style="background:#f0faf7;border:1px solid rgba(26,107,90,0.2);border-radius:12px;padding:20px;text-align:left;margin-bottom:20px;">' +
       '<div style="font-size:13px;font-weight:600;color:#1a6b5a;margin-bottom:8px;">What happens next?</div>' +
       '<ol style="font-size:14px;color:#4a4f5e;line-height:1.8;margin:0;padding-left:20px;">' +
       '<li>We build your website based on your brief</li>' +
-      '<li>You\'ll get an email when it\'s ready to preview</li>' +
-      '<li>Review it and request any changes</li>' +
-      '<li>Approve it and we\'ll make it live!</li>' +
+      '<li>You will get an email when it is ready to preview</li>' +
+      '<li>Review it, request any changes via the chat below</li>' +
+      '<li>Approve it and it goes live!</li>' +
       '</ol></div>' +
-      '<p style="color:#999;font-size:13px;">Business: <strong>' + (website?.business_name || '') + '</strong></p>' +
-      '<button onclick="doLogout()" style="margin-top:20px;padding:10px 24px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-size:14px;">Log out</button>'
+      '<button onclick="doLogout()" style="padding:10px 24px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-size:14px;">Log out</button>' +
+      '</div>' +
+      chatSection +
+      '</div>'
   } else if (stage === 'review') {
-    wrap.innerHTML = '<div style="font-size:48px;margin-bottom:20px;">✨</div>' +
+    wrap.innerHTML =
+      '<div style="max-width:680px;margin:0 auto;">' +
+      '<div style="text-align:center;margin-bottom:32px;">' +
+      '<div style="font-size:48px;margin-bottom:16px;">✨</div>' +
       '<h2 style="font-family:Georgia,serif;font-size:28px;margin-bottom:12px;">Your website is ready to review!</h2>' +
-      '<p style="color:#4a4f5e;font-size:15px;line-height:1.6;margin-bottom:24px;">Take a look at your new website below. If you\'re happy with it, click the approve button to make it live!</p>' +
-      (website?.subdomain ? '<a href="/sites/' + website.subdomain + '" target="_blank" style="display:inline-block;margin-bottom:24px;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">🌐 Preview your website</a>' : '') +
-      '<div style="margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">' +
+      '<p style="color:#4a4f5e;font-size:15px;line-height:1.6;margin-bottom:20px;">Take a look at your website using the preview link. Request any final changes in the chat below, then click approve when you\'re happy.</p>' +
+      (website?.subdomain ? '<a href="/client/' + website.subdomain + '" target="_blank" style="display:inline-block;margin-bottom:16px;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;font-size:15px;">🌐 Preview your website</a><br>' : '<p style="color:#888;font-size:13px;margin-bottom:16px;">Preview link not yet available — check back soon.</p>') +
+      '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:8px;">' +
       '<button onclick="approveWebsite()" style="padding:14px 28px;background:#1a6b5a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:500;">✅ I\'m happy — make it live!</button>' +
       '<button onclick="doLogout()" style="padding:14px 28px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-size:14px;">Log out</button>' +
+      '</div>' +
+      '<p style="font-size:12px;color:#999;">Once you approve and complete payment, your website goes live instantly.</p>' +
+      '</div>' +
+      chatSection +
       '</div>'
   }
   showPage('holding')
+  // Load chat messages after DOM is ready
+  if (clientId) setTimeout(function(){ loadClientChat(clientId) }, 100)
+}
+
+function buildClientChatSection(clientId) {
+  return '<div style="background:white;border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-top:8px;">' +
+    '<div style="background:#1a6b5a;color:white;padding:14px 20px;display:flex;align-items:center;gap:10px;">' +
+    '<span style="font-size:18px;">💬</span>' +
+    '<div><div style="font-weight:600;font-size:15px;">Chat with your website team</div>' +
+    '<div style="font-size:12px;opacity:0.85;">Ask questions, request changes, discuss your domain name</div></div>' +
+    '</div>' +
+    '<div id="client-chat-messages" style="height:280px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;">' +
+    '<p style="text-align:center;color:#aaa;font-size:13px;margin:auto;">Loading messages...</p>' +
+    '</div>' +
+    '<div style="border-top:1px solid var(--border);padding:12px 16px;display:flex;gap:8px;">' +
+    '<input id="client-chat-input" type="text" placeholder="Type a message..." onkeydown="if(event.key===&quot;Enter&quot;)sendClientChatMsg(this.dataset.id)" data-id="' + clientId + '" ' +
+    'style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-family:var(--sans);font-size:14px;">' +
+    '<button onclick="sendClientChatMsg(this.dataset.id)" data-id="' + clientId + '" style="background:#1a6b5a;color:white;border:none;border-radius:8px;padding:10px 18px;font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;">Send</button>' +
+    '</div></div>'
+}
+
+async function loadClientChat(clientId) {
+  var wrap = document.getElementById('client-chat-messages')
+  if (!wrap) return
+  try {
+    var res = await fetch(API + '/messages/' + clientId, {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    var msgs = d.messages || []
+    if (!msgs.length) {
+      wrap.innerHTML = '<p style="text-align:center;color:#aaa;font-size:13px;margin:auto;">No messages yet. Say hi to your team!</p>'
+      return
+    }
+    var myId = JSON.parse(atob(getToken().split('.')[1])).id
+    wrap.innerHTML = msgs.map(function(m) {
+      var isMe = m.sender_id == myId || m.sender_role === 'client'
+      return '<div style="display:flex;' + (isMe ? 'justify-content:flex-end' : 'justify-content:flex-start') + ';">' +
+        '<div style="max-width:75%;background:' + (isMe ? '#1a6b5a' : '#f3f4f6') + ';color:' + (isMe ? 'white' : '#111') + ';' +
+        'border-radius:' + (isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px') + ';padding:10px 14px;font-size:14px;line-height:1.5;">' +
+        (isMe ? '' : '<div style="font-size:11px;font-weight:600;color:#1a6b5a;margin-bottom:3px;">' + (m.sender_email || 'Team') + '</div>') +
+        m.content +
+        '</div></div>'
+    }).join('')
+    wrap.scrollTop = wrap.scrollHeight
+  } catch(e) {
+    wrap.innerHTML = '<p style="text-align:center;color:#aaa;font-size:13px;margin:auto;">Could not load messages.</p>'
+  }
+}
+
+async function sendClientChatMsg(idOrBtn) {
+  var clientId = typeof idOrBtn === 'string' ? idOrBtn : idOrBtn.getAttribute('data-id')
+  var inp = document.getElementById('client-chat-input')
+  var content = inp?.value.trim()
+  if (!content) return
+  inp.value = ''
+  try {
+    var res = await fetch(API + '/messages/' + clientId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ content: content })
+    })
+    var d = await res.json()
+    if (d.message) loadClientChat(clientId)
+    else { inp.value = content; alert(d.error || 'Failed to send') }
+  } catch(e) { inp.value = content; alert('Could not connect') }
 }
 
 // ── APPROVE WEBSITE (triggers final payment) ────────
