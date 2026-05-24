@@ -1889,12 +1889,12 @@ function renderPipeline(leads) {
           '</div>' +
           '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
           '<span style="background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;">' + label + '</span>' +
-          (!isClaimed ? '<button onclick="claimLead(' + l.id + ')" style="background:var(--accent);color:white;border:none;padding:5px 12px;border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;">Claim</button>' : '') +
+          (!isClaimed ? '<button onclick="claimLead(&quot;' + l.id + '&quot;)" style="background:var(--accent);color:white;border:none;padding:5px 12px;border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;">Claim</button>' : '') +
           (claimedByMe || getRole() === 'admin' ?
             '<select onchange="updateLeadStage(' + l.id + ',this.value)" style="padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:12px;">' +
             Object.entries(STAGE_LABELS).map(function(e) { return '<option value="' + e[0] + '"' + (l.stage === e[0] ? ' selected' : '') + '>' + e[1] + '</option>' }).join('') +
             '</select>' : '') +
-          (['admin','manager'].includes(getRole()) ? '<button onclick="deleteLead(' + l.id + ')" style="background:none;border:1px solid #ef444466;color:#ef4444;padding:5px 10px;border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;">Delete</button>' : '') +
+          (['admin','manager'].includes(getRole()) ? '<button onclick="deleteLead(&quot;' + l.id + '&quot;)" style="background:none;border:1px solid #ef444466;color:#ef4444;padding:5px 10px;border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;">Delete</button>' : '') +
           '</div></div></div>'
       }).join('') + '</div>'
   }
@@ -2062,9 +2062,9 @@ function renderSubmittedBriefs(briefs) {
         : '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-muted);margin-top:4px;display:block;">⚪ Unclaimed</span>'
       var actionBtn = ''
       if (!isClaimed) {
-        actionBtn = '<button onclick="claimBrief(' + b.id + ')" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;margin-right:6px;">Claim</button>'
+        actionBtn = '<button onclick="claimBrief(&quot;' + b.id + '&quot;)" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;margin-right:6px;">Claim</button>'
       } else if (claimedByMe || getRole() === 'admin') {
-        actionBtn = '<button onclick="unclaimBrief(' + b.id + ')" style="background:white;color:var(--ink-muted);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;font-family:var(--sans);font-size:12px;cursor:pointer;white-space:nowrap;margin-right:6px;">Release</button>'
+        actionBtn = '<button onclick="unclaimBrief(&quot;' + b.id + '&quot;)" style="background:white;color:var(--ink-muted);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;font-family:var(--sans);font-size:12px;cursor:pointer;white-space:nowrap;margin-right:6px;">Release</button>'
       }
       return '<div style="background:' + bg + ';border:' + border + ';border-radius:var(--radius-lg);padding:16px 20px;">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">' +
@@ -2077,7 +2077,7 @@ function renderSubmittedBriefs(briefs) {
         '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">' +
         actionBtn +
         '<div style="display:flex;gap:6px;">' +
-        (getRole() === 'admin' ? '<button onclick="deleteBrief(' + b.id + ')" style="background:#fee2e2;color:#ef4444;border:1px solid #ef4444;border-radius:var(--radius);padding:6px 10px;font-family:var(--sans);font-size:12px;cursor:pointer;">Delete</button>' : '') +
+        (getRole() === 'admin' ? '<button onclick="deleteBrief(&quot;' + b.id + '&quot;)" style="background:#fee2e2;color:#ef4444;border:1px solid #ef4444;border-radius:var(--radius);padding:6px 10px;font-family:var(--sans);font-size:12px;cursor:pointer;">Delete</button>' : '') +
         '<button onclick="showBriefModal(this)" data-brief="' + safeJson.replace(/"/g,'&quot;') + '" style="background:var(--accent-light);color:var(--accent);border:1px solid var(--accent);border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">View brief</button>' +
         '</div>' +
         '</div></div></div>'
@@ -2529,7 +2529,7 @@ function renderBonusGoals(goals) {
       (daysLeft ? '<div style="font-size:12px;color:' + (daysLeft === 'Expired' ? '#ef4444' : '#f59e0b') + ';font-weight:600;margin-top:3px;">' + daysLeft + '</div>' : '') +
       '<div style="font-size:12px;color:var(--accent);font-weight:600;margin-top:3px;">🟢 Active</div>' +
       '</div>' +
-      '<button onclick="deleteBonusGoal(' + g.id + ')" style="background:#fee2e2;border:1px solid #ef4444;border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;color:#ef4444;cursor:pointer;white-space:nowrap;">Remove</button>' +
+      '<button onclick="deleteBonusGoal(&quot;' + g.id + '&quot;)" style="background:#fee2e2;border:1px solid #ef4444;border-radius:var(--radius);padding:6px 14px;font-family:var(--sans);font-size:12px;color:#ef4444;cursor:pointer;white-space:nowrap;">Remove</button>' +
       '</div>'
   }).join('')
 }
@@ -2658,7 +2658,7 @@ function renderDomainRequests(requests) {
         dns.map(function(d) { return '<div style="font-size:12px;font-family:monospace;background:white;border:1px solid var(--border);border-radius:4px;padding:3px 8px;display:inline-block;margin:2px;">' + d.type + ' ' + d.name + ' → ' + d.content + '</div>' }).join('') +
         '</div>' : '') +
       '</div>' +
-      (r.status !== 'completed' ? '<button onclick="completeDomainRequest(' + r.id + ')" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:8px 16px;font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;">Mark complete</button>' : '') +
+      (r.status !== 'completed' ? '<button onclick="completeDomainRequest(&quot;' + r.id + '&quot;)" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:8px 16px;font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;">Mark complete</button>' : '') +
       '</div></div>'
   }).join('')
 }
