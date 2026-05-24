@@ -156,7 +156,7 @@ app.post('/forgot-password', async (req, res) => {
       'INSERT INTO password_resets (client_id, token, expires_at) VALUES ($1, $2, $3)',
       [result.rows[0].id, token, expires]
     )
-    const resetLink = `https://sitefloa.com?token=${token}`
+    const resetLink = `https://sitefloa.com/#reset?token=${token}`
     await resend.emails.send({
       from: 'Sitefloa <hello@sitefloa.com>',
       to: emailLower,

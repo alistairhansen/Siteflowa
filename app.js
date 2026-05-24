@@ -4,7 +4,12 @@ var sentEmailsLog = []
 
 // ── PASSWORD RESET — checked immediately before anything else ──
 ;(function(){
-  var t = new URLSearchParams(window.location.search).get('token')
+  // Support both hash-based (#reset?token=) and query-based (?token=) URLs
+  var hashParams = window.location.hash.indexOf('reset?token=') !== -1
+    ? new URLSearchParams(window.location.hash.split('?')[1] || '')
+    : null
+  var queryParams = new URLSearchParams(window.location.search)
+  var t = (hashParams && hashParams.get('token')) || queryParams.get('token')
   if (!t) return
   window._resetToken = t
   // Run immediately and repeatedly until the DOM is ready
@@ -449,7 +454,11 @@ async function doForgotPassword(){
 }
 
 async function doResetPassword(){
-  const token = window._resetToken || new URLSearchParams(window.location.search).get('token')
+  var hashParams = window.location.hash.indexOf('reset?token=') !== -1
+    ? new URLSearchParams(window.location.hash.split('?')[1] || '')
+    : null
+  var queryParams = new URLSearchParams(window.location.search)
+  const token = window._resetToken || (hashParams && hashParams.get('token')) || queryParams.get('token')
   const password=document.getElementById('reset-password').value
   if(!token)return showError('reset-error','No reset token found. Please request a new reset link.')
   if(!password||password.length<8)return showError('reset-error','Password must be at least 8 characters')
