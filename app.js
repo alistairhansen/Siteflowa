@@ -3007,3 +3007,131 @@ async function updateClientDomain(clientId) {
     else alert(d.error || 'Failed')
   } catch(e) { alert('Could not connect to server') }
 }
+
+// ── SALES GUIDE MODAL ─────────────────────────────────────
+function showSalesGuide() {
+  var existing = document.getElementById('sales-guide-modal')
+  if (existing) existing.remove()
+
+  var steps = [
+    // ROUTE A
+    { route: 'A', type: 'route-header', label: 'Route A — You find the client' },
+    {
+      route: 'A', num: 1, icon: '🎯',
+      title: 'Add them to the Sales Pipeline',
+      desc: 'Go to Sales Pipeline → + Add lead. Enter their business name and any notes. This tracks them as a potential client.'
+    },
+    {
+      route: 'A', num: 2, icon: '📞',
+      title: 'Contact them & show a demo',
+      desc: 'Reach out and show them one of the demo websites to get them excited. Walk them through what their site could look like.'
+    },
+    {
+      route: 'A', num: 3, icon: '✅',
+      title: 'They\'re interested — get their info',
+      desc: 'Get their email address and preferred plan (Basic / Standard / Premium). Let them know you\'ll send a brief form to collect all their website details.'
+    },
+    // ROUTE B
+    { route: 'B', type: 'route-header', label: 'Route B — Client finds us' },
+    {
+      route: 'B', num: 1, icon: '📝',
+      title: 'Inquiry lands in your inbox',
+      desc: 'The client fills out the "Get a Website" form on sitefloa.com. This sends a notification to everyone\'s Inquiries section.'
+    },
+    {
+      route: 'B', num: 2, icon: '🙋',
+      title: 'Claim the inquiry',
+      desc: 'Click Claim on the inquiry. Once claimed, only you can see their contact info — this is now your client. Get their email from the inquiry form.'
+    },
+    // MERGED FLOW
+    { route: 'both', type: 'route-header', label: '⬇️ Both routes continue here' },
+    {
+      route: 'both', num: 3, icon: '📧',
+      title: 'Send them the brief form',
+      desc: 'Go to Client Email Center → enter their email → pick their plan → select "Website Brief Form" → Send. This emails them a link to fill out all their website details.'
+    },
+    {
+      route: 'both', num: 4, icon: '📬',
+      title: 'Claim the submitted brief',
+      desc: 'Once they fill it out it appears in Submitted Briefs. Click Claim — now only you can view their full brief and contact info.'
+    },
+    {
+      route: 'both', num: 5, icon: '👤',
+      title: 'Create their client profile',
+      desc: 'Go to "Create new client website" at the bottom of your dashboard. Enter their name, email, and tier. Press "Create + Get Code" and copy the invite code.'
+    },
+    {
+      route: 'both', num: 6, icon: '🔑',
+      title: 'Send them their account code',
+      desc: 'Back in Client Email Center → change type to "Invite Code + Instructions" → paste their code → Send. They use this to create their account.'
+    },
+    {
+      route: 'both', num: 7, icon: '💳',
+      title: 'Client pays the deposit',
+      desc: 'When they create their account they\'ll be taken straight to the deposit payment page. Once paid, you\'ll get a notification to start building.'
+    },
+    {
+      route: 'both', num: 8, icon: '🌐',
+      title: 'Build the website',
+      desc: 'Use the Claude prompt from "View brief" to build their site with AI. Once built, go to their profile in the Clients section → click "Upload website HTML" → upload the file.'
+    },
+    {
+      route: 'both', num: 9, icon: '✉️',
+      title: 'Tell them it\'s ready',
+      desc: 'Client Email Center → "Website Ready to Review" → Send. A live chat opens between you and the client for final changes.'
+    },
+    {
+      route: 'both', num: 10, icon: '🌍',
+      title: 'Find & request their domain',
+      desc: 'During the chat, agree on a domain name. Go to "Request domain" → enter the domain name and DNS/CNAME records (ask the AI what it needs when building the site) → Send Request. Wait for the approval email with the cost.'
+    },
+    {
+      route: 'both', num: 11, icon: '💰',
+      title: 'Add domain cost to their profile',
+      desc: 'Once approved, open their profile in the Clients section → update the domain name and yearly cost. If it\'s under their tier allowance, they pay nothing extra. If over, they pay the difference.'
+    },
+    {
+      route: 'both', num: 12, icon: '🚀',
+      title: 'Client approves → goes live → you get paid',
+      desc: 'When the client is happy they press "Go live" and pay the remaining launch fee. Their website goes live, your commission is added to your earnings for this pay period.'
+    },
+    {
+      route: 'both', num: 13, icon: '📊',
+      title: 'Update the Sales Pipeline',
+      desc: 'Go back to their lead in the Sales Pipeline and update the status to "Won". Keep all lead statuses current so everyone knows the pipeline at a glance.'
+    }
+  ]
+
+  function card(step) {
+    if (step.type === 'route-header') {
+      var color = step.route === 'A' ? '#3b82f6' : step.route === 'B' ? '#8b5cf6' : 'var(--accent)'
+      var bg    = step.route === 'A' ? '#eff6ff' : step.route === 'B' ? '#f5f3ff' : '#e8f4f1'
+      return '<div style="background:' + bg + ';border-left:4px solid ' + color + ';border-radius:var(--radius);padding:10px 16px;margin:16px 0 8px;">'
+        + '<div style="font-weight:700;font-size:14px;color:' + color + ';">' + step.label + '</div>'
+        + '</div>'
+    }
+    var color = step.route === 'A' ? '#3b82f6' : step.route === 'B' ? '#8b5cf6' : 'var(--accent)'
+    var numBg = step.route === 'A' ? '#dbeafe' : step.route === 'B' ? '#ede9ff' : '#e8f4f1'
+    return '<div style="display:flex;gap:14px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border);">'
+      + '<div style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:' + numBg + ';display:flex;align-items:center;justify-content:center;font-size:18px;">' + step.icon + '</div>'
+      + '<div style="flex:1;">'
+      + '<div style="font-weight:600;font-size:14px;margin-bottom:3px;">' + step.title + '</div>'
+      + '<div style="font-size:13px;color:var(--ink-muted);line-height:1.5;">' + step.desc + '</div>'
+      + '</div></div>'
+  }
+
+  var modal = document.createElement('div')
+  modal.id = 'sales-guide-modal'
+  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.75);display:flex;align-items:center;justify-content:center;padding:16px;'
+  modal.innerHTML = '<div style="background:white;border-radius:16px;width:100%;max-width:640px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.25);">'
+    + '<div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">'
+    + '<div><div style="font-family:var(--serif);font-size:22px;">📋 How to Land a Client</div>'
+    + '<div style="font-size:13px;color:var(--ink-muted);margin-top:3px;">Step-by-step guide from first contact to commission</div></div>'
+    + '<button onclick="document.getElementById(&quot;sales-guide-modal&quot;).remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--ink-muted);">&times;</button>'
+    + '</div>'
+    + '<div style="overflow-y:auto;padding:4px 24px 24px;">'
+    + steps.map(card).join('')
+    + '</div></div>'
+  modal.onclick = function(e) { if (e.target === modal) modal.remove() }
+  document.body.appendChild(modal)
+}
