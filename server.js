@@ -628,9 +628,12 @@ app.post('/admin/update-domain', authMiddleware, staffMiddleware, async (req, re
 app.delete('/admin/delete-client/:clientId', authMiddleware, adminMiddleware, async (req, res) => {
   const { clientId } = req.params
   try {
+    await pool.query('DELETE FROM password_resets WHERE client_id=$1', [clientId])
     await pool.query('DELETE FROM referral_uses WHERE used_by_client_id=$1', [clientId])
     await pool.query('DELETE FROM referral_codes WHERE owner_client_id=$1', [clientId])
     await pool.query('DELETE FROM invite_codes WHERE website_id=(SELECT id FROM websites WHERE client_id=$1)', [clientId])
+    await pool.query('DELETE FROM messages WHERE client_id=$1', [clientId])
+    await pool.query('DELETE FROM pay_periods WHERE manager_id=$1', [clientId])
     await pool.query('DELETE FROM websites WHERE client_id=$1', [clientId])
     await pool.query('DELETE FROM clients WHERE id=$1', [clientId])
     res.json({ message: 'Client deleted' })
@@ -2039,6 +2042,8 @@ async function checkOverdueAccounts() {
         html: '<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;"><h2 style="color:#dc2626;">Account deleted</h2><p>Your Sitefloa website and account have been permanently deleted due to 30 days of non-payment.</p><p>If you believe this is an error, please contact us at hello@sitefloa.com.</p></div>'
       }).catch(e => console.error('Deletion email error:', e))
       // Delete website and client
+      await pool.query('DELETE FROM password_resets WHERE client_id=$1', [client.id])
+      await pool.query('DELETE FROM messages WHERE client_id=$1', [client.id])
       await pool.query('DELETE FROM websites WHERE client_id=$1', [client.id])
       await pool.query('DELETE FROM clients WHERE id=$1', [client.id])
       console.log('Auto-deleted overdue account:', client.email)
