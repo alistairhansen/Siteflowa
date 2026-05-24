@@ -1091,7 +1091,7 @@ function renderManagerTable(clients){
         <div class="detail-item"><div class="dl">Business</div><div class="dv">${c.business_name||'-'}</div></div>
         <div class="detail-item"><div class="dl">Referral code</div><div class="dv" style="font-family:monospace;">${c.referral_code||'-'}</div></div>
         <div class="detail-item"><div class="dl">Created by</div><div class="dv">${c.created_by_email||'-'}</div></div>
-        <div class="detail-item"><div class="dl">Active</div><div class="dv">${c.is_active?'OK Yes':'No No'}</div></div>
+        <div class="detail-item"><div class="dl">Active</div><div class="dv">${c.is_active?'✅ Yes':'❌ No'}</div></div>
       </div>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="action-btn" style="background:#1a6b5a;color:white;border-color:#1a6b5a;" onclick="uploadSiteHtml('${c.website_id}','${c.email}')">🌐 Upload website</button>
@@ -1119,19 +1119,19 @@ async function mgrCreateWebsite(){
 }
 
 function buildClientStatus(c) {
-  // Suspended
+  // Suspended / missed payment
   if (c.subscription_status==='suspended') return '<span class="status-badge suspended">⚠️ Missed payment</span>'
-  // Launched / live
-  if (c.is_active && c.onboarding_stage==='launched') return '<span class="status-badge active">Live ✅</span>'
-  // Deposit not paid yet
-  const depositPaid = c.deposit_paid || ['deposit_paid','building','brief_submitted','preview_ready','launched'].includes(c.onboarding_stage)
-  if (!depositPaid) return '<span class="status-badge pending">Deposit pending</span>'
-  // Auto-derive build status from data
+  // Fully live - must have is_active=true AND launched stage AND subscription active
+  if (c.is_active===true && c.onboarding_stage==='launched' && c.subscription_status==='active') {
+    return '<span class="status-badge active">Live ✅</span>'
+  }
+  // Deposit paid check - use the actual deposit_paid column only
+  const depositPaid = c.deposit_paid === true
+  if (!depositPaid) return '<span class="status-badge pending">No deposit yet</span>'
+  // Deposit paid - derive build state from site_html
   if (c.site_html) {
-    // Has HTML uploaded = in preview / waiting on client
     return '<span class="status-badge active">Deposit paid ✓</span><div style="font-size:11px;font-weight:600;color:#3b82f6;margin-top:3px;">👁 In preview</div>'
   }
-  // Deposit paid but no HTML yet = WIP
   return '<span class="status-badge active">Deposit paid ✓</span><div style="font-size:11px;font-weight:600;color:var(--accent);margin-top:3px;">🔨 WIP — Being built</div>'
 }
 function renderClientsTable(clients){
@@ -1162,7 +1162,7 @@ function renderClientsTable(clients){
         <div class="detail-item"><div class="dl">Business</div><div class="dv">${c.business_name||'-'}</div></div>
         <div class="detail-item"><div class="dl">Referral code</div><div class="dv" style="font-family:monospace;">${c.referral_code||'-'}</div></div>
         <div class="detail-item"><div class="dl">Created by</div><div class="dv">${c.created_by_email||'-'}</div></div>
-        <div class="detail-item"><div class="dl">Active</div><div class="dv">${c.is_active?'OK Yes':'No No'}</div></div>
+        <div class="detail-item"><div class="dl">Active</div><div class="dv">${c.is_active?'✅ Yes':'❌ No'}</div></div>
       </div>
       <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">
         <button class="action-btn" style="background:#1a6b5a;color:white;border-color:#1a6b5a;" onclick="uploadSiteHtml('${c.website_id}','${c.email}')">🌐 Upload website HTML</button>
@@ -1181,11 +1181,7 @@ function renderClientsTable(clients){
         <button class="dash-save" onclick="updateClientPlan('${c.id}')" style="padding:8px 14px;font-size:13px;">Update plan</button>
         <span style="font-size:12px;color:var(--ink-muted);margin-left:8px;">Fees: $${c.setup_fee||299} setup &middot; $${c.monthly_fee||49}/mo</span>
       </div>
-      <div class="sections-edit">
-        <div class="sections-edit-label">Website sections</div>
-        <div class="sections-edit-checks">${SECTIONS.map(s=>{const on=c.sections?c.sections[s]:['gallery','hours','contact'].includes(s);return`<label class="section-check"><input type="checkbox" id="sec-${s}-${c.id}" ${on?'checked':''}> ${SECTION_LABELS[s]}</label>`}).join('')}</div>
 
-      </div>
     </div></td></tr>
   `).join('')
 }
