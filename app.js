@@ -1046,7 +1046,7 @@ async function loadManagerData(){
     renderManagerEarningsHistory(earnData)
 
     loadInquiries('manager')
-    loadPipeline();loadMgrAssetForms();loadSubmittedBriefs();loadContractorBonus()
+    loadPipeline();loadMgrAssetForms();loadSubmittedBriefs();loadContractorBonus();loadDomainNotifications()
   }catch(e){console.error(e)}
 }
 
@@ -3225,6 +3225,116 @@ function showSalesGuide() {
     + '<div style="overflow-y:auto;padding:4px 24px 24px;">'
     + steps.map(card).join('')
     + '</div></div>'
+  modal.onclick = function(e) { if (e.target === modal) modal.remove() }
+  document.body.appendChild(modal)
+}
+
+// ── DOMAIN NOTIFICATION BELL ─────────────────────────────
+async function loadDomainNotifications() {
+  try {
+    var res = await fetch(API + '/my-domain-requests', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    var requests = d.requests || []
+    // Count unseen approved requests
+    var unseen = requests.filter(function(r) {
+      return r.status === 'completed' && !r.seen_at
+    })
+    var badge = document.getElementById('domain-notif-badge')
+    var bell  = document.getElementById('domain-notif-btn')
+    if (badge && bell) {
+      if (unseen.length > 0) {
+        badge.style.display = 'block'
+        badge.textContent = unseen.length > 9 ? '9+' : unseen.length
+        bell.title = unseen.length + ' new approved domain request' + (unseen.length !== 1 ? 's' : '')
+      } else {
+        badge.style.display = 'none'
+        bell.title = 'Domain requests'
+      }
+    }
+    // Store for modal
+    window._myDomainRequests = requests
+  } catch(e) { console.error('Could not load domain notifications:', e) }
+}
+
+async function showDomainNotifications() {
+  // Mark all seen first
+  fetch(API + '/my-domain-requests/seen', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
+  }).then(function() {
+    // Clear badge
+    var badge = document.getElementById('domain-notif-badge')
+    if (badge) badge.style.display = 'none'
+  })
+
+  var requests = window._myDomainRequests || []
+  // Re-fetch to be sure
+  try {
+    var res = await fetch(API + '/my-domain-requests', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    requests = d.requests || []
+    window._myDomainRequests = requests
+  } catch(e) {}
+
+  var existing = document.getElementById('domain-notif-modal')
+  if (existing) existing.remove()
+
+  function statusBadge(r) {
+    if (r.status === 'completed') return '<span style="background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;">✅ Approved</span>'
+    return '<span style="background:#fff8e6;color:#b45309;border:1px solid #fcd34d;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;">⏳ Pending</span>'
+  }
+
+  function requestCard(r) {
+    var date = new Date(r.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+    var dns = []
+    try { dns = Array.isArray(r.dns_records) ? r.dns_records : JSON.parse(r.dns_records || '[]') } catch(e) {}
+    var isNew = r.status === 'completed' && !r.seen_at
+    return '<div style="border:1px solid ' + (isNew ? '#6ee7b7' : 'var(--border)') + ';border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:10px;background:' + (isNew ? '#f0fdf4' : 'white') + ';">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:10px;">' +
+      '<div>' +
+      (isNew ? '<div style="font-size:11px;font-weight:700;color:#059669;margin-bottom:4px;">🆕 New approval</div>' : '') +
+      '<div style="font-weight:700;font-size:16px;">' + (r.domain_name || 'Unknown domain') + '</div>' +
+      '<div style="font-size:13px;color:var(--ink-muted);margin-top:2px;">' + (r.business_name || '') + ' &middot; Requested ' + date + '</div>' +
+      '</div>' +
+      statusBadge(r) +
+      '</div>' +
+      (r.status === 'completed' ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
+        '<div style="background:var(--cream);border-radius:var(--radius);padding:10px;">' +
+        '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--ink-muted);margin-bottom:3px;">Setup cost</div>' +
+        '<div style="font-size:18px;font-weight:700;color:var(--accent);">$' + (parseFloat(r.domain_cost)||0).toFixed(2) + '</div>' +
+        '</div>' +
+        '<div style="background:var(--cream);border-radius:var(--radius);padding:10px;">' +
+        '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--ink-muted);margin-bottom:3px;">Annual renewal</div>' +
+        '<div style="font-size:18px;font-weight:700;color:var(--accent);">$' + (parseFloat(r.domain_yearly_fee)||0).toFixed(2) + '/yr</div>' +
+        '</div>' +
+        '</div>' : '') +
+      (dns.length ? '<div>' +
+        '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--ink-muted);margin-bottom:6px;">DNS Records</div>' +
+        dns.map(function(d) { return '<div style="font-size:12px;font-family:monospace;background:var(--cream);border:1px solid var(--border);border-radius:4px;padding:4px 8px;display:inline-block;margin:2px;">' + d.type + ' ' + d.name + ' \u2192 ' + d.content + '</div>' }).join('') +
+        '</div>' : '') +
+      '</div>'
+  }
+
+  var modal = document.createElement('div')
+  modal.id = 'domain-notif-modal'
+  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.7);display:flex;align-items:center;justify-content:center;padding:20px;'
+  modal.innerHTML =
+    '<div style="background:white;border-radius:16px;width:100%;max-width:580px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.2);">' +
+    '<div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
+    '<div><div style="font-family:var(--serif);font-size:20px;">🌐 Domain Requests</div>' +
+    '<div style="font-size:13px;color:var(--ink-muted);margin-top:2px;">Your submitted domain requests and their approval status</div></div>' +
+    '<button onclick="document.getElementById(&quot;domain-notif-modal&quot;).remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--ink-muted);">&times;</button>' +
+    '</div>' +
+    '<div style="overflow-y:auto;padding:20px 24px;">' +
+    (requests.length
+      ? requests.map(requestCard).join('')
+      : '<div style="text-align:center;padding:40px 20px;color:var(--ink-muted);">No domain requests yet.<br>Use the form below to request a domain for a client.</div>'
+    ) +
+    '</div></div>'
   modal.onclick = function(e) { if (e.target === modal) modal.remove() }
   document.body.appendChild(modal)
 }

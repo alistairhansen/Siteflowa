@@ -760,7 +760,10 @@
 
     <!-- DOMAIN REQUESTS -->
     <div class="admin-section">
-      <h3>🌐 Request a domain</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <h3 style="margin:0;">🌐 Request a domain</h3>
+        <button onclick="showDomainNotifications()" id="domain-notif-btn" title="Approved domain requests" style="position:relative;background:none;border:none;cursor:pointer;padding:4px 6px;font-size:22px;line-height:1;">🔔<span id="domain-notif-badge" style="display:none;position:absolute;top:0;right:0;background:#ef4444;color:white;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:700;line-height:16px;text-align:center;">!</span></button>
+      </div>
       <p class="section-desc">Request a domain name for a client website. Admins and managers will be notified and set it up for you.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
         <div class="dash-field"><label>Business name</label><input type="text" id="dr-business" placeholder="Jane's Plumbing"></div>

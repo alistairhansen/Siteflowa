@@ -2100,6 +2100,28 @@ async function checkOverdueAccounts() {
 setInterval(checkOverdueAccounts, 24 * 60 * 60 * 1000)
 checkOverdueAccounts() // Run on startup too
 
+// ── GET MY APPROVED DOMAIN REQUESTS ──────────────────────
+app.get('/my-domain-requests', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM domain_requests WHERE requested_by_email=$1 ORDER BY created_at DESC",
+      [req.user.email]
+    )
+    res.json({ requests: result.rows })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── MARK DOMAIN NOTIFICATIONS SEEN ────────────────────────
+app.post('/my-domain-requests/seen', authMiddleware, async (req, res) => {
+  try {
+    await pool.query(
+      "UPDATE domain_requests SET seen_at=NOW() WHERE requested_by_email=$1 AND status='completed' AND seen_at IS NULL",
+      [req.user.email]
+    )
+    res.json({ message: 'Marked seen' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
 // ── UPDATE CLIENT DOMAIN NAME / COST ─────────────────────
 app.post('/admin/update-domain', authMiddleware, staffMiddleware, async (req, res) => {
   const { client_id, domain_name, domain_cost, domain_yearly_fee } = req.body
