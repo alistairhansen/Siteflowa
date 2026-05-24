@@ -2892,3 +2892,21 @@ async function payMissedPayment() {
     else alert(d.error || 'Could not open billing portal. Please contact support.')
   } catch(e) { alert('Could not connect to server') }
 }
+
+// ── OPEN STRIPE BILLING PORTAL ────────────────────────────
+async function openBillingPortal() {
+  try {
+    var res = await fetch(API + '/billing-portal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    if (d.url) {
+      window.location.href = d.url
+    } else {
+      alert(d.error || 'Could not open billing portal. Please contact support at hello@sitefloa.com')
+    }
+  } catch(e) {
+    alert('Could not connect to server')
+  }
+}
