@@ -595,8 +595,8 @@ app.post('/admin/update-client-plan', authMiddleware, staffMiddleware, async (re
     await pool.query('UPDATE clients SET plan=$1 WHERE id=$2', [plan, client_id])
     if (setup_fee || monthly_fee) {
       await pool.query(
-        'UPDATE websites SET plan=$1, setup_fee=$2, monthly_fee=$3 WHERE client_id=$4',
-        [plan, setup_fee || 299, monthly_fee || 49, client_id]
+        'UPDATE websites SET setup_fee=$1, monthly_fee=$2 WHERE client_id=$3',
+        [setup_fee || 299, monthly_fee || 49, client_id]
       )
     }
     res.json({ message: 'Plan updated' })

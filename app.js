@@ -1218,7 +1218,7 @@ function getPlanFeesLabel(plan) {
     standard: { setup: ss.plan_standard_setup || 299, monthly: ss.plan_standard_price || 49  },
     premium:  { setup: ss.plan_premium_setup  || 499, monthly: ss.plan_premium_price  || 79  }
   }
-  var f = fees[plan] || fees.standard
+  var f = fees[plan] || fees[plan] || fees.standard
   return 'Setup: $' + f.setup + ' &middot; $' + f.monthly + '/mo'
 }
 function updatePlanFeeDisplay(cid) {
