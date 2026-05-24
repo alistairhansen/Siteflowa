@@ -1119,15 +1119,20 @@ async function mgrCreateWebsite(){
 }
 
 function buildClientStatus(c) {
+  // Suspended
   if (c.subscription_status==='suspended') return '<span class="status-badge suspended">⚠️ Missed payment</span>'
+  // Launched / live
   if (c.is_active && c.onboarding_stage==='launched') return '<span class="status-badge active">Live ✅</span>'
+  // Deposit not paid yet
   const depositPaid = c.deposit_paid || ['deposit_paid','building','brief_submitted','preview_ready','launched'].includes(c.onboarding_stage)
-  const stageLabels = {account_created:'No account yet',pending_payment:'Awaiting deposit',deposit_paid:'Deposit paid ✓',building:'WIP — Being built',brief_submitted:'Brief received',preview_ready:'In preview',review:'In review',launched:'Live ✅'}
-  const buildLabel = c.build_status==='wip'?'🔨 WIP':c.build_status==='preview'?'👁 In preview':''
-  let html = '<span class="status-badge '+(depositPaid?'active':'pending')+'">'+(depositPaid?'Deposit paid ✓':'Deposit pending')+'</span>'
-  if (buildLabel) html += '<div style="font-size:11px;font-weight:600;color:var(--accent);margin-top:3px;">'+buildLabel+'</div>'
-  else if (c.onboarding_stage) html += '<div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">'+(stageLabels[c.onboarding_stage]||c.onboarding_stage)+'</div>'
-  return html
+  if (!depositPaid) return '<span class="status-badge pending">Deposit pending</span>'
+  // Auto-derive build status from data
+  if (c.site_html) {
+    // Has HTML uploaded = in preview / waiting on client
+    return '<span class="status-badge active">Deposit paid ✓</span><div style="font-size:11px;font-weight:600;color:#3b82f6;margin-top:3px;">👁 In preview</div>'
+  }
+  // Deposit paid but no HTML yet = WIP
+  return '<span class="status-badge active">Deposit paid ✓</span><div style="font-size:11px;font-weight:600;color:var(--accent);margin-top:3px;">🔨 WIP — Being built</div>'
 }
 function renderClientsTable(clients){
   const tbody=document.getElementById('clients-table-body')
@@ -1160,16 +1165,8 @@ function renderClientsTable(clients){
         <div class="detail-item"><div class="dl">Active</div><div class="dv">${c.is_active?'OK Yes':'No No'}</div></div>
       </div>
       <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">
-        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Build status</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-          <button onclick="setBuildStatus('${c.id}','wip')" class="action-btn" style="${c.build_status==='wip'?'background:var(--accent);color:white;border-color:var(--accent);':''}">🔨 WIP</button>
-          <button onclick="setBuildStatus('${c.id}','preview')" class="action-btn" style="${c.build_status==='preview'?'background:#3b82f6;color:white;border-color:#3b82f6;':''}">👁 In Preview</button>
-          <button onclick="setBuildStatus('${c.id}','completed')" class="action-btn" style="${c.build_status==='completed'||c.onboarding_stage==='launched'?'background:#10b981;color:white;border-color:#10b981;':''}">✅ Completed</button>
-          <span style="font-size:12px;color:var(--ink-muted);margin-left:4px;">${c.build_status==='wip'?'Currently building':''}${c.build_status==='preview'?'Waiting on client approval':''}${c.build_status==='completed'||c.onboarding_stage==='launched'?'Website live':'Not started'}</span>
-        </div>
-        <div style="margin-top:10px;">
-          <button class="action-btn" style="background:#1a6b5a;color:white;border-color:#1a6b5a;" onclick="uploadSiteHtml('${c.website_id}','${c.email}')">🌐 Upload website HTML</button>
-        </div>
+        <button class="action-btn" style="background:#1a6b5a;color:white;border-color:#1a6b5a;" onclick="uploadSiteHtml('${c.website_id}','${c.email}')">🌐 Upload website HTML</button>
+        <span style="font-size:12px;color:var(--ink-muted);margin-left:8px;">Uploading HTML automatically sets status to "In preview"</span>
       </div>
       <div class="pricing-edit" style="margin-bottom:10px;">
         <label>Domain name</label>
@@ -1187,7 +1184,7 @@ function renderClientsTable(clients){
       <div class="sections-edit">
         <div class="sections-edit-label">Website sections</div>
         <div class="sections-edit-checks">${SECTIONS.map(s=>{const on=c.sections?c.sections[s]:['gallery','hours','contact'].includes(s);return`<label class="section-check"><input type="checkbox" id="sec-${s}-${c.id}" ${on?'checked':''}> ${SECTION_LABELS[s]}</label>`}).join('')}</div>
-        <button class="dash-save" onclick="updateSections('${c.website_id}','${c.id}')" style="padding:8px 14px;font-size:13px;margin-top:10px;">Update sections</button>
+
       </div>
     </div></td></tr>
   `).join('')

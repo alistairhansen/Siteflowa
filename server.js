@@ -412,10 +412,12 @@ app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
       ? `SELECT c.id, c.email, c.created_at, c.is_admin, c.role, c.subscription_status, c.plan,
              c.update_fee_required, c.update_fee_amount, c.commission_rate,
              c.domain_name, c.domain_cost, c.domain_yearly_fee,
+             c.deposit_paid, c.onboarding_stage,
              w.id as website_id, w.business_name, w.subdomain, w.is_active, w.build_status,
              w.setup_fee, w.monthly_fee, w.client_email, w.sections, w.website_type,
              w.created_by, cb.email as created_by_email,
-             r.code as referral_code, r.times_used as referral_uses
+             r.code as referral_code, r.times_used as referral_uses,
+             (w.site_html IS NOT NULL AND w.site_html != '') as site_html
       FROM clients c
       LEFT JOIN websites w ON w.client_id = c.id
       LEFT JOIN clients cb ON cb.id = w.created_by
@@ -425,10 +427,12 @@ app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
       : `SELECT c.id, c.email, c.created_at, c.is_admin, c.role, c.subscription_status, c.plan,
              c.update_fee_required, c.update_fee_amount, c.commission_rate,
              c.domain_name, c.domain_cost, c.domain_yearly_fee,
+             c.deposit_paid, c.onboarding_stage,
              w.id as website_id, w.business_name, w.subdomain, w.is_active, w.build_status,
              w.setup_fee, w.monthly_fee, w.client_email, w.sections, w.website_type,
              w.created_by, cb.email as created_by_email,
-             r.code as referral_code, r.times_used as referral_uses
+             r.code as referral_code, r.times_used as referral_uses,
+             (w.site_html IS NOT NULL AND w.site_html != '') as site_html
       FROM clients c
       LEFT JOIN websites w ON w.client_id = c.id
       LEFT JOIN clients cb ON cb.id = w.created_by
