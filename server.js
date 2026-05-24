@@ -589,10 +589,16 @@ app.post('/admin/charge-update-fee', authMiddleware, adminMiddleware, async (req
 })
 
 // ── ADMIN - update client plan ──────────────────────────
-app.post('/admin/update-client-plan', authMiddleware, adminMiddleware, async (req, res) => {
-  const { client_id, plan } = req.body
+app.post('/admin/update-client-plan', authMiddleware, staffMiddleware, async (req, res) => {
+  const { client_id, plan, setup_fee, monthly_fee } = req.body
   try {
     await pool.query('UPDATE clients SET plan=$1 WHERE id=$2', [plan, client_id])
+    if (setup_fee || monthly_fee) {
+      await pool.query(
+        'UPDATE websites SET plan=$1, setup_fee=$2, monthly_fee=$3 WHERE client_id=$4',
+        [plan, setup_fee || 299, monthly_fee || 49, client_id]
+      )
+    }
     res.json({ message: 'Plan updated' })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })

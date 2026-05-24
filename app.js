@@ -1177,9 +1177,9 @@ function renderClientsTable(clients){
       </div>
       <div class="pricing-edit">
         <label>Plan</label>
-        <select id="pl-${c.id}" style="width:110px;padding:6px 10px;font-size:13px;"><option value="basic" ${c.plan==='basic'?'selected':''}>Basic</option><option value="standard" ${(!c.plan||c.plan==='standard')?'selected':''}>Standard</option><option value="premium" ${c.plan==='premium'?'selected':''}>Premium</option></select>
+        <select id="pl-${c.id}" onchange="updatePlanFeeDisplay('${c.id}')" style="width:110px;padding:6px 10px;font-size:13px;"><option value="basic" ${c.plan==='basic'?'selected':''}>Basic</option><option value="standard" ${(!c.plan||c.plan==='standard')?'selected':''}>Standard</option><option value="premium" ${c.plan==='premium'?'selected':''}>Premium</option></select>
         <button class="dash-save" onclick="updateClientPlan('${c.id}')" style="padding:8px 14px;font-size:13px;">Update plan</button>
-        <span style="font-size:12px;color:var(--ink-muted);margin-left:8px;">Fees: $${c.setup_fee||299} setup &middot; $${c.monthly_fee||49}/mo</span>
+        <span id="plan-fees-${c.id}" style="font-size:12px;color:var(--ink-muted);margin-left:8px;">${getPlanFeesLabel(c.plan||'standard')}</span>
       </div>
 
     </div></td></tr>
@@ -1211,9 +1211,35 @@ async function updatePricing(wid,cid){
   if(!wid||wid==='null')return alert('No website linked yet')
   try{const res=await fetch(API+'/admin/update-pricing',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({website_id:wid,setup_fee:parseInt(document.getElementById('sf-'+cid).value),monthly_fee:parseInt(document.getElementById('mf-'+cid).value)})});const d=await res.json();if(d.message){alert('Pricing updated!');loadAdminData()}else alert(d.error||'Failed')}catch(e){alert('Could not connect')}
 }
+function getPlanFeesLabel(plan) {
+  var ss = siteSettings || {}
+  var fees = {
+    basic:    { setup: ss.plan_basic_setup    || 199, monthly: ss.plan_basic_price    || 29  },
+    standard: { setup: ss.plan_standard_setup || 299, monthly: ss.plan_standard_price || 49  },
+    premium:  { setup: ss.plan_premium_setup  || 499, monthly: ss.plan_premium_price  || 79  }
+  }
+  var f = fees[plan] || fees.standard
+  return 'Setup: $' + f.setup + ' &middot; $' + f.monthly + '/mo'
+}
+function updatePlanFeeDisplay(cid) {
+  var plan = document.getElementById('pl-' + cid)?.value || 'standard'
+  var el = document.getElementById('plan-fees-' + cid)
+  if (el) el.innerHTML = getPlanFeesLabel(plan)
+}
 async function updateClientPlan(cid){
   const plan=document.getElementById('pl-'+cid).value
-  try{const res=await fetch(API+'/admin/update-client-plan',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({client_id:cid,plan})});const d=await res.json();if(d.message){alert('Plan updated to '+plan);loadAdminData()}else alert(d.error||'Failed')}catch(e){alert('Could not connect')}
+  var ss = siteSettings || {}
+  var fees = {
+    basic:    { setup: ss.plan_basic_setup    || 199, monthly: ss.plan_basic_price    || 29  },
+    standard: { setup: ss.plan_standard_setup || 299, monthly: ss.plan_standard_price || 49  },
+    premium:  { setup: ss.plan_premium_setup  || 499, monthly: ss.plan_premium_price  || 79  }
+  }
+  var f = fees[plan] || fees.standard
+  try{
+    const res=await fetch(API+'/admin/update-client-plan',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},body:JSON.stringify({client_id:cid,plan,setup_fee:f.setup,monthly_fee:f.monthly})})
+    const d=await res.json()
+    if(d.message){ loadAdminData() } else alert(d.error||'Failed')
+  }catch(e){alert('Could not connect')}
 }
 async function updateSections(wid,cid){
   if(!wid||wid==='null')return alert('No website linked yet')
