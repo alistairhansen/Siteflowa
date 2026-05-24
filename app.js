@@ -170,10 +170,17 @@ async function doLogin(){
       if(role==='admin'){document.getElementById('admin-email-display').textContent=email.toLowerCase();document.getElementById('admin-avatar').textContent=email.substring(0,2).toUpperCase();showPage('admin')}
       else if(role==='manager'||role==='contractor'){document.getElementById('mgr-email-display').textContent=email.toLowerCase();document.getElementById('mgr-avatar').textContent=email.substring(0,2).toUpperCase();showPage('manager')}
       else if(data.update_fee_required){document.getElementById('update-fee-amount').textContent='$'+data.update_fee_amount;document.getElementById('update-fee-total').textContent='$'+data.update_fee_amount;showPage('update-fee')}
-      else if(data.subscription_status==='pending_payment'){currentWebsite=data.website;showPaymentPage(data.website,data.plan)}
-      else if(data.onboarding_stage==='building'&&data.website&&!data.website.site_html){showHoldingPage('building',data.website)}
-      else if(data.onboarding_stage==='review'||data.website?.site_html&&data.subscription_status!=='active'){showHoldingPage('review',data.website)}
-      else loadClientDashboard(email.toLowerCase(),data.website,data.plan)
+      // Fully launched - full dashboard
+      else if(data.is_active===true && data.onboarding_stage==='launched'){loadClientDashboard(email.toLowerCase(),data.website,data.plan)}
+      // Deposit not yet paid - show deposit payment page
+      else if(!data.deposit_paid){currentWebsite=data.website;showPaymentPage(data.website,data.plan)}
+      // Deposit paid, HTML uploaded - preview/review stage
+      else if(data.deposit_paid && data.website?.site_html){showHoldingPage('review',data.website)}
+      // Deposit paid, no HTML yet - building stage
+      else if(data.deposit_paid && !data.website?.site_html){showHoldingPage('building',data.website)}
+      // Fallback - check if active
+      else if(data.subscription_status==='active'){loadClientDashboard(email.toLowerCase(),data.website,data.plan)}
+      else{currentWebsite=data.website;showPaymentPage(data.website,data.plan)}
     }else showError('login-error',data.error||'Login failed')
   }catch(e){showError('login-error','Could not connect to server. Is it running?')}
 }
@@ -484,9 +491,11 @@ function showPaymentPage(website,plan){
   setupFee=website?website.setup_fee||299:299
   monthlyFee=website?website.monthly_fee||49:49
   discountApplied=false
-  document.getElementById('pay-setup-fee').textContent='$'+setupFee
-  document.getElementById('pay-monthly-fee').textContent='$'+monthlyFee+'/mo'
-  document.getElementById('pay-total').textContent='$'+setupFee
+  var depositPct=(siteSettings?.deposit_percent||50)/100
+  var depositAmt=Math.round(setupFee*depositPct)
+  document.getElementById('pay-setup-fee').textContent='$'+depositAmt+' deposit ('+(Math.round(depositPct*100))+'% of $'+setupFee+')'
+  document.getElementById('pay-monthly-fee').textContent='$'+monthlyFee+'/mo (after launch)'
+  document.getElementById('pay-total').textContent='$'+depositAmt
   document.getElementById('discount-line').style.display='none'
   const pn={basic:'Basic',standard:'Standard',premium:'Premium'}
   document.getElementById('pay-plan-badge').innerHTML='<span class="plan-pill '+(plan||'standard')+'">'+(pn[plan||'standard'])+'</span>'
@@ -1078,7 +1087,7 @@ function renderManagerTable(clients){
       <td><button class="action-btn" onclick="toggleMgrDetail('${c.id}')"></button></td>
       <td>${c.email}</td><td>${c.business_name||'<span style="color:var(--ink-muted)">Not set</span>'}</td>
       <td><span class="plan-pill ${c.plan||'standard'}">${(c.plan||'standard').charAt(0).toUpperCase()+(c.plan||'standard').slice(1)}</span></td>
-      <td><span class="status-badge ${c.is_active?'active':c.subscription_status==='pending_payment'?'pending':'inactive'}">${c.is_active?'Active':c.subscription_status==='pending_payment'?'Pending':'Inactive'}</span></td>
+      <td>${buildClientStatus(c)}</td>
       <td style="font-size:12px;">${c.created_by_email||'-'}</td>
       <td>${new Date(c.created_at).toLocaleDateString()}</td>
     </tr>
@@ -1463,11 +1472,10 @@ async function payDeposit() {
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() }
     })
     var d = await res.json()
-    if (d.message) {
-      alert('Deposit paid! We will start building your website now.')
-      showHoldingPage('building', currentWebsite)
+    if (d.url) {
+      window.location.href = d.url
     } else {
-      alert(d.error || 'Payment failed')
+      alert(d.error || 'Could not start payment. Please try again.')
     }
   } catch(e) {
     alert('Could not connect to server')
@@ -1584,19 +1592,78 @@ function initBriefForm(plan, email) {
   briefEmail = email || ''
   briefPhotoCount = 0
   briefServiceCount = 0
-  
+  briefPageCount = 0
+
+  window._briefInitialising = true
   selectBriefPlan(briefPlan)
-  
-  // Clear lists
-  document.getElementById('bf-photos-list').innerHTML = ''
-  document.getElementById('bf-services-list').innerHTML = ''
-  
-  // Add one empty service and photo field to start
+  window._briefInitialising = false
+
+  // Clear lists and add one starter row each
+  var photosList = document.getElementById('bf-photos-list')
+  var servicesList = document.getElementById('bf-services-list')
+  var pagesList = document.getElementById('bf-pages-list')
+  if (photosList) photosList.innerHTML = ''
+  if (servicesList) servicesList.innerHTML = ''
+  if (pagesList) pagesList.innerHTML = ''
+
   addBriefService()
   addBriefPhoto()
+  // Basic plan gets Home pre-filled, others start empty
+  if (briefPlan === 'basic') {
+    briefPageCount = 0
+    addBriefPage()
+    var firstPage = document.querySelector('.bf-page-input')
+    if (firstPage) { firstPage.value = 'Home'; firstPage.readOnly = true }
+  }
 }
 
 function selectBriefPlan(plan) {
+  // Reset ALL counts when plan changes
+  briefPageCount = 0
+  briefPhotoCount = 0
+  briefServiceCount = 0
+  // Reset photo list
+  var photosList = document.getElementById('bf-photos-list')
+  if (photosList) photosList.innerHTML = ''
+  // Reset services list  
+  var servicesList = document.getElementById('bf-services-list')
+  if (servicesList) servicesList.innerHTML = ''
+  // Update limits display
+  var photoLim = document.getElementById('bf-photos-limit')
+  var servLim = document.getElementById('bf-services-limit')
+  var lims = { basic: {photos:2,services:3}, standard: {photos:8,services:10}, premium: {photos:999,services:999} }
+  var l = lims[plan] || lims.standard
+  if (photoLim) photoLim.textContent = 'You can add up to ' + (l.photos < 999 ? l.photos : 'unlimited') + ' photos.'
+  if (servLim) servLim.textContent = 'You can list up to ' + (l.services < 999 ? l.services : 'unlimited') + ' items. ' + (plan === 'basic' ? '(Basic plan)' : '')
+  var pagesList = document.getElementById('bf-pages-list')
+  var addPageBtn = document.getElementById('bf-add-page-btn')
+  if (pagesList) pagesList.innerHTML = ''
+  if (addPageBtn) {
+    addPageBtn.style.display = plan === 'basic' ? 'none' : ''
+  }
+  if (plan === 'basic') {
+    // Basic: only Home page, pre-filled and locked
+    if (pagesList) {
+      briefPageCount = 1
+      var div = document.createElement('div')
+      div.style.cssText = 'display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;'
+      var inp = document.createElement('input')
+      inp.type='text'; inp.className='bf-page-input'; inp.value='Home'; inp.readOnly=true
+      inp.style.cssText='padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;background:var(--cream);color:var(--ink-muted);'
+      var lck = document.createElement('span')
+      lck.style.cssText='padding:8px 10px;color:var(--ink-muted);font-size:13px;'
+      lck.textContent='🔒 Only page on Basic'
+      div.appendChild(inp); div.appendChild(lck)
+      pagesList.appendChild(div)
+    }
+    // Hide bf-pages-limit and show message
+    var lim = document.getElementById('bf-pages-limit')
+    if (lim) lim.textContent = '(Basic plan includes Home page only)'
+  } else {
+    var lim = document.getElementById('bf-pages-limit')
+    var maxPages = plan === 'premium' ? 12 : 4
+    if (lim) lim.textContent = 'You can add up to ' + maxPages + ' pages on the ' + plan + ' plan.'
+  }
   briefPlan = plan
   briefPhotoCount = 0
   briefServiceCount = 0
@@ -1633,13 +1700,16 @@ function selectBriefPlan(plan) {
     selected.style.background = 'var(--accent-light)'
   }
   
-  // Reset photo and service lists
+  // Reset photo and service lists - initBriefForm adds the initial rows
   var photosList = document.getElementById('bf-photos-list')
   var servicesList = document.getElementById('bf-services-list')
   if (photosList) photosList.innerHTML = ''
   if (servicesList) servicesList.innerHTML = ''
-  addBriefPhoto()
-  addBriefService()
+  // Only add initial rows if being called directly (not from initBriefForm)
+  if (!window._briefInitialising) {
+    addBriefPhoto()
+    addBriefService()
+  }
 }
 
 function addBriefService() {
@@ -2596,6 +2666,10 @@ var PAGE_SUGGESTIONS = ['Home', 'About Us', 'Services', 'Gallery', 'Menu', 'Cont
 function addBriefPage() {
   var limits = { basic: 1, standard: 4, premium: 12 }
   var max = limits[briefPlan] || 4
+  if (briefPlan === 'basic' && briefPageCount >= 1) {
+    alert('The Basic plan only includes 1 page (Home). Upgrade to Standard or Premium for more pages.')
+    return
+  }
   if (briefPageCount >= max) {
     alert('Your ' + briefPlan + ' plan allows up to ' + max + ' page' + (max > 1 ? 's' : '') + '.')
     return

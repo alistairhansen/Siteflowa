@@ -124,6 +124,9 @@ app.post('/login', async (req, res) => {
     const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [client.id])
     const role = client.role || (client.is_admin ? 'admin' : 'client')
     const token = jwt.sign({ id: client.id, email: emailLower, role, is_admin: client.is_admin }, process.env.JWT_SECRET, { expiresIn: '7d' })
+    const ws = website.rows[0] || null
+    // Don't send full site_html on login - just a boolean flag
+    const wsData = ws ? { ...ws, site_html: !!(ws.site_html && ws.site_html.length > 0) } : null
     res.json({
       message: 'Login successful', token, role,
       subscription_status: client.subscription_status,
@@ -132,8 +135,8 @@ app.post('/login', async (req, res) => {
       plan: client.plan || 'standard',
       is_admin: client.is_admin,
       onboarding_stage: client.onboarding_stage || 'pending_payment',
-      deposit_paid: client.deposit_paid || false,
-      website: website.rows[0] || null
+      deposit_paid: client.deposit_paid === true,
+      website: wsData
     })
   } catch (err) {
     console.error(err)
@@ -698,22 +701,26 @@ app.get('/manager/earnings', authMiddleware, async (req, res) => {
     const settings = await pool.query('SELECT * FROM site_settings LIMIT 1')
     const s = settings.rows[0] || {}
     const periodStart = s.current_period_start ? new Date(s.current_period_start) : new Date(new Date().setDate(1))
+    // Only count clients whose launch fee has been paid (is_active=TRUE, activated_at set)
     const websites = await pool.query(`
-      SELECT w.*, c.plan, c.email as client_email
+      SELECT w.*, c.plan, c.email as client_email, c.deposit_paid, c.onboarding_stage,
+             (w.site_html IS NOT NULL AND w.site_html != '') as site_html
       FROM websites w
       LEFT JOIN clients c ON c.id = w.client_id
-      WHERE w.created_by = $1 AND w.created_at >= $2
-    `, [req.user.id, periodStart])
+      WHERE w.created_by = $1
+    `, [req.user.id])
+    // For earnings: only count fully launched websites
+    const launchedSites = websites.rows.filter(w => w.is_active && w.activated_at)
     const managerData = await pool.query('SELECT commission_rate FROM clients WHERE id=$1', [req.user.id])
     const rate = managerData.rows[0]?.commission_rate || 10
-    const earnings = websites.rows.reduce((sum, w) => sum + ((w.setup_fee || 299) * rate / 100), 0)
+    const earnings = launchedSites.reduce((sum, w) => sum + ((w.setup_fee || 299) * rate / 100), 0)
     res.json({
       websites: websites.rows,
       commission_rate: rate,
       period_start: periodStart,
       period_end: new Date(),
       total_earnings: Math.round(earnings),
-      websites_count: websites.rows.length
+      websites_count: launchedSites.length
     })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
@@ -1518,18 +1525,28 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object
     const clientId = session.metadata?.client_id
+    const paymentType = session.metadata?.payment_type
     if (clientId) {
-      await pool.query(
-        "UPDATE clients SET subscription_status='active', stripe_session_id=$1, onboarding_stage='launched' WHERE id=$2",
-        [session.id, clientId]
-      )
-      await pool.query(
-        "UPDATE websites SET is_active=TRUE, activated_at=NOW() WHERE client_id=$1",
-        [clientId]
-      )
-      console.log('Final payment confirmed for client:', clientId)
-      // Notify the contractor who built this site
-      try {
+      if (paymentType === 'deposit') {
+        // Deposit paid - move to building stage
+        await pool.query(
+          "UPDATE clients SET deposit_paid=TRUE, onboarding_stage='building', stripe_session_id=$1 WHERE id=$2",
+          [session.id, clientId]
+        )
+        await handleDepositPaid(clientId)
+      } else {
+        // Final launch fee paid - activate website
+        await pool.query(
+          "UPDATE clients SET subscription_status='active', stripe_session_id=$1, onboarding_stage='launched' WHERE id=$2",
+          [session.id, clientId]
+        )
+        await pool.query(
+          "UPDATE websites SET is_active=TRUE, activated_at=NOW() WHERE client_id=$1",
+          [clientId]
+        )
+        console.log('Final payment confirmed for client:', clientId)
+        // Notify the contractor who built this site
+        try {
         const w = await pool.query(`
           SELECT w.business_name, w.created_by, c.email as client_email
           FROM websites w JOIN clients c ON c.id=w.client_id WHERE w.client_id=$1
@@ -1547,6 +1564,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         }
       } catch(e) { console.error('Commission notify error:', e) }
     }
+  }
   }
 
   if (event.type === 'invoice.payment_failed') {
@@ -1576,8 +1594,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
   res.json({ received: true })
 })
-
-// Get Stripe customer portal link
 app.post('/billing-portal', authMiddleware, async (req, res) => {
   try {
     const client = await pool.query('SELECT stripe_customer_id FROM clients WHERE id=$1', [req.user.id])
@@ -1633,41 +1649,70 @@ app.post('/pay-deposit', authMiddleware, async (req, res) => {
     
     const plan = client.rows[0].plan || 'standard'
     const setupFee = website.rows[0]?.setup_fee || 299
+    const settings = await pool.query('SELECT deposit_percent FROM site_settings LIMIT 1')
+    const depositPct = parseFloat(settings.rows[0]?.deposit_percent || 50) / 100
+    const depositAmount = Math.round(setupFee * depositPct)
     
-    // Update client to deposit paid, move to building stage
-    await pool.query(
-      'UPDATE clients SET deposit_paid=TRUE, onboarding_stage=$1 WHERE id=$2',
-      ['building', req.user.id]
-    )
+    // Get or create Stripe customer
+    let customerId = client.rows[0].stripe_customer_id
+    if (!customerId) {
+      const customer = await stripe.customers.create({ email: client.rows[0].email })
+      customerId = customer.id
+      await pool.query('UPDATE clients SET stripe_customer_id=$1 WHERE id=$2', [customerId, req.user.id])
+    }
     
-    // Notify the website creator that deposit was paid
+    // Create Stripe checkout session for deposit
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'cad',
+          product_data: {
+            name: 'Sitefloa Website Deposit — ' + (website.rows[0]?.business_name || plan + ' plan'),
+            description: Math.round(depositPct * 100) + '% deposit. Remaining balance due at launch.'
+          },
+          unit_amount: Math.round(depositAmount * 100)
+        },
+        quantity: 1
+      }],
+      currency_conversion: { enabled: true },
+      mode: 'payment',
+      payment_intent_data: { metadata: { client_id: String(req.user.id), payment_type: 'deposit', plan } },
+      success_url: 'https://sitefloa.com?deposit=success',
+      cancel_url: 'https://sitefloa.com?deposit=cancelled',
+      metadata: { client_id: String(req.user.id), payment_type: 'deposit' }
+    })
+    
+    res.json({ url: session.url })
+  } catch (err) {
+    console.error('Deposit error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Notify contractor when client pays deposit (called by Stripe webhook)
+async function handleDepositPaid(clientId) {
+  try {
+    const client = await pool.query('SELECT * FROM clients WHERE id=$1', [clientId])
+    const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [clientId])
+    if (!client.rows[0]) return
+    const plan = client.rows[0].plan || 'standard'
     const creatorId = website.rows[0]?.created_by
     if (creatorId) {
       const creator = await pool.query('SELECT email FROM clients WHERE id=$1', [creatorId])
       if (creator.rows[0]) {
-        await resend.emails.send({
+        resend.emails.send({
           from: 'Sitefloa <hello@sitefloa.com>',
           to: creator.rows[0].email,
           subject: 'Client deposit paid — ready to build!',
-          html: `
-            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;">
-              <h2 style="font-family:Georgia,serif;color:#0f1117;">Deposit Received! 🎉</h2>
-              <p style="color:#4a4f5e;line-height:1.6;"><strong>${client.rows[0].email}</strong> has paid their deposit for the <strong>${plan}</strong> plan.</p>
-              <p style="color:#4a4f5e;line-height:1.6;">Business: <strong>${website.rows[0]?.business_name || 'Not set'}</strong></p>
-              <p style="color:#4a4f5e;line-height:1.6;">You can now start building their website. Once complete, upload the HTML to their profile in your dashboard.</p>
-              <a href="https://sitefloa.com" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;">Go to Dashboard →</a>
-            </div>
-          `
-        })
+          html: '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;"><h2 style="font-family:Georgia,serif;color:#0f1117;">Deposit Received! 🎉</h2><p style="color:#4a4f5e;line-height:1.6;"><strong>' + client.rows[0].email + '</strong> has paid their deposit for the <strong>' + plan + '</strong> plan.</p><p style="color:#4a4f5e;line-height:1.6;">You can now start building their website.</p><a href="https://sitefloa.com" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;">Go to Dashboard →</a></div>'
+        }).catch(e => console.error('Deposit notify error:', e))
       }
     }
-    
-    res.json({ message: 'Deposit paid successfully' })
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: 'Failed to process deposit' })
-  }
-})
+  } catch (err) { console.error('handleDepositPaid error:', err) }
+}
+
 
 // ── TRANSFER CLIENT BETWEEN CONTRACTORS ─────────────
 app.post('/admin/transfer-client', authMiddleware, async (req, res) => {
