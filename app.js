@@ -766,51 +766,53 @@ function renderStaffList(managers){
     const commission=Math.round(total*rate/100)
     const commissionAll=Math.round(totalAll*rate/100)
     const isManager=m.role==='manager'
+    const id=m.id, email=m.email, role=m.role||'contractor'
     const roleTag=!isManager
       ?'<span style="background:#e8f4f1;color:var(--accent);border:1px solid var(--accent);border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;text-transform:uppercase;margin-left:6px;">Contractor</span>'
       :'<span style="background:#ede9ff;color:#7c3aed;border:1px solid #c4b5fd;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;text-transform:uppercase;margin-left:6px;">Manager</span>'
-    return `<div class="staff-row" style="flex-direction:column;align-items:stretch;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
-        <div class="staff-info">
-          <div class="staff-email">${m.email}${roleTag}</div>
-          <div class="staff-meta">Own sales: ${rate}% commission${isManager?' · Org: '+orgRate+'% of all launch fees':''}</div>
-        </div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
-          <button onclick="toggleStaffPeriod('${m.id}')" id="period-toggle-${m.id}" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:4px 10px;font-family:var(--sans);font-size:11px;cursor:pointer;">This period</button>
-          <button onclick="toggleStaffPeriod('${m.id}')" style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:4px 10px;font-family:var(--sans);font-size:11px;cursor:pointer;display:none;" id="alltime-toggle-${m.id}">All time</button>
-        </div>
-      </div>
-      <div id="stats-period-${m.id}" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;">
-        <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">${m.websites_created||0}</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Clients</div></div>
-        <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">${m.briefs_sent||0}</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Briefs sent</div></div>
-        <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">$${total.toFixed(0)}</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Launch fees</div></div>
-        <div style="background:#e8f4f1;border:1px solid var(--accent);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;color:var(--accent);">$${commission}</div><div style="font-size:11px;color:var(--accent);margin-top:2px;">Commission</div></div>
-      </div>
-      <div id="stats-alltime-${m.id}" style="display:none;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;">
-        <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">${m.websites_all_time||0}</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Clients (all time)</div></div>
-        <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">${m.briefs_sent||0}</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Briefs sent</div></div>
-        <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">$${totalAll.toFixed(0)}</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Launch fees (all time)</div></div>
-        <div style="background:#e8f4f1;border:1px solid var(--accent);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;color:var(--accent);">$${commissionAll}</div><div style="font-size:11px;color:var(--accent);margin-top:2px;">Commission (all time)</div></div>
-      </div>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
-        <span style="font-size:12px;color:var(--ink-muted);">Own sales %:</span>
-        <input type="number" value="${rate}" style="width:56px;padding:4px 8px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius);" id="cr-${m.id}" min="0" max="100">
-        <button class="action-btn" onclick="updateCommission('${m.id}')">Save</button>
-        ${isManager ? `<span style="font-size:12px;color:var(--ink-muted);margin-left:8px;">Org % of all launch fees:</span>
-        <input type="number" value="${orgRate}" style="width:56px;padding:4px 8px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius);" id="mcr-${m.id}" min="0" max="100">
-        <button class="action-btn" onclick="updateManagerOrgRate('${m.id}')">Save</button>` : ''}
-        <button class="action-btn" style="background:var(--accent-light);border-color:var(--accent);color:var(--accent);margin-left:4px;" onclick="viewPayHistory('${m.id}','${m.email}')">📋 History</button>
-        <button class="dash-save" style="padding:4px 12px;font-size:12px;background:var(--purple);" onclick="closePeriod('${m.id}','${m.email}')">✓ Close period & pay</button>
-        <button class="action-btn" onclick="swapRole('${m.id}','${m.role}')">${isManager?'→ Make contractor':'→ Make manager'}</button>
-        <button class="btn-remove" onclick="removeManager('${m.id}','${m.email}')">Remove</button>
-      </div>
-    </div>
-    <div id="pay-history-${m.id}" style="display:none;background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:8px;">
-      <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:10px;">Pay period history</div>
-      <div id="pay-history-inner-${m.id}"><p style="font-size:13px;color:var(--ink-muted);">Loading...</p></div>
-    </div>`
+    const swapLabel=isManager?'Make contractor':'Make manager'
+    const orgRateRow=isManager
+      ?'<span style="font-size:12px;color:var(--ink-muted);margin-left:8px;">Org % of all launch fees:</span>'
+       +'<input type="number" value="'+orgRate+'" style="width:56px;padding:4px 8px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius);" id="mcr-'+id+'" min="0" max="100">'
+       +'<button class="action-btn" onclick="updateManagerOrgRate('+id+')">Save</button>'
+      :''
+    return '<div class="staff-row" style="flex-direction:column;align-items:stretch;">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">'
+      +'<div class="staff-info"><div class="staff-email">'+email+roleTag+'</div>'
+      +'<div class="staff-meta">Own sales: '+rate+'% commission'+(isManager?' &middot; Org: '+orgRate+'% of all launch fees':'')+'</div></div>'
+      +'<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'
+      +'<button id="period-toggle-'+id+'" onclick="toggleStaffPeriod('+id+')" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:4px 10px;font-family:var(--sans);font-size:11px;cursor:pointer;">This period</button>'
+      +'<button id="alltime-toggle-'+id+'" onclick="toggleStaffPeriod('+id+')" style="background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:4px 10px;font-family:var(--sans);font-size:11px;cursor:pointer;display:none;">All time</button>'
+      +'</div></div>'
+      +'<div id="stats-period-'+id+'" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;">'
+      +'<div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">'+(m.websites_created||0)+'</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Clients</div></div>'
+      +'<div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">'+(m.briefs_sent||0)+'</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Briefs sent</div></div>'
+      +'<div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">$'+total.toFixed(0)+'</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Launch fees</div></div>'
+      +'<div style="background:#e8f4f1;border:1px solid var(--accent);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;color:var(--accent);">$'+commission+'</div><div style="font-size:11px;color:var(--accent);margin-top:2px;">Commission</div></div>'
+      +'</div>'
+      +'<div id="stats-alltime-'+id+'" style="display:none;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;">'
+      +'<div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">'+(m.websites_all_time||0)+'</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Clients (all time)</div></div>'
+      +'<div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">'+(m.briefs_sent||0)+'</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Briefs sent</div></div>'
+      +'<div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;">$'+totalAll.toFixed(0)+'</div><div style="font-size:11px;color:var(--ink-muted);margin-top:2px;">Launch fees (all time)</div></div>'
+      +'<div style="background:#e8f4f1;border:1px solid var(--accent);border-radius:var(--radius);padding:10px;text-align:center;"><div style="font-size:20px;font-weight:700;color:var(--accent);">$'+commissionAll+'</div><div style="font-size:11px;color:var(--accent);margin-top:2px;">Commission (all time)</div></div>'
+      +'</div>'
+      +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">'
+      +'<span style="font-size:12px;color:var(--ink-muted);">Own sales %:</span>'
+      +'<input type="number" value="'+rate+'" style="width:56px;padding:4px 8px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius);" id="cr-'+id+'" min="0" max="100">'
+      +'<button class="action-btn" onclick="updateCommission('+id+')">Save</button>'
+      +orgRateRow
+      +'<button class="action-btn" style="background:var(--accent-light);border-color:var(--accent);color:var(--accent);margin-left:4px;" onclick="viewPayHistory('+id+',\''+email.replace(/'/g,'\\x27')+'\')">📋 History</button>'
+      +'<button class="dash-save" style="padding:4px 12px;font-size:12px;background:var(--purple);" onclick="closePeriod('+id+',\''+email.replace(/'/g,'\\x27')+'\')">✓ Close period &amp; pay</button>'
+      +'<button class="action-btn" onclick="swapRole('+id+',\''+role+'\')">'+swapLabel+'</button>'
+      +'<button class="btn-remove" onclick="removeManager('+id+',\''+email.replace(/'/g,'\\x27')+'\')">Remove</button>'
+      +'</div>'
+      +'<div id="pay-history-'+id+'" style="display:none;background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:8px;">'
+      +'<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:10px;">Pay period history</div>'
+      +'<div id="pay-history-inner-'+id+'"><p style="font-size:13px;color:var(--ink-muted);">Loading...</p></div>'
+      +'</div>'
   }).join('')
 }
+
 
 function toggleStaffPeriod(id) {
   var periodDiv = document.getElementById('stats-period-' + id)
