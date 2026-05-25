@@ -165,6 +165,7 @@ async function doLogin(){
       localStorage.setItem('wc_token',data.token)
       localStorage.setItem('wc_role',data.role||payload.role)
       localStorage.setItem('wc_email',email.toLowerCase())
+      window._clientDepositAmount = data.deposit_amount || 0
       closeLogin()
       const role=data.role||payload.role
       if(role==='admin'){document.getElementById('admin-email-display').textContent=email.toLowerCase();document.getElementById('admin-avatar').textContent=email.substring(0,2).toUpperCase();showPage('admin')}
@@ -1530,11 +1531,18 @@ async function sendClientChatMsg(idOrBtn) {
 async function approveWebsite() {
   if (!confirm('Approve your website and make it live? You will be redirected to pay the remaining launch fee.')) return
   try {
-    // Calculate remaining fee: full setup_fee minus the deposit already paid
+    // Use actual deposit_amount from DB (what was really charged), not a recalculation
     var fullFee = currentWebsite?.setup_fee || 299
-    var depositPct = (siteSettings?.deposit_percent || 50) / 100
-    var depositPaid = Math.round(fullFee * depositPct)
-    var remaining = Math.max(0, fullFee - depositPaid)
+    var actualDepositPaid = window._clientDepositAmount || 0
+    var remaining
+    if (actualDepositPaid > 0) {
+      // Use the exact amount already charged
+      remaining = Math.max(0, fullFee - actualDepositPaid)
+    } else {
+      // Fallback: recalculate (siteSettings may not have loaded)
+      var depositPct = (siteSettings?.deposit_percent || 50) / 100
+      remaining = Math.max(0, fullFee - Math.round(fullFee * depositPct))
+    }
     var res = await fetch(API + '/create-checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },

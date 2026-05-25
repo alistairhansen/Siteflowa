@@ -1531,10 +1531,11 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
     const paymentType = session.metadata?.payment_type
     if (clientId) {
       if (paymentType === 'deposit') {
-        // Deposit paid - move to building stage
+        // Deposit paid - move to building stage, save the amount paid
+        const depositAmt = session.amount_total ? Math.round(session.amount_total / 100) : null
         await pool.query(
-          "UPDATE clients SET deposit_paid=TRUE, onboarding_stage='building', stripe_session_id=$1 WHERE id=$2",
-          [session.id, clientId]
+          "UPDATE clients SET deposit_paid=TRUE, onboarding_stage='building', stripe_session_id=$1, deposit_amount=$2 WHERE id=$3",
+          [session.id, depositAmt, clientId]
         )
         await handleDepositPaid(clientId)
       } else {
