@@ -568,7 +568,7 @@
             <label style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:18px;line-height:1;" title="Send image">
               📎<input type="file" id="admin-staff-chat-file" accept="image/*" style="display:none;" onchange="previewAdminChatImage(this)">
             </label>
-            <input id="admin-staff-chat-input" type="text" placeholder="Type a reply..." onkeydown="if(event.key===&quot;Enter&quot;)sendAdminStaffChatMsg()" style="flex:1;padding:9px 13px;border:1px solid var(--border);border-radius:8px;font-family:var(--sans);font-size:14px;">
+            <input id="admin-staff-chat-input" type="text" placeholder="Type a reply..." onkeydown="if(event.key==='Enter')sendAdminStaffChatMsg()" style="flex:1;padding:9px 13px;border:1px solid var(--border);border-radius:8px;font-family:var(--sans);font-size:14px;">
             <button onclick="sendAdminStaffChatMsg()" style="background:#1a6b5a;color:white;border:none;border-radius:8px;padding:9px 18px;font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;">Send</button>
           </div>
         </div>
@@ -849,7 +849,7 @@
           <label style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:18px;line-height:1;" title="Send image">
             📎<input type="file" id="staff-chat-file" accept="image/*" style="display:none;" onchange="previewChatImage(this)">
           </label>
-          <input id="staff-chat-input" type="text" placeholder="Type a reply..." onkeydown="if(event.key===&quot;Enter&quot;)sendStaffChatMsg()" style="flex:1;padding:9px 13px;border:1px solid var(--border);border-radius:8px;font-family:var(--sans);font-size:14px;">
+          <input id="staff-chat-input" type="text" placeholder="Type a reply..." onkeydown="if(event.key==='Enter')sendStaffChatMsg()" style="flex:1;padding:9px 13px;border:1px solid var(--border);border-radius:8px;font-family:var(--sans);font-size:14px;">
           <button onclick="sendStaffChatMsg()" style="background:#1a6b5a;color:white;border:none;border-radius:8px;padding:9px 18px;font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;">Send</button>
         </div>
       </div>
