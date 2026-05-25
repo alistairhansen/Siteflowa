@@ -1496,8 +1496,8 @@ app.post('/create-checkout', authMiddleware, async (req, res) => {
         }
       ],
       mode: 'subscription',
-      // Stripe Adaptive Pricing: shows customers their local currency, you receive CAD
-      currency_conversion: { enabled: true },
+      // Note: currency_conversion only works with payment mode, not subscriptions
+      // Stripe automatically handles international cards in CAD
       subscription_data: {
         trial_period_days: 30,
         metadata: { client_id: req.user.id, plan: plan }

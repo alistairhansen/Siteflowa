@@ -1494,7 +1494,7 @@ async function loadClientChat(clientId) {
       return '<div style="display:flex;' + (isMe ? 'justify-content:flex-end' : 'justify-content:flex-start') + ';">' +
         '<div style="max-width:75%;background:' + (isMe ? '#1a6b5a' : '#f3f4f6') + ';color:' + (isMe ? 'white' : '#111') + ';' +
         'border-radius:' + (isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px') + ';padding:10px 14px;font-size:14px;line-height:1.5;">' +
-        (isMe ? '' : '<div style="font-size:11px;font-weight:600;color:#1a6b5a;margin-bottom:3px;">' + (m.sender_email || 'Team') + '</div>') +
+        (isMe ? '' : '<div style="font-size:11px;font-weight:600;color:#1a6b5a;margin-bottom:3px;">Your team</div>') +
         (m.content || '') + imgHtml +
         '</div></div>'
     }).join('')
