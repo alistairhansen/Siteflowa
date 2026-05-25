@@ -744,7 +744,7 @@ async function loadAdminData(){
     if(data.clients)renderClientsTable(data.clients.filter(c=>c.role==='client'||(!c.role&&!c.is_admin)))
     if(data.managers)renderStaffList(data.managers)
     if(data.monthly_chart)renderChart(data.monthly_chart)
-    loadAdminCodes();loadManagerCodes();loadInquiries('admin');loadPipeline();loadAssetForms();loadSubmittedBriefs();loadDomainRequests();loadBonusGoals()
+    loadAdminCodes();loadManagerCodes();loadInquiries('admin');loadPipeline();loadAssetForms();loadSubmittedBriefs();loadDomainRequests();loadBonusGoals();loadAllChats('admin')
   }catch(e){console.error(e)}
 }
 
@@ -1046,7 +1046,7 @@ async function loadManagerData(){
     renderManagerEarningsHistory(earnData)
 
     loadInquiries('manager')
-    loadPipeline();loadMgrAssetForms();loadSubmittedBriefs();loadContractorBonus();loadDomainNotifications()
+    loadPipeline();loadMgrAssetForms();loadSubmittedBriefs();loadContractorBonus();loadDomainNotifications();loadAllChats('manager')
   }catch(e){console.error(e)}
 }
 
@@ -1467,6 +1467,7 @@ function buildClientChatSection(clientId) {
     '<p style="text-align:center;color:#aaa;font-size:13px;margin:auto;">Loading messages...</p>' +
     '</div>' +
     '<div style="border-top:1px solid var(--border);padding:12px 16px;display:flex;gap:8px;">' +
+    '<label style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:18px;line-height:1;" title="Send image">📎<input type="file" id="client-img-file" accept="image/*" style="display:none;" onchange="previewClientChatImage(this)"></label>' +
     '<input id="client-chat-input" type="text" placeholder="Type a message..." onkeydown="if(event.key===&quot;Enter&quot;)sendClientChatMsg(this.dataset.id)" data-id="' + clientId + '" ' +
     'style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-family:var(--sans);font-size:14px;">' +
     '<button onclick="sendClientChatMsg(this.dataset.id)" data-id="' + clientId + '" style="background:#1a6b5a;color:white;border:none;border-radius:8px;padding:10px 18px;font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;">Send</button>' +
@@ -1489,11 +1490,12 @@ async function loadClientChat(clientId) {
     var myId = JSON.parse(atob(getToken().split('.')[1])).id
     wrap.innerHTML = msgs.map(function(m) {
       var isMe = m.sender_id == myId || m.sender_role === 'client'
+      var imgHtml = m.image_url ? '<div style="margin-top:6px;"><img src="' + m.image_url + '" style="max-width:200px;max-height:200px;border-radius:8px;display:block;cursor:pointer;" onclick="window.open(this.src,\'_blank\')"></div>' : ''
       return '<div style="display:flex;' + (isMe ? 'justify-content:flex-end' : 'justify-content:flex-start') + ';">' +
         '<div style="max-width:75%;background:' + (isMe ? '#1a6b5a' : '#f3f4f6') + ';color:' + (isMe ? 'white' : '#111') + ';' +
         'border-radius:' + (isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px') + ';padding:10px 14px;font-size:14px;line-height:1.5;">' +
         (isMe ? '' : '<div style="font-size:11px;font-weight:600;color:#1a6b5a;margin-bottom:3px;">' + (m.sender_email || 'Team') + '</div>') +
-        m.content +
+        (m.content || '') + imgHtml +
         '</div></div>'
     }).join('')
     wrap.scrollTop = wrap.scrollHeight
@@ -1506,18 +1508,22 @@ async function sendClientChatMsg(idOrBtn) {
   var clientId = typeof idOrBtn === 'string' ? idOrBtn : idOrBtn.getAttribute('data-id')
   var inp = document.getElementById('client-chat-input')
   var content = inp?.value.trim()
-  if (!content) return
-  inp.value = ''
+  if (!content && !_clientChatImageData) return
+  if (inp) inp.value = ''
+  var imgData = _clientChatImageData
+  _clientChatImageData = null
+  var prev = document.getElementById('client-img-preview')
+  if (prev) prev.remove()
   try {
     var res = await fetch(API + '/messages/' + clientId, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
-      body: JSON.stringify({ content: content })
+      body: JSON.stringify({ content: content || '', image_url: imgData || null })
     })
     var d = await res.json()
     if (d.message) loadClientChat(clientId)
-    else { inp.value = content; alert(d.error || 'Failed to send') }
-  } catch(e) { inp.value = content; alert('Could not connect') }
+    else { if (inp) inp.value = content; alert(d.error || 'Failed to send') }
+  } catch(e) { if (inp) inp.value = content; alert('Could not connect') }
 }
 
 // ── APPROVE WEBSITE (triggers final payment) ────────
@@ -3418,4 +3424,216 @@ async function showDomainNotifications() {
     '</div></div>'
   modal.onclick = function(e) { if (e.target === modal) modal.remove() }
   document.body.appendChild(modal)
+}
+
+// ── STAFF / ADMIN CHAT SYSTEM ─────────────────────────────
+var _currentStaffChatId = null
+var _currentAdminChatId = null
+var _clientChatImageData = null
+var _staffChatImageData = null
+var _adminChatImageData = null
+
+async function loadAllChats(context) {
+  var wrapId = context === 'admin' ? 'all-chats-wrap' : 'mgr-chats-list'
+  var wrap = document.getElementById(wrapId)
+  if (!wrap) return
+  try {
+    var res = await fetch(API + '/admin/all-chats', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    var chats = d.chats || []
+    // Contractors only see their own clients' chats
+    if (getRole() === 'contractor') {
+      var myEmail = localStorage.getItem('wc_email') || ''
+      chats = chats.filter(function(c) { return c.contractor_email === myEmail })
+    }
+    renderChatList(chats, wrapId, context)
+  } catch(e) {
+    wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">Could not load chats.</p>'
+  }
+}
+
+function renderChatList(chats, wrapId, context) {
+  var wrap = document.getElementById(wrapId)
+  if (!wrap) return
+  if (!chats.length) {
+    wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No active client chats. Chats open once a client pays their deposit.</p>'
+    return
+  }
+  wrap.innerHTML = chats.map(function(c) {
+    var unreadBadge = c.unread > 0
+      ? '<span style="background:#ef4444;color:white;border-radius:12px;padding:2px 8px;font-size:11px;font-weight:700;margin-left:8px;">' + c.unread + ' new</span>'
+      : ''
+    var lastTime = c.last_message ? new Date(c.last_message).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : 'No messages yet'
+    var panelId = context === 'admin' ? 'admin' : 'staff'
+    return '<div onclick="openStaffChat(\'' + c.client_id + '\',\'' + (c.business_name || c.client_email) + '\',\'' + panelId + '\')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;cursor:pointer;background:' + (c.unread > 0 ? '#fff8e6' : 'white') + ';transition:background 0.15s;" onmouseenter="this.style.background=\'var(--cream)\'" onmouseleave="this.style.background=\'' + (c.unread > 0 ? '#fff8e6' : 'white') + '\'">' +
+      '<div>' +
+      '<div style="font-weight:600;font-size:14px;">' + (c.business_name || c.client_email) + unreadBadge + '</div>' +
+      '<div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">' + c.client_email + (c.contractor_email ? ' &middot; ' + c.contractor_email : '') + '</div>' +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--ink-muted);white-space:nowrap;">' + lastTime + '</div>' +
+      '</div>'
+  }).join('')
+}
+
+function openStaffChat(clientId, name, panelType) {
+  var panelId = panelType === 'admin' ? 'admin-staff-chat-panel' : 'staff-chat-panel'
+  var titleId  = panelType === 'admin' ? 'admin-staff-chat-title' : 'staff-chat-title'
+  var msgsId   = panelType === 'admin' ? 'admin-staff-chat-messages' : 'staff-chat-messages'
+  var panel = document.getElementById(panelId)
+  if (!panel) return
+  if (panelType === 'admin') _currentAdminChatId = clientId
+  else _currentStaffChatId = clientId
+  document.getElementById(titleId).textContent = '💬 ' + name
+  panel.style.display = 'block'
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  loadStaffChatMessages(clientId, msgsId)
+}
+
+function closeStaffChat() {
+  var p = document.getElementById('staff-chat-panel')
+  if (p) p.style.display = 'none'
+  _currentStaffChatId = null
+}
+function closeAdminStaffChat() {
+  var p = document.getElementById('admin-staff-chat-panel')
+  if (p) p.style.display = 'none'
+  _currentAdminChatId = null
+}
+
+async function loadStaffChatMessages(clientId, msgsId) {
+  var wrap = document.getElementById(msgsId)
+  if (!wrap) return
+  wrap.innerHTML = '<p style="text-align:center;color:#aaa;font-size:13px;margin:auto 0;">Loading...</p>'
+  try {
+    var res = await fetch(API + '/messages/' + clientId, {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    var msgs = d.messages || []
+    if (!msgs.length) {
+      wrap.innerHTML = '<p style="text-align:center;color:#aaa;font-size:13px;margin:auto 0;">No messages yet.</p>'
+      return
+    }
+    var myEmail = localStorage.getItem('wc_email') || ''
+    wrap.innerHTML = msgs.map(function(m) {
+      var isMe = m.sender_email === myEmail
+      var imgHtml = m.image_url ? '<div style="margin-top:6px;"><img src="' + m.image_url + '" style="max-width:200px;max-height:200px;border-radius:8px;display:block;cursor:pointer;" onclick="window.open(this.src,\'_blank\')"></div>' : ''
+      return '<div style="display:flex;' + (isMe ? 'justify-content:flex-end' : 'justify-content:flex-start') + ';margin-bottom:4px;">' +
+        '<div style="max-width:78%;background:' + (isMe ? '#1a6b5a' : '#f3f4f6') + ';color:' + (isMe ? 'white' : '#111') + ';border-radius:' + (isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px') + ';padding:9px 13px;font-size:14px;line-height:1.5;">' +
+        (isMe ? '' : '<div style="font-size:11px;font-weight:600;color:#1a6b5a;margin-bottom:3px;">' + (m.sender_role === 'client' ? 'Client' : m.sender_email) + '</div>') +
+        (m.content || '') + imgHtml +
+        '</div></div>'
+    }).join('')
+    wrap.scrollTop = wrap.scrollHeight
+    // Refresh chat list to clear unread badge
+    loadAllChats(msgsId.startsWith('admin') ? 'admin' : 'manager')
+  } catch(e) {
+    wrap.innerHTML = '<p style="text-align:center;color:#aaa;font-size:13px;margin:auto 0;">Could not load messages.</p>'
+  }
+}
+
+function previewChatImage(input) {
+  var file = input.files[0]
+  if (!file) return
+  var reader = new FileReader()
+  reader.onload = function(e) {
+    _staffChatImageData = e.target.result
+    var prev = document.getElementById('staff-chat-img-preview')
+    var thumb = document.getElementById('staff-chat-img-thumb')
+    if (prev && thumb) { thumb.src = _staffChatImageData; prev.style.display = 'block' }
+  }
+  reader.readAsDataURL(file)
+}
+function clearChatImage() {
+  _staffChatImageData = null
+  var prev = document.getElementById('staff-chat-img-preview')
+  var fi = document.getElementById('staff-chat-file')
+  if (prev) prev.style.display = 'none'
+  if (fi) fi.value = ''
+}
+
+function previewAdminChatImage(input) {
+  var file = input.files[0]
+  if (!file) return
+  var reader = new FileReader()
+  reader.onload = function(e) {
+    _adminChatImageData = e.target.result
+    var prev = document.getElementById('admin-staff-chat-img-preview')
+    var thumb = document.getElementById('admin-staff-chat-img-thumb')
+    if (prev && thumb) { thumb.src = _adminChatImageData; prev.style.display = 'block' }
+  }
+  reader.readAsDataURL(file)
+}
+function clearAdminChatImage() {
+  _adminChatImageData = null
+  var prev = document.getElementById('admin-staff-chat-img-preview')
+  var fi = document.getElementById('admin-staff-chat-file')
+  if (prev) prev.style.display = 'none'
+  if (fi) fi.value = ''
+}
+
+function previewClientChatImage(input) {
+  var file = input.files[0]
+  if (!file) return
+  var reader = new FileReader()
+  reader.onload = function(e) {
+    _clientChatImageData = e.target.result
+    // Show a small preview below input
+    var existing = document.getElementById('client-img-preview')
+    if (!existing) {
+      existing = document.createElement('div')
+      existing.id = 'client-img-preview'
+      existing.style.cssText = 'padding:6px 14px;border-top:1px solid var(--border);background:white;display:flex;align-items:center;gap:8px;'
+      var chatDiv = document.querySelector('#holding-content .staff-chat-panel, #holding-content div[style*="overflow-y:auto"]')
+      // Insert before the input row
+      var inputRow = document.getElementById('client-chat-input')?.parentElement
+      if (inputRow) inputRow.insertAdjacentElement('beforebegin', existing)
+    }
+    existing.innerHTML = '<img src="' + e.target.result + '" style="height:50px;border-radius:6px;object-fit:cover;"><button onclick="_clientChatImageData=null;this.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;">&times;</button>'
+  }
+  reader.readAsDataURL(file)
+}
+
+async function sendStaffChatMsg() {
+  var clientId = _currentStaffChatId
+  if (!clientId) return
+  var inp = document.getElementById('staff-chat-input')
+  var content = inp?.value.trim()
+  if (!content && !_staffChatImageData) return
+  if (inp) inp.value = ''
+  try {
+    var res = await fetch(API + '/messages/' + clientId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ content: content || '', image_url: _staffChatImageData || null })
+    })
+    var d = await res.json()
+    if (d.message) {
+      clearChatImage()
+      loadStaffChatMessages(clientId, 'staff-chat-messages')
+    } else alert(d.error || 'Failed to send')
+  } catch(e) { alert('Could not connect to server') }
+}
+
+async function sendAdminStaffChatMsg() {
+  var clientId = _currentAdminChatId
+  if (!clientId) return
+  var inp = document.getElementById('admin-staff-chat-input')
+  var content = inp?.value.trim()
+  if (!content && !_adminChatImageData) return
+  if (inp) inp.value = ''
+  try {
+    var res = await fetch(API + '/messages/' + clientId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ content: content || '', image_url: _adminChatImageData || null })
+    })
+    var d = await res.json()
+    if (d.message) {
+      clearAdminChatImage()
+      loadStaffChatMessages(clientId, 'admin-staff-chat-messages')
+    } else alert(d.error || 'Failed to send')
+  } catch(e) { alert('Could not connect to server') }
 }

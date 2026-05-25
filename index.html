@@ -552,7 +552,26 @@
       <div class="admin-section">
         <h3 id="as-chats">💬 Live client chats</h3>
         <p class="section-desc">Active conversations between clients and contractors during the build process.</p>
-        <div id="all-chats-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading chats...</p></div>
+        <div id="all-chats-wrap" style="max-height:340px;overflow-y:auto;scrollbar-width:thin;"><p style="color:var(--ink-muted);font-size:14px;">Loading chats...</p></div>
+        <!-- Staff reply panel for admin -->
+        <div id="admin-staff-chat-panel" style="display:none;margin-top:16px;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;">
+          <div id="admin-staff-chat-header" style="background:#1a6b5a;color:white;padding:12px 18px;font-weight:600;font-size:14px;display:flex;justify-content:space-between;align-items:center;">
+            <span id="admin-staff-chat-title">Chat</span>
+            <button onclick="closeAdminStaffChat()" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1;">&times;</button>
+          </div>
+          <div id="admin-staff-chat-messages" style="height:260px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;background:#fafafa;"></div>
+          <div id="admin-staff-chat-img-preview" style="display:none;padding:8px 14px;border-top:1px solid var(--border);background:white;">
+            <img id="admin-staff-chat-img-thumb" src="" style="height:60px;border-radius:6px;object-fit:cover;">
+            <button onclick="clearAdminChatImage()" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;vertical-align:middle;margin-left:8px;">&times;</button>
+          </div>
+          <div style="border-top:1px solid var(--border);padding:10px 14px;display:flex;gap:8px;background:white;align-items:center;">
+            <label style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:18px;line-height:1;" title="Send image">
+              📎<input type="file" id="admin-staff-chat-file" accept="image/*" style="display:none;" onchange="previewAdminChatImage(this)">
+            </label>
+            <input id="admin-staff-chat-input" type="text" placeholder="Type a reply..." onkeydown="if(event.key===&quot;Enter&quot;)sendAdminStaffChatMsg()" style="flex:1;padding:9px 13px;border:1px solid var(--border);border-radius:8px;font-family:var(--sans);font-size:14px;">
+            <button onclick="sendAdminStaffChatMsg()" style="background:#1a6b5a;color:white;border:none;border-radius:8px;padding:9px 18px;font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;">Send</button>
+          </div>
+        </div>
       </div>
       <div class="admin-section">
         <h3>📬 Submitted Briefs</h3>
@@ -809,6 +828,32 @@
       <div id="mgr-pipeline-wrap"><p style="color:var(--ink-muted);font-size:14px;">Loading...</p></div>
     </div>
 
+
+    <div class="admin-section">
+      <h3>💬 Client live chats</h3>
+      <p class="section-desc">Live chats with your clients during the build and review stages.</p>
+      <div id="mgr-chats-list" style="max-height:340px;overflow-y:auto;scrollbar-width:thin;"><p style="color:var(--ink-muted);font-size:14px;">Loading chats...</p></div>
+      <!-- Staff reply panel -->
+      <div id="staff-chat-panel" style="display:none;margin-top:16px;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;">
+        <div id="staff-chat-header" style="background:#1a6b5a;color:white;padding:12px 18px;font-weight:600;font-size:14px;display:flex;justify-content:space-between;align-items:center;">
+          <span id="staff-chat-title">Chat</span>
+          <button onclick="closeStaffChat()" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1;">&times;</button>
+        </div>
+        <div id="staff-chat-messages" style="height:260px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;background:#fafafa;"></div>
+        <!-- Image preview -->
+        <div id="staff-chat-img-preview" style="display:none;padding:8px 14px;border-top:1px solid var(--border);background:white;">
+          <img id="staff-chat-img-thumb" src="" style="height:60px;border-radius:6px;object-fit:cover;">
+          <button onclick="clearChatImage()" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;vertical-align:middle;margin-left:8px;">&times;</button>
+        </div>
+        <div style="border-top:1px solid var(--border);padding:10px 14px;display:flex;gap:8px;background:white;align-items:center;">
+          <label style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:18px;line-height:1;" title="Send image">
+            📎<input type="file" id="staff-chat-file" accept="image/*" style="display:none;" onchange="previewChatImage(this)">
+          </label>
+          <input id="staff-chat-input" type="text" placeholder="Type a reply..." onkeydown="if(event.key===&quot;Enter&quot;)sendStaffChatMsg()" style="flex:1;padding:9px 13px;border:1px solid var(--border);border-radius:8px;font-family:var(--sans);font-size:14px;">
+          <button onclick="sendStaffChatMsg()" style="background:#1a6b5a;color:white;border:none;border-radius:8px;padding:9px 18px;font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;">Send</button>
+        </div>
+      </div>
+    </div>
 
     <div class="admin-section">
       <h3>📬 Submitted Briefs</h3>
