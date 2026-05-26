@@ -816,6 +816,7 @@ function renderStaffList(managers){
       +'<button class="dash-save staff-close-btn" style="padding:4px 12px;font-size:12px;background:var(--purple);" data-id="'+id+'" data-email="'+encEmail+'" onclick="closePeriodById(this)">✓ Close period &amp; pay</button>'
       +'<button class="action-btn staff-swap-btn" data-id="'+id+'" data-role="'+role+'" onclick="swapRoleById(this)">'+swapLabel+'</button>'
       +'<button class="btn-remove staff-remove-btn" data-id="'+id+'" data-email="'+encEmail+'" onclick="removeManagerById(this)">Remove</button>'
+      +'<button class="action-btn" data-id="'+id+'" data-blocked="'+(m.is_blocked?'true':'false')+'" onclick="setBlockedById(this)" style="background:'+(m.is_blocked?'#fef2f2':'')+';;color:'+(m.is_blocked?'#ef4444':'')+';">'+( m.is_blocked?'🔓 Unblock':'🚫 Block')+'</button>'
       +'</div>'
       +'<div id="pay-history-'+id+'" style="display:none;background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:8px;">'
       +'<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:10px;">Pay period history</div>'
@@ -1047,7 +1048,7 @@ async function loadManagerData(){
     renderManagerEarningsHistory(earnData)
 
     loadInquiries('manager')
-    loadPipeline();loadMgrAssetForms();loadSubmittedBriefs();loadContractorBonus();loadDomainNotifications();loadAllChats('manager')
+    loadPipeline();loadMgrAssetForms();loadSubmittedBriefs();loadContractorBonus();loadDomainNotifications();loadAllChats('manager');loadAdminEmails();loadDemos()
   }catch(e){console.error(e)}
 }
 
@@ -1736,6 +1737,16 @@ function selectBriefPlan(plan) {
   if (addPageBtn) {
     addPageBtn.style.display = plan === 'basic' ? 'none' : ''
   }
+  // Update hours disclaimer based on plan
+  var hoursNotice = document.getElementById('hours-plan-notice')
+  if (hoursNotice) {
+    if (plan === 'basic') {
+      hoursNotice.innerHTML = '<div style="background:#fff8e6;border:1px solid #fcd34d;border-radius:var(--radius);padding:10px 14px;font-size:13px;color:#92400e;"><strong>⚠️ Basic plan notice:</strong> Business hours are set here and baked into your website. They <strong>cannot be updated later</strong> through your dashboard — you would need to contact us to make changes. Make sure your hours are correct before submitting.</div>'
+    } else {
+      hoursNotice.innerHTML = '<div style="background:#e8f4f1;border:1px solid #6ee7b7;border-radius:var(--radius);padding:10px 14px;font-size:13px;color:#065f46;"><strong>✅ ' + plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan:</strong> You can update your business hours anytime from your client dashboard after your website goes live.</div>'
+    }
+  }
+
   if (plan === 'basic') {
     // Basic: only Home page, pre-filled and locked
     if (pagesList) {
@@ -1982,13 +1993,21 @@ async function submitBriefForm() {
     notes: document.getElementById('bf-notes').value,
     pages: pages
   }
-  // Strip base64 data: URLs from photos — replace with filename or placeholder note
-  formData.photos = (formData.photos || []).map(function(p) {
+  // Separate uploaded files from URL references
+  // Store photo files as {filename, data} for download; URLs kept as-is in prompt
+  var photoFiles = []
+  formData.photos = (formData.photos || []).map(function(p, i) {
     if (typeof p === 'string' && p.startsWith('data:')) {
-      return '[Photo uploaded — will be sent separately]'
+      // Find the input to get the filename
+      var inputs = document.querySelectorAll('.bf-photo-input')
+      var inp = inputs[i]
+      var filename = inp?.dataset?.filename || ('photo-' + (i+1) + '.jpg')
+      photoFiles.push({ filename: filename, data: p })
+      return filename  // Just the filename in the prompt
     }
-    return p
+    return p  // Keep URLs as-is
   })
+  formData.photo_files = photoFiles  // Attach files for download in modal
   
   try {
     var res = await fetch(API + '/submit-brief', {
@@ -2396,7 +2415,8 @@ function buildClaudePrompt(b, fd) {
     '  - SEO meta tags (title, description, og:image)',
     '  - All photos listed above MUST appear in the website',
     '  - Match style: ' + (fd.style || 'Clean & professional'),
-    '  - Can have FEWER features than tier allows, but NEVER more'
+    '  - Can have FEWER features than tier allows, but NEVER more',
+  (plan === 'premium' ? '\nLOCAL SEO REQUIREMENTS (Premium only)\n  Since this is a Premium tier site, implement full local SEO:\n  - Add meta title with business name + city/region\n  - Add meta description mentioning the business type and location\n  - Add schema.org LocalBusiness JSON-LD with address, phone, hours\n  - Add Open Graph tags for social sharing\n  - Create an SEO-friendly URL structure\n  - Add alt text to all images using business name + descriptive text\n  - Include a location section or footer with full address and embedded map placeholder\n  NOTE: Do NOT include booking or scheduling features — we do not offer this service.' : '')
   ].join('\n')
 }
 
@@ -2409,6 +2429,7 @@ function showBriefModal(btn) {
     if (existing) existing.remove()
     var prompt = buildClaudePrompt(b, fd)
     window._currentBriefPrompt = prompt
+    window._currentBriefPhotos = b.photo_files || []
 
     function row(label, val) {
       if (!val) return ''
@@ -2434,6 +2455,7 @@ function showBriefModal(btn) {
       '<button onclick="briefModalTab(\'prompt\')"  id="brief-tab-prompt"  style="flex:1;padding:11px;background:var(--cream);color:var(--ink);border:none;font-family:var(--sans);font-size:13px;cursor:pointer;">Claude Prompt</button>' +
       '</div>' +
       '<div id="brief-panel-details" style="flex:1;overflow-y:auto;padding:20px 24px;">' +
+      row('Plan tier', (b.plan || fd.plan || 'standard').charAt(0).toUpperCase() + (b.plan || fd.plan || 'standard').slice(1)) +
       row('Business name', fd.business_name || b.business_name) +
       row('Business type', fd.business_type) +
       row('Description', fd.description) +
@@ -2447,9 +2469,10 @@ function showBriefModal(btn) {
       '</div>' +
       '<div id="brief-panel-prompt" style="flex:1;overflow-y:auto;padding:20px 24px;display:none;">' +
       '<p style="font-size:13px;color:var(--ink-muted);margin-bottom:12px;">Copy or download this prompt — paste it into Claude to build the website.</p>' +
-      '<div style="display:flex;gap:8px;margin-bottom:14px;">' +
-      '<button onclick="copyBriefPrompt()" style="background:var(--accent);color:white;border:none;padding:8px 18px;border-radius:var(--radius);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;">&#128203; Copy prompt</button>' +
-      '<button onclick="downloadBriefPrompt(\''+ safeFilename +'\')" style="background:white;color:var(--ink);border:1px solid var(--border);padding:8px 18px;border-radius:var(--radius);font-family:var(--sans);font-size:13px;cursor:pointer;">&#11015;&#65039; Download .txt</button>' +
+      '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">' +
+      '<button onclick="copyBriefPrompt()" style="background:var(--accent);color:white;border:none;padding:8px 18px;border-radius:var(--radius);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;">📋 Copy prompt</button>' +
+      '<button onclick="downloadBriefPrompt(\''+ safeFilename +'\')" style="background:white;color:var(--ink);border:1px solid var(--border);padding:8px 18px;border-radius:var(--radius);font-family:var(--sans);font-size:13px;cursor:pointer;">⬇️ Download .txt</button>' +
+      (b.photo_files && b.photo_files.length ? b.photo_files.map(function(pf, pi) { return '<button onclick="downloadBriefPhoto(this)" data-filename="' + pf.filename + '" style="background:#f0fdf4;color:#065f46;border:1px solid #6ee7b7;padding:8px 14px;border-radius:var(--radius);font-family:var(--sans);font-size:13px;cursor:pointer;">📸 ' + pf.filename + '</button>' }).join('') : '<span style="font-size:12px;color:var(--ink-muted);">No uploaded photos — only URLs provided.</span>') +
       '</div>' +
       '<pre id="brief-prompt-text" style="background:#1a1a2e;color:#e8e8e8;border-radius:10px;padding:18px;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word;margin:0;">' +
       prompt.replace(/</g,'&lt;').replace(/>/g,'&gt;') +
@@ -3212,7 +3235,7 @@ function showSalesGuide() {
     {
       route: 'A', num: 2, icon: '📞',
       title: 'Contact them & show a demo',
-      desc: 'Reach out and show them one of the demo websites to get them excited. Walk them through what their site could look like.'
+      desc: 'Reach out and ask if they want to see a demo of what their website could look like. If yes, open the Demos section in your dashboard → customise a demo to match their branding → click "Share demo" and enter their email. The email includes a link to fill out the brief form to get started.'
     },
     {
       route: 'A', num: 3, icon: '✅',
@@ -3644,4 +3667,345 @@ async function sendAdminStaffChatMsg() {
       loadStaffChatMessages(clientId, 'admin-staff-chat-messages')
     } else alert(d.error || 'Failed to send')
   } catch(e) { alert('Could not connect to server') }
+}
+
+// ── DOWNLOAD BRIEF PHOTO ─────────────────────────────────
+function downloadBriefPhoto(btn) {
+  // Full data is stored in window._currentBriefPhotos by showBriefModal
+  var filename = btn.getAttribute('data-filename')
+  var photos = window._currentBriefPhotos || []
+  var photo = photos.find(function(p) { return p.filename === filename })
+  if (!photo) { alert('Photo data not available'); return }
+  var a = document.createElement('a')
+  a.href = photo.data
+  a.download = filename
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+}
+
+// ── ITEM 3: ADMIN CONTACT EMAILS ─────────────────────────
+async function loadAdminEmails() {
+  var wrap = document.getElementById('admin-emails-list')
+  if (!wrap) return
+  try {
+    var res = await fetch(API + '/admin/stats', { headers: { 'Authorization': 'Bearer ' + getToken() } })
+    var d = await res.json()
+    var admins = (d.managers || []).filter(function(m) { return m.role === 'admin' || m.is_admin })
+    if (!admins.length) { wrap.innerHTML = '<span style="color:var(--ink-muted);">No admin emails found</span>'; return }
+    wrap.innerHTML = admins.map(function(a) {
+      return '<a href="mailto:' + a.email + '" style="color:var(--accent);text-decoration:none;font-weight:500;">' + a.email + '</a>'
+    }).join('<span style="color:var(--ink-muted);">&nbsp;&middot;&nbsp;</span>')
+  } catch(e) { if (wrap) wrap.innerHTML = '<span style="color:var(--ink-muted);">Could not load admin contacts</span>' }
+}
+
+// ── ITEM 4: BLOCK / UNBLOCK ACCOUNT ─────────────────────
+async function setBlockedById(btn) {
+  var id = btn.getAttribute('data-id')
+  var blocked = btn.getAttribute('data-blocked') === 'true'
+  var newBlocked = !blocked
+  try {
+    var res = await fetch(API + '/admin/set-blocked', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ client_id: id, blocked: newBlocked })
+    })
+    var d = await res.json()
+    if (d.message) {
+      btn.setAttribute('data-blocked', String(newBlocked))
+      btn.textContent = newBlocked ? '🔓 Unblock' : '🚫 Block'
+      btn.style.background = newBlocked ? '#fef2f2' : ''
+      btn.style.color = newBlocked ? '#ef4444' : ''
+      loadAdminData()
+    } else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+// ── ITEM 2: CLAUDE AI ASSISTANT ──────────────────────────
+var _claudeHistory = []
+
+async function sendClaudeAI() {
+  var input = document.getElementById('claude-ai-input')
+  var content = input?.value.trim()
+  if (!content) return
+  input.value = ''
+  var msgs = document.getElementById('claude-chat-msgs')
+  // Add user message
+  _claudeHistory.push({ role: 'user', content: content })
+  renderClaudeChat()
+  // Show typing indicator
+  var typing = document.createElement('div')
+  typing.id = 'claude-typing'
+  typing.style.cssText = 'display:flex;align-items:center;gap:8px;color:var(--ink-muted);font-size:13px;'
+  typing.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1s infinite;"></div>Claude is thinking...'
+  msgs.appendChild(typing)
+  msgs.scrollTop = msgs.scrollHeight
+  try {
+    var res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 8000,
+        system: 'You are a web development expert helping build professional client websites for a web agency called Sitefloa. When asked to build a website, output complete, self-contained HTML with all CSS and JS inline. Make websites mobile-responsive and professional looking.',
+        messages: _claudeHistory
+      })
+    })
+    var data = await res.json()
+    var reply = data.content?.[0]?.text || data.error?.message || 'No response'
+    _claudeHistory.push({ role: 'assistant', content: reply })
+  } catch(e) {
+    _claudeHistory.push({ role: 'assistant', content: 'Error: ' + e.message })
+  }
+  var t = document.getElementById('claude-typing')
+  if (t) t.remove()
+  renderClaudeChat()
+}
+
+function renderClaudeChat() {
+  var msgs = document.getElementById('claude-chat-msgs')
+  if (!msgs) return
+  msgs.innerHTML = _claudeHistory.map(function(m) {
+    var isUser = m.role === 'user'
+    // Check if response contains HTML code
+    var hasHtml = !isUser && (m.content.includes('<!DOCTYPE') || m.content.includes('<html'))
+    var displayContent = m.content
+    var extraBtns = ''
+    if (hasHtml) {
+      // Extract HTML block
+      var htmlMatch = m.content.match(/```html\n?([\s\S]*?)```/) || m.content.match(/(<!DOCTYPE[\s\S]*)/i)
+      var htmlCode = htmlMatch ? htmlMatch[1] || htmlMatch[0] : m.content
+      window._lastClaudeHtml = htmlCode
+      displayContent = m.content.replace(/```html[\s\S]*?```/g, '[HTML website code generated — see buttons below]')
+      extraBtns = '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">' +
+        '<button onclick="previewClaudeHtml()" style="background:var(--accent);color:white;border:none;padding:6px 14px;border-radius:6px;font-family:var(--sans);font-size:12px;cursor:pointer;">👁 Preview website</button>' +
+        '<button onclick="downloadClaudeHtml()" style="background:white;border:1px solid var(--border);color:var(--ink);padding:6px 14px;border-radius:6px;font-family:var(--sans);font-size:12px;cursor:pointer;">⬇️ Download HTML</button>' +
+        '</div>'
+    }
+    return '<div style="display:flex;' + (isUser ? 'justify-content:flex-end' : 'justify-content:flex-start') + ';">' +
+      '<div style="max-width:85%;background:' + (isUser ? '#1a6b5a' : 'white') + ';color:' + (isUser ? 'white' : '#111') + ';border:1px solid ' + (isUser ? 'transparent' : 'var(--border)') + ';border-radius:' + (isUser ? '12px 12px 2px 12px' : '12px 12px 12px 2px') + ';padding:10px 14px;font-size:13px;line-height:1.6;white-space:pre-wrap;">' +
+      displayContent.replace(/</g,'&lt;').replace(/>/g,'&gt;') + extraBtns +
+      '</div></div>'
+  }).join('')
+  msgs.scrollTop = msgs.scrollHeight
+}
+
+function previewClaudeHtml() {
+  if (!window._lastClaudeHtml) return
+  var w = window.open('', '_blank')
+  w.document.write(window._lastClaudeHtml)
+  w.document.close()
+}
+
+function downloadClaudeHtml() {
+  if (!window._lastClaudeHtml) return
+  var blob = new Blob([window._lastClaudeHtml], { type: 'text/html' })
+  var url = URL.createObjectURL(blob)
+  var a = document.createElement('a'); a.href = url; a.download = 'website.html'
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
+}
+
+// ── ITEM 7: DEMO SYSTEM ───────────────────────────────────
+var _allDemos = []
+
+async function loadDemos() {
+  var wrap = document.getElementById('demos-list')
+  if (!wrap) return
+  // Show add demo button for admins/managers
+  var adminBtns = document.getElementById('demo-admin-btns')
+  if (adminBtns && ['admin','manager'].includes(getRole())) {
+    adminBtns.innerHTML = '<button onclick="showAddDemoModal()" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:7px 14px;font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;">+ Add demo</button>'
+  }
+  try {
+    var res = await fetch(API + '/admin/demos', { headers: { 'Authorization': 'Bearer ' + getToken() } })
+    var d = await res.json()
+    _allDemos = d.demos || []
+    renderDemosList()
+  } catch(e) {
+    wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">Could not load demos.</p>'
+  }
+}
+
+function renderDemosList() {
+  var wrap = document.getElementById('demos-list')
+  if (!wrap) return
+  if (!_allDemos.length) {
+    wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No demos yet.' + (['admin','manager'].includes(getRole()) ? ' Click "+ Add demo" to create your first one.' : '') + '</p>'
+    return
+  }
+  wrap.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">' +
+    _allDemos.map(function(d) {
+      return '<div onclick="openDemo(\'' + d.id + '\')" style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;cursor:pointer;background:white;transition:box-shadow 0.2s;" onmouseenter="this.style.boxShadow=\'0 4px 16px rgba(0,0,0,0.08)\'" onmouseleave="this.style.boxShadow=\'none\'">' +
+        '<div style="font-size:22px;margin-bottom:8px;">🏪</div>' +
+        '<div style="font-weight:600;font-size:14px;margin-bottom:4px;">' + d.title + '</div>' +
+        '<div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">' + (d.business_type || 'General') + '</div>' +
+        '<div style="font-size:12px;color:var(--accent);font-weight:500;">Click to customise & share →</div>' +
+        '</div>'
+    }).join('') + '</div>'
+}
+
+function openDemo(demoId) {
+  var demo = _allDemos.find(function(d) { return d.id == demoId })
+  if (!demo) return
+  var existing = document.getElementById('demo-modal')
+  if (existing) existing.remove()
+  var modal = document.createElement('div')
+  modal.id = 'demo-modal'
+  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.7);display:flex;align-items:center;justify-content:center;padding:16px;'
+  modal.innerHTML =
+    '<div style="background:white;border-radius:16px;width:100%;max-width:840px;max-height:94vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.25);">' +
+    '<div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
+    '<div><div style="font-family:var(--serif);font-size:18px;">' + demo.title + '</div>' +
+    '<div style="font-size:12px;color:var(--ink-muted);">' + (demo.business_type||'') + ' demo</div></div>' +
+    '<button onclick="document.getElementById(&quot;demo-modal&quot;).remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-muted);">&times;</button>' +
+    '</div>' +
+    '<div style="overflow-y:auto;padding:16px 20px;flex:1;">' +
+    // Customise section
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">' +
+    '<div class="dash-field"><label>Business name</label><input type="text" id="demo-biz-name" placeholder="e.g. Joe\'s Pizza" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;"></div>' +
+    '<div class="dash-field"><label>Brand colour</label><input type="color" id="demo-brand-color" value="#1a6b5a" style="height:38px;border:1px solid var(--border);border-radius:var(--radius);padding:2px 6px;"></div>' +
+    '</div>' +
+    '<div class="dash-field" style="margin-bottom:10px;"><label>Tagline</label><input type="text" id="demo-tagline" placeholder="e.g. Fresh, local, delicious" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;width:100%;box-sizing:border-box;"></div>' +
+    // Tier switcher
+    '<div style="display:flex;gap:6px;margin-bottom:14px;">' +
+    '<span style="font-size:13px;font-weight:600;color:var(--ink-muted);align-self:center;">View tier:</span>' +
+    '<button onclick="setDemoTier(\'basic\')" id="demo-tier-basic" style="padding:5px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;background:var(--accent);color:white;">Basic</button>' +
+    '<button onclick="setDemoTier(\'standard\')" id="demo-tier-standard" style="padding:5px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;background:var(--cream);color:var(--ink);">Standard</button>' +
+    '<button onclick="setDemoTier(\'premium\')" id="demo-tier-premium" style="padding:5px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;background:var(--cream);color:var(--ink);">Premium</button>' +
+    '</div>' +
+    '<div id="demo-tier-desc" style="background:var(--cream);border-radius:var(--radius);padding:10px 14px;font-size:13px;color:var(--ink-muted);margin-bottom:14px;">Basic: 1 page, 2 photos, free subdomain.</div>' +
+    // Preview frame
+    '<div style="border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:14px;">' +
+    '<iframe id="demo-preview-frame" srcdoc="" style="width:100%;height:360px;border:none;background:white;"></iframe>' +
+    '</div>' +
+    // Share
+    (demo.prompt ? '<details style="margin-bottom:12px;"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--ink-muted);">📋 Build prompt (copy to AI)</summary><pre style="background:#1a1a2e;color:#e8e8e8;border-radius:8px;padding:12px;font-size:11px;white-space:pre-wrap;margin-top:8px;">' + demo.prompt.replace(/</g,'&lt;') + '</pre></details>' : '') +
+    '<div style="display:flex;gap:8px;align-items:center;">' +
+    '<input type="email" id="demo-share-email" placeholder="Client email to share with..." style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">' +
+    '<button onclick="shareDemo(\'' + demo.id + '\')" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:9px 18px;font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;">Share demo</button>' +
+    ((['admin','manager'].includes(getRole())) ? '<button onclick="deleteDemo(\'' + demo.id + '\')" style="background:#fee2e2;color:#ef4444;border:1px solid #ef4444;border-radius:var(--radius);padding:9px 12px;font-family:var(--sans);font-size:12px;cursor:pointer;">Delete</button>' : '') +
+    '</div>' +
+    '</div></div>'
+  modal.onclick = function(e) { if (e.target === modal) modal.remove() }
+  document.body.appendChild(modal)
+  // Store current demo and build preview
+  window._currentDemo = demo
+  window._currentDemoTier = 'basic'
+  buildDemoPreview()
+}
+
+function setDemoTier(tier) {
+  window._currentDemoTier = tier
+  var descs = {
+    basic: 'Basic: 1 page, 2 photos, free subdomain — shows core branding only.',
+    standard: 'Standard: 4 pages, gallery, services section, custom domain.',
+    premium: 'Premium: Unlimited pages, full gallery, local SEO, priority support.'
+  }
+  var d = document.getElementById('demo-tier-desc')
+  if (d) d.textContent = descs[tier] || ''
+  ;['basic','standard','premium'].forEach(function(t) {
+    var btn = document.getElementById('demo-tier-' + t)
+    if (btn) { btn.style.background = t === tier ? 'var(--accent)' : 'var(--cream)'; btn.style.color = t === tier ? 'white' : 'var(--ink)' }
+  })
+  buildDemoPreview()
+}
+
+function buildDemoPreview() {
+  var frame = document.getElementById('demo-preview-frame')
+  if (!frame) return
+  var demo = window._currentDemo || {}
+  var tier = window._currentDemoTier || 'basic'
+  var biz = document.getElementById('demo-biz-name')?.value || demo.title || 'Your Business'
+  var color = document.getElementById('demo-brand-color')?.value || '#1a6b5a'
+  var tagline = document.getElementById('demo-tagline')?.value || demo.description || 'Professional websites for your business'
+  var sections = {
+    basic: '<section style="padding:60px 20px;text-align:center;"><h1 style="font-size:2.5rem;margin-bottom:16px;">' + biz + '</h1><p style="font-size:1.1rem;color:#666;margin-bottom:32px;">' + tagline + '</p><a href="#contact" style="background:' + color + ';color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:600;font-size:1rem;">Get in touch</a></section><section id="contact" style="background:#f9f9f9;padding:60px 20px;text-align:center;"><h2 style="margin-bottom:16px;">Contact us</h2><p>Call or email us today</p></section>',
+    standard: '<section style="padding:60px 20px;text-align:center;background:linear-gradient(135deg,#f5f5f5,white);"><h1 style="font-size:2.5rem;margin-bottom:16px;">' + biz + '</h1><p style="font-size:1.1rem;color:#666;margin-bottom:32px;">' + tagline + '</p><a href="#services" style="background:' + color + ';color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:600;">Our Services</a></section><section id="services" style="padding:60px 20px;max-width:800px;margin:0 auto;"><h2 style="text-align:center;margin-bottom:32px;">Our Services</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">' + ['Service 1','Service 2','Service 3'].map(function(sv){ return '<div style="border:1px solid #eee;border-radius:12px;padding:20px;text-align:center;"><div style="font-size:2rem;margin-bottom:10px;">⭐</div><h3>' + sv + '</h3><p style="color:#666;font-size:14px;">Professional quality service.</p></div>' }).join('') + '</div></section><section style="background:#f5f5f5;padding:60px 20px;text-align:center;"><h2 style="margin-bottom:16px;">Gallery</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:600px;margin:0 auto;">' + [1,2,3,4,5,6].map(function(){ return '<div style="background:#ddd;border-radius:8px;aspect-ratio:1;"></div>' }).join('') + '</div></section>',
+    premium: '<section style="padding:80px 20px;text-align:center;background:linear-gradient(135deg,' + color + '22,white);"><h1 style="font-size:3rem;margin-bottom:16px;">' + biz + '</h1><p style="font-size:1.2rem;color:#666;margin-bottom:32px;">' + tagline + '</p><div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;"><a href="#services" style="background:' + color + ';color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:600;">Our Services</a><a href="#about" style="border:2px solid ' + color + ';color:' + color + ';padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:600;">Learn more</a></div></section><section id="about" style="padding:60px 20px;max-width:800px;margin:0 auto;"><h2 style="text-align:center;margin-bottom:16px;">About us</h2><p style="text-align:center;color:#555;">We are a dedicated team committed to excellence. Our focus is on delivering the best experience for every customer.</p></section><section id="services" style="background:#f5f5f5;padding:60px 20px;"><h2 style="text-align:center;margin-bottom:32px;">Services</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;max-width:900px;margin:0 auto;">' + ['Premium Service','Expert Care','Fast Delivery','Quality Guaranteed'].map(function(sv){ return '<div style="background:white;border-radius:12px;padding:24px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06);"><div style="font-size:2rem;margin-bottom:10px;color:' + color + ';">✓</div><h3 style="margin-bottom:8px;">' + sv + '</h3><p style="color:#666;font-size:13px;">Top-tier quality every time.</p></div>' }).join('') + '</div></section><section style="padding:60px 20px;max-width:800px;margin:0 auto;text-align:center;"><h2 style="margin-bottom:16px;">📍 Find us</h2><p style="color:#555;font-size:14px;">🔍 <strong>Local SEO optimised</strong> — we make sure people in your area can find you on Google.</p><div style="background:#f5f5f5;border-radius:12px;padding:20px;margin-top:16px;font-size:14px;color:#666;">Map placeholder</div></section>'
+  }
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:\'DM Sans\',sans-serif;color:#111}nav{background:white;border-bottom:1px solid #eee;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;}<span style="font-weight:700;color:' + color + ';">' + biz + '</span></nav>' + sections[tier] + '</html>'
+  frame.srcdoc = html
+}
+
+async function shareDemo(demoId) {
+  var email = document.getElementById('demo-share-email')?.value.trim()
+  if (!email) return alert('Please enter a client email address')
+  var frame = document.getElementById('demo-preview-frame')
+  var customHtml = frame?.srcdoc || ''
+  var bizName = document.getElementById('demo-biz-name')?.value || ''
+  try {
+    var res = await fetch(API + '/admin/demos/' + demoId + '/share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ email: email, custom_html: customHtml, business_name: bizName })
+    })
+    var d = await res.json()
+    if (d.message) {
+      alert('Demo shared with ' + email + '!')
+      document.getElementById('demo-share-email').value = ''
+    } else alert(d.error || 'Failed to share')
+  } catch(e) { alert('Could not connect') }
+}
+
+async function deleteDemo(demoId) {
+  if (!confirm('Delete this demo?')) return
+  try {
+    var res = await fetch(API + '/admin/demos/' + demoId, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    if (d.message) { document.getElementById('demo-modal').remove(); loadDemos() }
+    else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+function showAddDemoModal() {
+  var ex = document.getElementById('add-demo-modal'); if (ex) ex.remove()
+  var modal = document.createElement('div')
+  modal.id = 'add-demo-modal'
+  modal.style.cssText = 'position:fixed;inset:0;z-index:600;background:rgba(15,17,23,0.7);display:flex;align-items:center;justify-content:center;padding:16px;'
+  modal.innerHTML =
+    '<div style="background:white;border-radius:16px;width:100%;max-width:540px;padding:28px;box-shadow:0 24px 60px rgba(0,0,0,0.2);max-height:92vh;overflow-y:auto;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">' +
+    '<div style="font-family:var(--serif);font-size:20px;">Add new demo</div>' +
+    '<button onclick="document.getElementById(&quot;add-demo-modal&quot;).remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-muted);">&times;</button>' +
+    '</div>' +
+    '<div style="display:grid;gap:12px;">' +
+    '<div class="dash-field"><label>Demo title *</label><input type="text" id="nd-title" placeholder="e.g. Restaurant & Cafe"></div>' +
+    '<div class="dash-field"><label>Business type</label><input type="text" id="nd-type" placeholder="e.g. Food & Beverage"></div>' +
+    '<div class="dash-field"><label>Description</label><input type="text" id="nd-desc" placeholder="Short description shown on the demo card"></div>' +
+    '<div class="dash-field"><label>AI build prompt</label><textarea id="nd-prompt" rows="5" placeholder="Paste the Claude prompt for building this type of website..."></textarea></div>' +
+    '</div>' +
+    '<div style="display:flex;gap:10px;margin-top:18px;">' +
+    '<button onclick="submitAddDemo()" style="flex:1;padding:12px;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;">Add demo</button>' +
+    '<button onclick="document.getElementById(&quot;add-demo-modal&quot;).remove()" style="padding:12px 18px;background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:14px;cursor:pointer;">Cancel</button>' +
+    '</div></div>'
+  modal.onclick = function(e) { if (e.target === modal) modal.remove() }
+  document.body.appendChild(modal)
+}
+
+async function submitAddDemo() {
+  var title = document.getElementById('nd-title')?.value.trim()
+  if (!title) return alert('Please enter a title')
+  try {
+    var res = await fetch(API + '/admin/demos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({
+        title: title,
+        business_type: document.getElementById('nd-type')?.value || '',
+        description: document.getElementById('nd-desc')?.value || '',
+        prompt: document.getElementById('nd-prompt')?.value || ''
+      })
+    })
+    var d = await res.json()
+    if (d.demo) { document.getElementById('add-demo-modal').remove(); loadDemos() }
+    else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+// ── ITEM 8: Update showSalesGuide to include demo step ───
+// Already in the guide at step 2 — update it
+function updateSalesGuideDemo() {
+  // This updates the guide when it's next opened — no action needed now
+  // The guide already mentions showing demos in step 2
 }

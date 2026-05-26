@@ -121,6 +121,7 @@ app.post('/login', async (req, res) => {
     const client = result.rows[0]
     const valid = await bcrypt.compare(password, client.password_hash)
     if (!valid) return res.status(400).json({ error: 'Invalid email or password' })
+    if (client.is_blocked) return res.status(403).json({ error: 'Your account access has been suspended. Please contact support at hello@sitefloa.com' })
     const website = await pool.query('SELECT * FROM websites WHERE client_id=$1', [client.id])
     const role = client.role || (client.is_admin ? 'admin' : 'client')
     const token = jwt.sign({ id: client.id, email: emailLower, role, is_admin: client.is_admin }, process.env.JWT_SECRET, { expiresIn: '7d' })
@@ -1199,6 +1200,14 @@ app.post('/admin/reassign-contractor', authMiddleware, adminMiddleware, async (r
 
 
 // ── MANAGER ROLE ROUTES ──────────────────────────────────
+app.post('/admin/set-blocked', authMiddleware, adminMiddleware, async (req, res) => {
+  const { client_id, blocked } = req.body
+  try {
+    await pool.query('UPDATE clients SET is_blocked=$1 WHERE id=$2', [blocked, client_id])
+    res.json({ message: blocked ? 'Account blocked' : 'Account unblocked' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
 app.post('/admin/set-role', authMiddleware, adminMiddleware, async (req, res) => {
   const { client_id, role } = req.body
   if (!['admin','manager','contractor','client'].includes(role)) return res.status(400).json({ error: 'Invalid role' })
@@ -2138,6 +2147,85 @@ app.post('/admin/update-domain', authMiddleware, staffMiddleware, async (req, re
       await pool.query('UPDATE websites SET domain_name=$1 WHERE client_id=$2', [domain_name, client_id])
     }
     res.json({ message: 'Domain updated' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── SEND PAYMENT QUESTIONNAIRE TO STAFF ─────────────────
+app.post('/admin/send-payment-questionnaire', authMiddleware, adminMiddleware, async (req, res) => {
+  const { email } = req.body
+  try {
+    const html = `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 20px;">
+      <h2 style="font-family:Georgia,serif;color:#1a6b5a;">Payment details needed</h2>
+      <p>Hi! To process your earnings payment, please fill out the form below and reply to this email with your details.</p>
+      <div style="background:#f5f5f5;border-radius:10px;padding:20px;margin:20px 0;">
+        <p><strong>1. Full legal name:</strong><br>___________________________</p>
+        <p><strong>2. Email address for payment notifications:</strong><br>___________________________</p>
+        <p><strong>3. Payment method preference:</strong><br>☐ Interac e-Transfer (provide email)<br>☐ Direct deposit (provide transit, institution & account number)<br>☐ PayPal (provide PayPal email)</p>
+        <p><strong>4. Interac e-Transfer email (if applicable):</strong><br>___________________________</p>
+        <p><strong>5. Bank details (if direct deposit):</strong><br>Transit number: ___________<br>Institution number: ___________<br>Account number: ___________</p>
+        <p><strong>6. PayPal email (if applicable):</strong><br>___________________________</p>
+        <p><strong>7. Any other notes:</strong><br>___________________________</p>
+      </div>
+      <p style="color:#666;font-size:13px;">Please reply to this email with your completed form. Your payment details are kept confidential.</p>
+    </div>`
+    await resend.emails.send({
+      from: 'Sitefloa <hello@sitefloa.com>',
+      to: email,
+      subject: 'Sitefloa — Payment details required',
+      html
+    })
+    res.json({ message: 'Questionnaire sent' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── DEMOS TABLE ──────────────────────────────────────────
+app.get('/admin/demos', authMiddleware, staffMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM demos ORDER BY created_at DESC')
+    res.json({ demos: result.rows })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+app.post('/admin/demos', authMiddleware, async (req, res) => {
+  if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Only admins and managers can add demos' })
+  const { title, business_type, description, prompt, base_html } = req.body
+  try {
+    const result = await pool.query(
+      'INSERT INTO demos (title, business_type, description, prompt, base_html, created_by) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [title, business_type, description||'', prompt||'', base_html||'', req.user.id]
+    )
+    res.json({ demo: result.rows[0] })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+app.delete('/admin/demos/:id', authMiddleware, async (req, res) => {
+  if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' })
+  try {
+    await pool.query('DELETE FROM demos WHERE id=$1', [req.params.id])
+    res.json({ message: 'Demo deleted' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── SHARE DEMO ───────────────────────────────────────────
+app.post('/admin/demos/:id/share', authMiddleware, staffMiddleware, async (req, res) => {
+  const { email, custom_html, business_name } = req.body
+  try {
+    const demo = await pool.query('SELECT * FROM demos WHERE id=$1', [req.params.id])
+    if (!demo.rows[0]) return res.status(404).json({ error: 'Demo not found' })
+    const d = demo.rows[0]
+    const briefUrl = 'https://sitefloa.com?assetform=demo&email=' + encodeURIComponent(email)
+    await resend.emails.send({
+      from: 'Sitefloa <hello@sitefloa.com>',
+      to: email,
+      subject: 'Your website demo is ready — ' + (business_name || d.title),
+      html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;">
+        <h2 style="font-family:Georgia,serif;color:#1a6b5a;">Here's your website demo! 🎨</h2>
+        <p>Hi there! We've put together a demo of what your website could look like. Take a look and let us know what you think.</p>
+        ${custom_html ? '<div style="border:1px solid #eee;border-radius:12px;padding:20px;margin:20px 0;background:#fafafa;">' + custom_html + '</div>' : ''}
+        <p>Like what you see? Fill out a quick brief form to get started on your real website — it only takes a few minutes.</p>
+        <a href="${briefUrl}" style="display:inline-block;margin:20px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">Get started — fill out the brief form →</a>
+        <p style="color:#888;font-size:13px;">Questions? Just reply to this email and we'll get back to you.</p>
+      </div>`
+    })
+    res.json({ message: 'Demo shared successfully' })
   } catch(err) { res.status(500).json({ error: err.message }) }
 })
 
