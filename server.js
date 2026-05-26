@@ -2229,6 +2229,30 @@ app.post('/admin/demos/:id/share', authMiddleware, staffMiddleware, async (req, 
   } catch(err) { res.status(500).json({ error: err.message }) }
 })
 
+// ── CLAUDE AI PROXY (per-user, CORS-safe) ────────────────
+app.post('/ai/chat', authMiddleware, staffMiddleware, async (req, res) => {
+  const { messages } = req.body
+  if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: 'messages array required' })
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 8000,
+        system: 'You are a web development expert helping build professional client websites for a web agency called Sitefloa. When asked to build a website, output complete, self-contained HTML with all CSS and JS inline. Make websites mobile-responsive and professional.',
+        messages: messages
+      })
+    })
+    const data = await response.json()
+    res.json(data)
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
 // ── MARK CLIENT WEBSITE AS PREVIEW READY ────────────────
 app.post('/admin/mark-preview-ready', authMiddleware, staffMiddleware, async (req, res) => {
   const { client_id } = req.body

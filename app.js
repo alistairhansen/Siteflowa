@@ -745,7 +745,7 @@ async function loadAdminData(){
     if(data.clients)renderClientsTable(data.clients.filter(c=>c.role==='client'||(!c.role&&!c.is_admin)))
     if(data.managers)renderStaffList(data.managers)
     if(data.monthly_chart)renderChart(data.monthly_chart)
-    loadAdminCodes();loadManagerCodes();loadInquiries('admin');loadPipeline();loadAssetForms();loadSubmittedBriefs();loadDomainRequests();loadBonusGoals();loadAllChats('admin')
+    loadAdminCodes();loadManagerCodes();loadInquiries('admin');loadPipeline();loadAssetForms();loadSubmittedBriefs();loadDomainRequests();loadBonusGoals();loadAllChats('admin');loadAdminDemos()
   }catch(e){console.error(e)}
 }
 
@@ -3720,50 +3720,58 @@ async function setBlockedById(btn) {
 }
 
 // ── ITEM 2: CLAUDE AI ASSISTANT ──────────────────────────
-var _claudeHistory = []
+// Per-user chat histories keyed by userId + context
+var _claudeHistories = {}
 
-async function sendClaudeAI() {
-  var input = document.getElementById('claude-ai-input')
+function getClaudeHistory(ctx) {
+  var uid = getToken() ? JSON.parse(atob(getToken().split('.')[1])).id : 'anon'
+  var key = uid + '_' + ctx
+  if (!_claudeHistories[key]) _claudeHistories[key] = []
+  return _claudeHistories[key]
+}
+
+async function sendClaudeAI(ctx) {
+  ctx = ctx || 'manager'
+  var inputId = ctx === 'admin' ? 'admin-claude-ai-input' : 'claude-ai-input'
+  var msgsId  = ctx === 'admin' ? 'admin-claude-chat-msgs' : 'claude-chat-msgs'
+  var input = document.getElementById(inputId)
+  var msgs  = document.getElementById(msgsId)
   var content = input?.value.trim()
   if (!content) return
   input.value = ''
-  var msgs = document.getElementById('claude-chat-msgs')
-  // Add user message
-  _claudeHistory.push({ role: 'user', content: content })
-  renderClaudeChat()
-  // Show typing indicator
+  var history = getClaudeHistory(ctx)
+  history.push({ role: 'user', content: content })
+  renderClaudeChat(ctx)
+  // Typing indicator
   var typing = document.createElement('div')
-  typing.id = 'claude-typing'
-  typing.style.cssText = 'display:flex;align-items:center;gap:8px;color:var(--ink-muted);font-size:13px;'
-  typing.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1s infinite;"></div>Claude is thinking...'
-  msgs.appendChild(typing)
-  msgs.scrollTop = msgs.scrollHeight
+  typing.id = 'claude-typing-' + ctx
+  typing.style.cssText = 'display:flex;align-items:center;gap:8px;color:var(--ink-muted);font-size:13px;padding:4px 0;'
+  typing.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:var(--accent);"></div>Claude is thinking...'
+  if (msgs) { msgs.appendChild(typing); msgs.scrollTop = msgs.scrollHeight }
   try {
-    var res = await fetch('https://api.anthropic.com/v1/messages', {
+    var res = await fetch(API + '/ai/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 8000,
-        system: 'You are a web development expert helping build professional client websites for a web agency called Sitefloa. When asked to build a website, output complete, self-contained HTML with all CSS and JS inline. Make websites mobile-responsive and professional looking.',
-        messages: _claudeHistory
-      })
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ messages: history })
     })
     var data = await res.json()
-    var reply = data.content?.[0]?.text || data.error?.message || 'No response'
-    _claudeHistory.push({ role: 'assistant', content: reply })
+    var reply = data.content?.[0]?.text || (data.error ? data.error.message || JSON.stringify(data.error) : 'No response')
+    history.push({ role: 'assistant', content: reply })
   } catch(e) {
-    _claudeHistory.push({ role: 'assistant', content: 'Error: ' + e.message })
+    history.push({ role: 'assistant', content: 'Error connecting to AI: ' + e.message })
   }
-  var t = document.getElementById('claude-typing')
+  var t = document.getElementById('claude-typing-' + ctx)
   if (t) t.remove()
-  renderClaudeChat()
+  renderClaudeChat(ctx)
 }
 
-function renderClaudeChat() {
-  var msgs = document.getElementById('claude-chat-msgs')
+function renderClaudeChat(ctx) {
+  ctx = ctx || 'manager'
+  var msgsId = ctx === 'admin' ? 'admin-claude-chat-msgs' : 'claude-chat-msgs'
+  var msgs = document.getElementById(msgsId)
   if (!msgs) return
-  msgs.innerHTML = _claudeHistory.map(function(m) {
+  var history = getClaudeHistory(ctx)
+  msgs.innerHTML = history.map(function(m) {
     var isUser = m.role === 'user'
     // Check if response contains HTML code
     var hasHtml = !isUser && (m.content.includes('<!DOCTYPE') || m.content.includes('<html'))
@@ -3773,11 +3781,13 @@ function renderClaudeChat() {
       // Extract HTML block
       var htmlMatch = m.content.match(/```html\n?([\s\S]*?)```/) || m.content.match(/(<!DOCTYPE[\s\S]*)/i)
       var htmlCode = htmlMatch ? htmlMatch[1] || htmlMatch[0] : m.content
-      window._lastClaudeHtml = htmlCode
+      if (!window._lastClaudeHtml) window._lastClaudeHtml = {}
+      window._lastClaudeHtml[ctx + '_html'] = htmlCode
       displayContent = m.content.replace(/```html[\s\S]*?```/g, '[HTML website code generated — see buttons below]')
+      var pCtx = ctx
       extraBtns = '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">' +
-        '<button onclick="previewClaudeHtml()" style="background:var(--accent);color:white;border:none;padding:6px 14px;border-radius:6px;font-family:var(--sans);font-size:12px;cursor:pointer;">👁 Preview website</button>' +
-        '<button onclick="downloadClaudeHtml()" style="background:white;border:1px solid var(--border);color:var(--ink);padding:6px 14px;border-radius:6px;font-family:var(--sans);font-size:12px;cursor:pointer;">⬇️ Download HTML</button>' +
+        '<button onclick="previewClaudeHtml(\'' + pCtx + '\')" style="background:var(--accent);color:white;border:none;padding:6px 14px;border-radius:6px;font-family:var(--sans);font-size:12px;cursor:pointer;">👁 Preview website</button>' +
+        '<button onclick="downloadClaudeHtml(\'' + pCtx + '\')" style="background:white;border:1px solid var(--border);color:var(--ink);padding:6px 14px;border-radius:6px;font-family:var(--sans);font-size:12px;cursor:pointer;">⬇️ Download HTML</button>' +
         '</div>'
     }
     return '<div style="display:flex;' + (isUser ? 'justify-content:flex-end' : 'justify-content:flex-start') + ';">' +
@@ -3788,15 +3798,19 @@ function renderClaudeChat() {
   msgs.scrollTop = msgs.scrollHeight
 }
 
-function previewClaudeHtml() {
-  if (!window._lastClaudeHtml) return
+function previewClaudeHtml(ctx) {
+  var key = (ctx||'manager') + '_html'
+  var html = window._lastClaudeHtml && window._lastClaudeHtml[key]
+  if (!html) return alert('No HTML generated yet')
   var w = window.open('', '_blank')
-  w.document.write(window._lastClaudeHtml)
+  w.document.write(html)
   w.document.close()
 }
 
-function downloadClaudeHtml() {
-  if (!window._lastClaudeHtml) return
+function downloadClaudeHtml(ctx) {
+  var key = (ctx||'manager') + '_html'
+  var html = window._lastClaudeHtml && window._lastClaudeHtml[key]
+  if (!html) return alert('No HTML generated yet')
   var blob = new Blob([window._lastClaudeHtml], { type: 'text/html' })
   var url = URL.createObjectURL(blob)
   var a = document.createElement('a'); a.href = url; a.download = 'website.html'
@@ -4008,4 +4022,99 @@ async function submitAddDemo() {
 function updateSalesGuideDemo() {
   // This updates the guide when it's next opened — no action needed now
   // The guide already mentions showing demos in step 2
+}
+
+// ── ADMIN DEMOS (mirrors loadDemos but for admin page) ────
+async function loadAdminDemos() {
+  var wrap = document.getElementById('admin-demos-list')
+  if (!wrap) return
+  var adminBtns = document.getElementById('admin-demo-btns')
+  if (adminBtns) {
+    adminBtns.innerHTML =
+      '<button onclick="copyDemoPromptTemplate()" style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:7px 14px;font-family:var(--sans);font-size:12px;cursor:pointer;">📋 Copy build template</button>' +
+      '<button onclick="showAddDemoModal()" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:7px 14px;font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;margin-left:6px;">+ Add demo</button>'
+  }
+  try {
+    var res = await fetch(API + '/admin/demos', { headers: { 'Authorization': 'Bearer ' + getToken() } })
+    var d = await res.json()
+    _allDemos = d.demos || []
+    if (!_allDemos.length) {
+      wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">No demos yet. Click "+ Add demo" to create the first one.</p>'
+      return
+    }
+    wrap.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">' +
+      _allDemos.map(function(d) {
+        return '<div onclick="openDemo(\'' + d.id + '\')" style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;cursor:pointer;background:white;transition:box-shadow 0.2s;" onmouseenter="this.style.boxShadow=\'0 4px 16px rgba(0,0,0,0.08)\'" onmouseleave="this.style.boxShadow=\'none\'">' +
+          '<div style="font-size:20px;margin-bottom:6px;">🏪</div>' +
+          '<div style="font-weight:600;font-size:13px;margin-bottom:3px;">' + d.title + '</div>' +
+          '<div style="font-size:11px;color:var(--ink-muted);">' + (d.business_type || 'General') + '</div>' +
+          '</div>'
+      }).join('') + '</div>'
+  } catch(e) {
+    wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">Could not load demos.</p>'
+  }
+}
+
+// Also update mgr demo admin btns to include copy template
+var _origLoadDemos = loadDemos
+loadDemos = async function() {
+  await _origLoadDemos()
+  var adminBtns = document.getElementById('demo-admin-btns')
+  if (adminBtns && ['admin','manager'].includes(getRole()) && !adminBtns.querySelector('button[onclick*="copyDemo"]')) {
+    adminBtns.innerHTML =
+      '<button onclick="copyDemoPromptTemplate()" style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:7px 14px;font-family:var(--sans);font-size:12px;cursor:pointer;margin-right:6px;">📋 Copy build template</button>' +
+      '<button onclick="showAddDemoModal()" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:7px 14px;font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;">+ Add demo</button>'
+  }
+}
+
+// ── DEMO PROMPT TEMPLATE ─────────────────────────────────
+function copyDemoPromptTemplate() {
+  var template = `Build a professional demo website for a [BUSINESS TYPE] called "[BUSINESS NAME]".
+
+SITE CONFIG FORMAT — use this so the demo is editable:
+- api: https://siteflowa.onrender.com
+- subdomain: demo-[slugified-name]
+
+EDITABLE VALUES (client can customise before sharing):
+- business_name: "[BUSINESS NAME]"
+- tagline: "[TAGLINE]"
+- brand_color: "#1a6b5a"
+- hero_photo: [placeholder or URL]
+- about_text: "[SHORT ABOUT TEXT]"
+- services: ["Service 1", "Service 2", "Service 3"]
+- phone: "[PHONE]"
+- address: "[ADDRESS]"
+- hours: { Mon-Fri: "9am-5pm", Sat: "10am-3pm", Sun: "Closed" }
+
+BUILD 3 TIER VERSIONS in one file using CSS classes:
+.tier-basic    — Hero + About + Contact only (1 page)
+.tier-standard — adds Services section + photo gallery (4 pages)
+.tier-premium  — adds everything + Local SEO schema + Team + Testimonials
+
+CONTROLS: Include a visible tier switcher (Basic / Standard / Premium tabs) at the top.
+When a tier tab is clicked, show only the sections for that tier.
+
+EDITABLE before send: business name, tagline, brand colour, hero photo.
+READ-ONLY when sent: all content is locked/static in the email version.
+
+DESIGN: Match the style — [DESCRIBE STYLE: modern/rustic/minimal/bold/etc].
+Brand colours: primary [COLOR], accent [COLOR].
+Make it look like a real finished website, not a mockup.
+
+Single self-contained HTML file. No external JS dependencies.`
+
+  navigator.clipboard.writeText(template).then(function() {
+    alert('Demo build template copied to clipboard! Paste it into the AI Website Builder, fill in the bracketed values, and press Send.')
+  }).catch(function() {
+    // Fallback: show in a modal
+    var modal = document.createElement('div')
+    modal.style.cssText = 'position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;padding:20px;'
+    modal.innerHTML = '<div style="background:white;border-radius:12px;padding:24px;max-width:600px;width:100%;max-height:80vh;overflow-y:auto;">' +
+      '<div style="font-weight:700;margin-bottom:12px;">Demo build template</div>' +
+      '<pre style="background:#1a1a2e;color:#e8e8e8;border-radius:8px;padding:16px;font-size:12px;white-space:pre-wrap;word-break:break-word;">' + template + '</pre>' +
+      '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="margin-top:12px;background:var(--accent);color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;">Close</button>' +
+      '</div>'
+    modal.onclick = function(e) { if (e.target === modal) modal.remove() }
+    document.body.appendChild(modal)
+  })
 }
