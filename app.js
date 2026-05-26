@@ -4069,52 +4069,134 @@ loadDemos = async function() {
 
 // ── DEMO PROMPT TEMPLATE ─────────────────────────────────
 function copyDemoPromptTemplate() {
-  var template = `Build a professional demo website for a [BUSINESS TYPE] called "[BUSINESS NAME]".
+  var ex = document.getElementById('demo-template-modal')
+  if (ex) ex.remove()
 
-SITE CONFIG FORMAT — use this so the demo is editable:
-- api: https://siteflowa.onrender.com
-- subdomain: demo-[slugified-name]
+  var modal = document.createElement('div')
+  modal.id = 'demo-template-modal'
+  modal.style.cssText = 'position:fixed;inset:0;z-index:600;background:rgba(15,17,23,0.75);display:flex;align-items:center;justify-content:center;padding:16px;'
+  modal.innerHTML =
+    '<div style="background:white;border-radius:16px;width:100%;max-width:600px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.25);">' +
+    // Header
+    '<div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
+    '<div><div style="font-family:var(--serif);font-size:20px;">📋 Build a demo prompt</div>' +
+    '<div style="font-size:13px;color:var(--ink-muted);margin-top:2px;">Fill in the details and copy the prompt into the AI builder</div></div>' +
+    '<button onclick="document.getElementById(&quot;demo-template-modal&quot;).remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--ink-muted);">&times;</button>' +
+    '</div>' +
+    // Form
+    '<div style="overflow-y:auto;padding:20px 24px;display:grid;gap:14px;">' +
+    '<div class="dash-field"><label>Business name *</label><input id="dt-biz" type="text" placeholder="e.g. The Corner Cafe"></div>' +
+    '<div class="dash-field"><label>Business type *</label><input id="dt-type" type="text" placeholder="e.g. Cafe &amp; Coffee Shop"></div>' +
+    '<div class="dash-field"><label>Tagline</label><input id="dt-tagline" type="text" placeholder="e.g. Great coffee, great vibes"></div>' +
+    '<div class="dash-field"><label>About / description</label><textarea id="dt-about" rows="2" placeholder="A short sentence about what makes this business special..."></textarea></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+    '<div class="dash-field"><label>Brand colour</label><div style="display:flex;gap:8px;align-items:center;"><input type="color" id="dt-color" value="#1a6b5a" style="height:38px;border:1px solid var(--border);border-radius:var(--radius);padding:2px 4px;width:60px;"><span id="dt-color-hex" style="font-size:13px;color:var(--ink-muted);">#1a6b5a</span></div></div>' +
+    '<div class="dash-field"><label>Design style</label><select id="dt-style" style="padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;"><option value="modern and clean">Modern &amp; clean</option><option value="warm and rustic">Warm &amp; rustic</option><option value="bold and vibrant">Bold &amp; vibrant</option><option value="minimal and elegant">Minimal &amp; elegant</option><option value="professional and corporate">Professional &amp; corporate</option><option value="fun and playful">Fun &amp; playful</option></select></div>' +
+    '</div>' +
+    '<div class="dash-field"><label>Services / menu items (one per line)</label><textarea id="dt-services" rows="3" placeholder="Coffee &amp; espresso drinks&#10;Freshly baked pastries&#10;Breakfast &amp; lunch menu"></textarea></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+    '<div class="dash-field"><label>Phone</label><input id="dt-phone" type="tel" placeholder="(555) 123-4567"></div>' +
+    '<div class="dash-field"><label>Address</label><input id="dt-address" type="text" placeholder="123 Main St, City"></div>' +
+    '</div>' +
+    '<div class="dash-field"><label>Business hours</label><input id="dt-hours" type="text" placeholder="e.g. Mon-Fri 7am-5pm, Sat 8am-3pm, Sun Closed"></div>' +
+    // Output preview
+    '<div style="background:#1a1a2e;border-radius:10px;padding:14px;">' +
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6ee7b7;margin-bottom:8px;">Generated prompt preview</div>' +
+    '<pre id="dt-preview" style="color:#e8e8e8;font-size:11px;white-space:pre-wrap;word-break:break-word;margin:0;line-height:1.6;max-height:200px;overflow-y:auto;"></pre>' +
+    '</div>' +
+    '</div>' +
+    // Footer
+    '<div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;flex-shrink:0;">' +
+    '<button onclick="copyGeneratedDemoPrompt()" style="flex:1;padding:12px;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;">📋 Copy prompt</button>' +
+    '<button onclick="sendToDemoBuilder()" style="flex:1;padding:12px;background:#7c3aed;color:white;border:none;border-radius:var(--radius);font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;">🤖 Send to AI builder</button>' +
+    '<button onclick="document.getElementById(&quot;demo-template-modal&quot;).remove()" style="padding:12px 18px;background:var(--cream);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:14px;cursor:pointer;">Cancel</button>' +
+    '</div></div>'
 
-EDITABLE VALUES (client can customise before sharing):
-- business_name: "[BUSINESS NAME]"
-- tagline: "[TAGLINE]"
-- brand_color: "#1a6b5a"
-- hero_photo: [placeholder or URL]
-- about_text: "[SHORT ABOUT TEXT]"
-- services: ["Service 1", "Service 2", "Service 3"]
-- phone: "[PHONE]"
-- address: "[ADDRESS]"
-- hours: { Mon-Fri: "9am-5pm", Sat: "10am-3pm", Sun: "Closed" }
+  modal.onclick = function(e) { if (e.target === modal) modal.remove() }
+  document.body.appendChild(modal)
 
-BUILD 3 TIER VERSIONS in one file using CSS classes:
-.tier-basic    — Hero + About + Contact only (1 page)
-.tier-standard — adds Services section + photo gallery (4 pages)
-.tier-premium  — adds everything + Local SEO schema + Team + Testimonials
-
-CONTROLS: Include a visible tier switcher (Basic / Standard / Premium tabs) at the top.
-When a tier tab is clicked, show only the sections for that tier.
-
-EDITABLE before send: business name, tagline, brand colour, hero photo.
-READ-ONLY when sent: all content is locked/static in the email version.
-
-DESIGN: Match the style — [DESCRIBE STYLE: modern/rustic/minimal/bold/etc].
-Brand colours: primary [COLOR], accent [COLOR].
-Make it look like a real finished website, not a mockup.
-
-Single self-contained HTML file. No external JS dependencies.`
-
-  navigator.clipboard.writeText(template).then(function() {
-    alert('Demo build template copied to clipboard! Paste it into the AI Website Builder, fill in the bracketed values, and press Send.')
-  }).catch(function() {
-    // Fallback: show in a modal
-    var modal = document.createElement('div')
-    modal.style.cssText = 'position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;padding:20px;'
-    modal.innerHTML = '<div style="background:white;border-radius:12px;padding:24px;max-width:600px;width:100%;max-height:80vh;overflow-y:auto;">' +
-      '<div style="font-weight:700;margin-bottom:12px;">Demo build template</div>' +
-      '<pre style="background:#1a1a2e;color:#e8e8e8;border-radius:8px;padding:16px;font-size:12px;white-space:pre-wrap;word-break:break-word;">' + template + '</pre>' +
-      '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="margin-top:12px;background:var(--accent);color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;">Close</button>' +
-      '</div>'
-    modal.onclick = function(e) { if (e.target === modal) modal.remove() }
-    document.body.appendChild(modal)
+  // Live preview update
+  function updatePreview() {
+    document.getElementById('dt-color-hex').textContent = document.getElementById('dt-color').value
+    var p = document.getElementById('dt-preview')
+    if (p) p.textContent = buildDemoPromptText()
+  }
+  document.getElementById('dt-color').addEventListener('input', updatePreview)
+  ;['dt-biz','dt-type','dt-tagline','dt-about','dt-style','dt-services','dt-phone','dt-address','dt-hours'].forEach(function(id) {
+    var el = document.getElementById(id)
+    if (el) el.addEventListener('input', updatePreview)
   })
+  updatePreview()
+}
+
+function buildDemoPromptText() {
+  var biz      = document.getElementById('dt-biz')?.value.trim()      || '[BUSINESS NAME]'
+  var type     = document.getElementById('dt-type')?.value.trim()     || '[BUSINESS TYPE]'
+  var tagline  = document.getElementById('dt-tagline')?.value.trim()  || '[TAGLINE]'
+  var about    = document.getElementById('dt-about')?.value.trim()    || '[SHORT ABOUT TEXT]'
+  var color    = document.getElementById('dt-color')?.value           || '#1a6b5a'
+  var style    = document.getElementById('dt-style')?.value           || 'modern and clean'
+  var rawSvcs  = document.getElementById('dt-services')?.value.trim() || ''
+  var services = rawSvcs ? rawSvcs.split('\n').filter(Boolean).map(function(s){ return '"' + s.trim() + '"' }).join(', ') : '"Service 1", "Service 2", "Service 3"'
+  var phone    = document.getElementById('dt-phone')?.value.trim()    || '[PHONE]'
+  var address  = document.getElementById('dt-address')?.value.trim()  || '[ADDRESS]'
+  var hours    = document.getElementById('dt-hours')?.value.trim()    || 'Mon-Fri 9am-5pm, Sat 10am-3pm, Sun Closed'
+  var slug     = biz.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
+
+  return 'Build a professional demo website for a ' + type + ' called "' + biz + '".\n' +
+'\n' +
+'SITE CONFIG FORMAT:\n' +
+'- api: https://siteflowa.onrender.com\n' +
+'- subdomain: demo-' + slug + '\n' +
+'\n' +
+'BUSINESS DETAILS:\n' +
+'- business_name: "' + biz + '"\n' +
+'- business_type: "' + type + '"\n' +
+'- tagline: "' + tagline + '"\n' +
+'- about: "' + about + '"\n' +
+'- brand_color: "' + color + '"\n' +
+'- services: [' + services + ']\n' +
+'- phone: "' + phone + '"\n' +
+'- address: "' + address + '"\n' +
+'- hours: "' + hours + '"\n' +
+'\n' +
+'BUILD 3 TIER VERSIONS in one file using CSS display toggling:\n' +
+'Basic    — Hero + About + Contact only (1 page feel)\n' +
+'Standard — adds Services section + photo gallery\n' +
+'Premium  — adds everything + Local SEO schema + Team + Testimonials\n' +
+'\n' +
+'Include a tier switcher (Basic / Standard / Premium buttons) at the top.\n' +
+'Each tier button shows only that tier\'s sections.\n' +
+'\n' +
+'DESIGN: ' + style + ' aesthetic.\n' +
+'Primary brand colour: ' + color + '\n' +
+'Use this colour for CTAs, headings accents, nav highlights.\n' +
+'\n' +
+'Single self-contained HTML. All CSS and JS inline. Mobile-first responsive.\n' +
+'Make it look like a real finished website — not a mockup or wireframe.\n' +
+'Use placeholder images (picsum.photos or coloured divs). No Lorem Ipsum — use real copy based on the business.'
+}
+
+function copyGeneratedDemoPrompt() {
+  var text = buildDemoPromptText()
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.querySelector('#demo-template-modal button[onclick*="copyGenerated"]')
+    if (btn) { btn.textContent = '✅ Copied!'; setTimeout(function(){ btn.textContent = '📋 Copy prompt' }, 2000) }
+  }).catch(function() { alert('Could not copy — please select and copy the text from the preview manually') })
+}
+
+function sendToDemoBuilder() {
+  var text = buildDemoPromptText()
+  document.getElementById('demo-template-modal').remove()
+  // Try admin input first, then manager
+  var input = document.getElementById('admin-claude-ai-input') || document.getElementById('claude-ai-input')
+  if (input) {
+    input.value = text
+    input.focus()
+    input.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  } else {
+    navigator.clipboard.writeText(text).then(function(){
+      alert('Prompt copied! Scroll to the AI Website Builder and paste it.')
+    })
+  }
 }
