@@ -2229,6 +2229,26 @@ app.post('/admin/demos/:id/share', authMiddleware, staffMiddleware, async (req, 
   } catch(err) { res.status(500).json({ error: err.message }) }
 })
 
+// ── GET ALL INVITE CODES (managers can view contractor codes) ─
+app.get('/admin/codes', authMiddleware, async (req, res) => {
+  if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' })
+  try {
+    const result = await pool.query("SELECT code, role, used_by, created_at FROM invite_codes ORDER BY created_at DESC")
+    res.json({ codes: result.rows })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── CREATE INVITE CODE (managers can create contractor codes) ─
+app.post('/admin/create-code', authMiddleware, async (req, res) => {
+  if (!['admin','manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' })
+  const { code, role } = req.body
+  if (!code) return res.status(400).json({ error: 'Code required' })
+  try {
+    await pool.query("INSERT INTO invite_codes (code, role) VALUES ($1, $2)", [code.toUpperCase(), role || 'contractor'])
+    res.json({ message: 'Code created' })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
 // ── CLAUDE AI PROXY (per-user, CORS-safe) ────────────────
 app.post('/ai/chat', authMiddleware, staffMiddleware, async (req, res) => {
   const { messages } = req.body

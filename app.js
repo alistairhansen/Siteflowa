@@ -1049,6 +1049,24 @@ async function loadManagerData(){
 
     loadInquiries('manager')
     loadPipeline();loadMgrAssetForms();loadSubmittedBriefs();loadContractorBonus();loadDomainNotifications();loadAllChats('manager');loadAdminEmails();loadDemos()
+    // Show/hide manager-only sections
+    var isManager = getRole() === 'manager'
+    var codeSection = document.getElementById('mgr-contractor-codes-section')
+    var allClientsSection = document.getElementById('mgr-all-clients-section')
+    var staffPerfSection = document.getElementById('mgr-staff-perf-section')
+    var aiWarn = document.getElementById('ai-warn-text')
+    var aiNotice = document.getElementById('ai-monitor-notice')
+    if (codeSection) codeSection.style.display = isManager ? '' : 'none'
+    if (allClientsSection) allClientsSection.style.display = isManager ? '' : 'none'
+    if (staffPerfSection) staffPerfSection.style.display = isManager ? '' : 'none'
+    if (aiWarn) aiWarn.textContent = isManager ? 'You can view all contractor AI conversations below.' : 'Your conversations are monitored by managers and admins.'
+    if (aiNotice) aiNotice.style.display = isManager ? 'none' : 'block'
+    if (isManager) {
+      loadContractorCodes()
+      loadMgrAllClients()
+      loadMgrStaffPerf()
+      loadAllContractorAIHistories()
+    }
   }catch(e){console.error(e)}
 }
 
@@ -4199,4 +4217,223 @@ function sendToDemoBuilder() {
       alert('Prompt copied! Scroll to the AI Website Builder and paste it.')
     })
   }
+}
+
+// ── ITEM 1: AI MONITORING ─────────────────────────────────
+// Store all contractor histories so managers can view them
+var _allContractorHistories = {}
+
+async function loadAllContractorAIHistories() {
+  // Managers can see all contractor chat histories via the shared object
+  // In a real production system this would be stored server-side
+  // For now: show a panel below the AI builder with each contractor's history
+  var wrap = document.getElementById('claude-chat-msgs')
+  if (!wrap) return
+  // Add a manager monitor panel after the AI builder
+  var existing = document.getElementById('mgr-ai-monitor')
+  if (existing) return
+  var panel = document.createElement('div')
+  panel.id = 'mgr-ai-monitor'
+  panel.style.cssText = 'margin-top:12px;border:1px solid #fcd34d;border-radius:var(--radius-lg);overflow:hidden;'
+  panel.innerHTML = '<div style="background:#fff8e6;padding:12px 16px;font-weight:600;font-size:13px;color:#92400e;display:flex;justify-content:space-between;align-items:center;">' +
+    '<span>👁 AI usage monitor — all contractor sessions</span>' +
+    '<button onclick="refreshAIMonitor()" style="background:none;border:1px solid #fcd34d;border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer;color:#92400e;">Refresh</button>' +
+    '</div>' +
+    '<div id="mgr-ai-monitor-content" style="padding:14px;font-size:13px;color:var(--ink-muted);">No contractor AI sessions recorded yet this session.</div>'
+  var aiSection = wrap.closest('.admin-section')
+  if (aiSection) aiSection.appendChild(panel)
+  refreshAIMonitor()
+}
+
+function refreshAIMonitor() {
+  var content = document.getElementById('mgr-ai-monitor-content')
+  if (!content) return
+  var entries = Object.keys(_allContractorHistories)
+  if (!entries.length) {
+    content.innerHTML = '<p style="color:var(--ink-muted);">No contractor AI sessions recorded yet this session.</p>'
+    return
+  }
+  content.innerHTML = entries.map(function(key) {
+    var hist = _allContractorHistories[key]
+    var [uid, ctx] = key.split('_')
+    return '<div style="border-bottom:1px solid var(--border);padding:10px 0;">' +
+      '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:var(--ink);">User: ' + (uid || 'unknown') + ' · Context: ' + ctx + '</div>' +
+      hist.map(function(m) {
+        return '<div style="margin-bottom:4px;"><span style="font-size:11px;font-weight:700;color:' + (m.role==='user'?'#7c3aed':'#1a6b5a') + ';">' + m.role.toUpperCase() + ':</span> <span style="font-size:12px;">' + (m.content||'').substring(0,200) + (m.content&&m.content.length>200?'...':'') + '</span></div>'
+      }).join('') +
+      '</div>'
+  }).join('')
+}
+
+// Override getClaudeHistory to also copy to shared monitor object
+var _origGetHistory = getClaudeHistory
+getClaudeHistory = function(ctx) {
+  var hist = _origGetHistory(ctx)
+  var uid = getToken() ? JSON.parse(atob(getToken().split('.')[1])).id : 'anon'
+  var key = uid + '_' + ctx
+  _allContractorHistories[key] = hist
+  return hist
+}
+
+// ── ITEM 2: MANAGER CREATES CONTRACTOR CODES ─────────────
+async function loadContractorCodes() {
+  var wrap = document.getElementById('mgr-contractor-codes-list')
+  if (!wrap) return
+  try {
+    var res = await fetch(API + '/admin/codes', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    var codes = (d.codes || []).filter(function(c) { return c.role === 'contractor' || !c.role })
+    if (!codes.length) { wrap.innerHTML = '<p style="color:var(--ink-muted);">No contractor codes yet.</p>'; return }
+    wrap.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
+      codes.map(function(c) {
+        return '<div style="background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;">' +
+          '<span style="font-weight:600;">' + c.code + '</span>' +
+          '<span style="color:var(--ink-muted);margin-left:8px;font-size:11px;">' + (c.used_by ? 'Used' : 'Available') + '</span>' +
+          '</div>'
+      }).join('') + '</div>'
+  } catch(e) { wrap.innerHTML = '<p style="color:var(--ink-muted);">Could not load codes.</p>' }
+}
+
+async function createContractorCodeMgr() {
+  var code = document.getElementById('mgr-new-contractor-code')?.value.trim()
+  if (!code) return alert('Please enter a code')
+  try {
+    var res = await fetch(API + '/admin/create-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ code: code, role: 'contractor' })
+    })
+    var d = await res.json()
+    if (d.message) {
+      document.getElementById('mgr-new-contractor-code').value = ''
+      loadContractorCodes()
+    } else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+// ── ITEM 3: MANAGER STAFF PERFORMANCE ────────────────────
+async function loadMgrStaffPerf() {
+  var wrap = document.getElementById('mgr-staff-perf-list')
+  if (!wrap) return
+  try {
+    var res = await fetch(API + '/admin/stats', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    var contractors = (d.managers || []).filter(function(m) { return m.role === 'contractor' })
+    if (!contractors.length) { wrap.innerHTML = '<p style="color:var(--ink-muted);">No contractors yet.</p>'; return }
+    wrap.innerHTML = '<div style="display:grid;gap:8px;">' +
+      contractors.map(function(c) {
+        return '<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;background:white;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">' +
+          '<div>' +
+          '<div style="font-weight:600;font-size:14px;">' + c.email + '</div>' +
+          '<div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">Commission: ' + (c.commission_rate||10) + '%</div>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">' +
+          '<div style="text-align:center;background:var(--cream);border-radius:8px;padding:8px 12px;"><div style="font-size:18px;font-weight:700;">' + (c.websites_all_time||0) + '</div><div style="font-size:10px;color:var(--ink-muted);">Total clients</div></div>' +
+          '<div style="text-align:center;background:var(--cream);border-radius:8px;padding:8px 12px;"><div style="font-size:18px;font-weight:700;">' + (c.briefs_sent||0) + '</div><div style="font-size:10px;color:var(--ink-muted);">Total briefs</div></div>' +
+          '<div style="text-align:center;background:#e8f4f1;border:1px solid var(--accent);border-radius:8px;padding:8px 12px;"><div style="font-size:18px;font-weight:700;color:var(--accent);">' + (c.websites_created||0) + '</div><div style="font-size:10px;color:var(--accent);">This period</div></div>' +
+          '<div style="text-align:center;background:#ede9ff;border:1px solid #c4b5fd;border-radius:8px;padding:8px 12px;"><div style="font-size:18px;font-weight:700;color:#7c3aed;">$' + Math.round((c.total_brought_in||0)*(c.commission_rate||10)/100) + '</div><div style="font-size:10px;color:#7c3aed;">Commission</div></div>' +
+          '</div>' +
+          '<div style="display:flex;gap:6px;">' +
+          '<button class="action-btn" data-id="' + c.id + '" data-blocked="' + (c.is_blocked?'true':'false') + '" onclick="setBlockedById(this)">' + (c.is_blocked?'🔓 Unblock':'🚫 Block') + '</button>' +
+          '</div>' +
+          '</div>'
+      }).join('') + '</div>'
+  } catch(e) { wrap.innerHTML = '<p style="color:var(--ink-muted);">Could not load contractor data.</p>' }
+}
+
+// ── ITEM 2: MANAGER ALL CLIENTS ───────────────────────────
+async function loadMgrAllClients() {
+  var tbody = document.getElementById('mgr-all-clients-body')
+  if (!tbody) return
+  try {
+    var res = await fetch(API + '/admin/stats', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    var clients = (d.clients || []).filter(function(c) { return c.role === 'client' || !c.is_admin })
+    renderClientsTableTo(clients, 'mgr-all-clients-body')
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--ink-muted);padding:32px;">Could not load clients.</td></tr>'
+  }
+}
+
+// Renders clients to any tbody id — reuses renderClientsTable logic
+function renderClientsTableTo(clients, tbodyId) {
+  var tbody = document.getElementById(tbodyId)
+  if (!tbody) return
+  if (!clients.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--ink-muted);padding:32px;">No clients yet.</td></tr>'
+    return
+  }
+  tbody.innerHTML = clients.map(function(c) {
+    var statusHtml = buildClientStatus(c)
+    var rowStyle = c.subscription_status === 'suspended' ? 'style="background:#fff1f1;"' : ''
+    return '<tr ' + rowStyle + '>' +
+      '<td><button class="action-btn" onclick="toggleMgrDetail(\'' + c.id + '\')" style="padding:4px 8px;">▼</button></td>' +
+      '<td>' + (c.email||'') + '</td>' +
+      '<td>' + (c.business_name||'<span style="color:var(--ink-muted);">Not set</span>') + '</td>' +
+      '<td><span class="plan-badge ' + (c.plan||'standard') + '">' + (c.plan||'standard').toUpperCase() + '</span></td>' +
+      '<td>' + statusHtml + '</td>' +
+      '<td>$' + (c.setup_fee||0) + '</td>' +
+      '<td>$' + (c.monthly_fee||0) + '/mo</td>' +
+      '<td style="font-size:12px;color:var(--ink-muted);">' + (c.created_by_email||'—') + '</td>' +
+      '<td style="font-size:12px;">' + (c.created_at ? new Date(c.created_at).toLocaleDateString('en-CA') : '—') + '</td>' +
+      '<td style="display:flex;gap:4px;flex-wrap:wrap;">' +
+      '<button class="action-btn" onclick="transferClient(\'' + c.id + '\')">Transfer</button>' +
+      '</td></tr>' +
+      '<tr id="mgr-detail-' + c.id + '" style="display:none;"><td colspan="10" style="padding:0;">' +
+      '<div style="padding:16px 20px;background:var(--cream);border-top:1px solid var(--border);">' +
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px;">' +
+      '<div><div class="detail-label">Email</div><div class="detail-val">' + c.email + '</div></div>' +
+      '<div><div class="detail-label">Subdomain</div><div class="detail-val">' + (c.subdomain||'—') + '</div></div>' +
+      '<div><div class="detail-label">Plan</div><div class="detail-val">' + (c.plan||'standard') + '</div></div>' +
+      '<div><div class="detail-label">Status</div><div class="detail-val">' + (c.subscription_status||'—') + '</div></div>' +
+      '</div>' +
+      '<div style="margin-bottom:10px;">' +
+      '<label style="font-size:12px;font-weight:600;color:var(--ink-muted);">Domain name</label>' +
+      '<div style="display:flex;gap:6px;margin-top:4px;">' +
+      '<input type="text" id="mgr-dn-' + c.id + '" value="' + (c.domain_name||'') + '" placeholder="e.g. mybusiness.com" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;width:160px;">' +
+      '<input type="number" id="mgr-dc-' + c.id + '" value="' + (c.domain_cost||'') + '" placeholder="Setup $" style="padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;width:80px;">' +
+      '<input type="number" id="mgr-dy-' + c.id + '" value="' + (c.domain_yearly_fee||'') + '" placeholder="$/yr" style="padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;width:70px;">' +
+      '<button class="dash-save" onclick="saveMgrClientDomain(\'' + c.id + '\')" style="padding:7px 12px;font-size:12px;">Save domain</button>' +
+      '</div></div>' +
+      '</div></td></tr>'
+  }).join('')
+}
+
+function toggleMgrDetail(id) {
+  var row = document.getElementById('mgr-detail-' + id)
+  if (row) row.style.display = row.style.display === 'none' ? '' : 'none'
+}
+
+async function saveMgrClientDomain(clientId) {
+  var domain = document.getElementById('mgr-dn-' + clientId)?.value.trim() || ''
+  var cost   = parseFloat(document.getElementById('mgr-dc-' + clientId)?.value) || 0
+  var yearly = parseFloat(document.getElementById('mgr-dy-' + clientId)?.value) || 0
+  try {
+    var res = await fetch(API + '/admin/update-domain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ client_id: clientId, domain_name: domain, domain_cost: cost, domain_yearly_fee: yearly })
+    })
+    var d = await res.json()
+    if (d.message) loadMgrAllClients()
+    else alert(d.error || 'Failed')
+  } catch(e) { alert('Could not connect') }
+}
+
+// ── ITEM 5 & 6: DEMO SYSTEM IMPROVEMENTS ─────────────────
+// Fix openDemo to hide add/template for contractors
+var _origOpenDemo = openDemo
+openDemo = function(demoId) {
+  _origOpenDemo(demoId)
+  // After modal opens, hide delete for contractors
+  setTimeout(function() {
+    var delBtn = document.querySelector('#demo-modal button[onclick*="deleteDemo"]')
+    if (delBtn && getRole() === 'contractor') delBtn.style.display = 'none'
+  }, 50)
 }
