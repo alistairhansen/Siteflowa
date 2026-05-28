@@ -553,6 +553,15 @@ app.post('/admin/upload-site-html', authMiddleware, staffMiddleware, async (req,
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
+// ── GET SITE HTML (for download) ─────────────────────────
+app.get('/admin/get-site-html/:websiteId', authMiddleware, staffMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT site_html FROM websites WHERE id=$1', [req.params.websiteId])
+    if (!result.rows[0]) return res.status(404).json({ error: 'Website not found' })
+    res.json({ site_html: result.rows[0].site_html || null })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
 // ── ADMIN - client preview ──────────────────────────────
 app.get('/admin/client-preview/:clientId', authMiddleware, staffMiddleware, async (req, res) => {
   try {

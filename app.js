@@ -1131,7 +1131,7 @@ function renderManagerTable(clients){
         <div class="detail-item"><div class="dl">Active</div><div class="dv">${c.is_active?'✅ Yes':'❌ No'}</div></div>
       </div>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="action-btn" style="background:#1a6b5a;color:white;border-color:#1a6b5a;" onclick="uploadSiteHtml('${c.website_id}','${c.email}')">🌐 Upload website</button>
+        <button class="action-btn" style="background:#1a6b5a;color:white;border-color:#1a6b5a;" onclick="uploadSiteHtml('${c.website_id}','${c.email}')">🌐 Upload website</button>${c.site_html ? '<button class="action-btn" style="background:white;border-color:#1a6b5a;color:#1a6b5a;" onclick="downloadSiteHtml(&quot;' + c.website_id + '&quot;,&quot;' + (c.business_name||c.email).replace(/[^a-z0-9]/gi,'-') + '&quot;)">⬇️ Download HTML</button>' : ''}
       </div>
       <p class="readonly-notice">ℹ️ Contact admin to change pricing, plan, or delete this account.</p>
     </div></td></tr>
@@ -1203,6 +1203,7 @@ function renderClientsTable(clients){
       </div>
       <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">
         <button class="action-btn" style="background:#1a6b5a;color:white;border-color:#1a6b5a;" onclick="uploadSiteHtml('${c.website_id}','${c.email}')">🌐 Upload website HTML</button>
+        <span id="upload-note-${c.id}" style="font-size:12px;color:var(--ink-muted);">Uploading HTML automatically sets status to &quot;In preview&quot;</span>
         <span style="font-size:12px;color:var(--ink-muted);margin-left:8px;">Uploading HTML automatically sets status to "In preview"</span>
       </div>
       <div class="pricing-edit" style="margin-bottom:10px;">
@@ -4656,4 +4657,22 @@ async function loadUnreadChatDots() {
       }
     })
   } catch(e) {}
+}
+
+// ── DOWNLOAD SITE HTML ────────────────────────────────────
+async function downloadSiteHtml(websiteId, filename) {
+  try {
+    var res = await fetch(API + '/admin/get-site-html/' + websiteId, {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    if (!d.site_html) return alert('No HTML uploaded for this client yet.')
+    var blob = new Blob([d.site_html], { type: 'text/html' })
+    var url = URL.createObjectURL(blob)
+    var a = document.createElement('a')
+    a.href = url
+    a.download = (filename || 'website') + '.html'
+    document.body.appendChild(a); a.click()
+    document.body.removeChild(a); URL.revokeObjectURL(url)
+  } catch(e) { alert('Could not download HTML') }
 }
