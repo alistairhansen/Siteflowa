@@ -3,6 +3,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+  <!-- Favicon / tab icon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231a6b5a'/><text y='.9em' font-size='80' x='10'>🌊</text></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231a6b5a'/><text y='.9em' font-size='80' x='10'>🌊</text></svg>">
+  <!-- Open Graph (Google search result + social sharing) -->
+  <meta property="og:title" content="Sitefloa — Professional Websites for Small Business">
+  <meta property="og:description" content="We build, host, and maintain your website. Starting at $29/mo. Get started today.">
+  <meta property="og:url" content="https://sitefloa.com">
+  <meta property="og:type" content="website">
+  <meta name="description" content="Sitefloa builds professional websites for small businesses. We handle everything — design, hosting, and maintenance. Starting at $29/month.">
+  <meta name="theme-color" content="#1a6b5a">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sitefloa - Professional Websites for Small Business</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -70,7 +80,7 @@
 <!-- HOME -->
 <div id="page-home" class="page-section active">
   <section id="home">
-    <div class="hero-eyebrow">Professional websites for small business</div>
+    <div class="hero-eyebrow" id="hero-main-title">Professional websites for small business</div>
     <h1 class="fade-up">Your business deserves a <em>beautiful</em> website.</h1>
     <p class="hero-sub fade-up delay-1" id="hero-tagline">We build, host, and maintain your website — and hand you a simple dashboard so you're always in control.</p>
     <div class="hero-actions fade-up delay-2">
@@ -124,7 +134,7 @@
       <div class="service-card"><div class="service-icon">🖥️</div><h3>Hosting & maintenance</h3><p>Your website stays live, secure, and up to date. We handle servers, backups, and software updates.</p><div class="service-price">Monthly from <strong id="svc-monthly-price">$29/mo</strong></div></div>
       <div class="service-card"><div class="service-icon">⚡</div><h3>Live content dashboard</h3><p>Log in anytime to update your business info, upload photos, or change your hours. Changes go live instantly.</p><div class="service-price">Included in <strong>Standard+</strong></div></div>
       <div class="service-card"><div class="service-icon">📞</div><h3>Ongoing support</h3><p>Something not right? Real support from real people — no bots, no ticket queues.</p><div class="service-price">Included in <strong>all plans</strong></div></div>
-      <div class="service-card"><div class="service-icon">🔍</div><h3>SEO foundations</h3><p>Every website is built with proper search engine foundations — page titles, meta descriptions, fast load times.</p><div class="service-price">Included in <strong>setup</strong></div></div>
+      <div class="service-card"><div class="service-icon">🔍</div><h3>SEO foundations</h3><p>Every website is built with proper search foundations — page titles, meta descriptions, fast load times. Premium plans include full <strong>local SEO</strong> so people near you can find your business on Google.</p><div class="service-price">Basic in all plans · <strong>Full local SEO on Premium</strong></div></div>
       <div class="service-card"><div class="service-icon">📈</div><h3>Analytics & stats</h3><p>See how many people visit your website, where they come from, and what they look at.</p><div class="service-price">All plans · <strong>more in Standard+</strong></div></div>
     </div>
     <div style="text-align:center;margin-top:52px;"><button class="btn-primary" onclick="showPage('plans')">See our plans & pricing →</button></div>
@@ -234,7 +244,7 @@
                 <div><label>Phone number</label><input type="tel" id="if-phone" placeholder="+1 (604) 555-0100"></div>
                 <div><label>Type of business</label><select id="if-type"><option value="">Select one...</option><option>Trades (plumber, electrician, etc.)</option><option>Restaurant / café</option><option>Retail shop</option><option>Health & beauty</option><option>Professional services</option><option>Other</option></select></div>
                 <div><label>Existing website?</label><select id="if-existing"><option>No — starting fresh</option><option>Yes — looking to replace it</option><option>Yes — just want to improve it</option></select></div>
-                <div><label>Which plan are you interested in?</label><select id="if-plan"><option value="basic">Basic — 1 page, 2 photos, free subdomain (one-time payment)</option><option value="standard" selected>Standard — 4 pages, 8 photos, custom domain, $49/mo</option><option value="premium">Premium — unlimited pages & photos, custom domain, $79/mo</option></select></div>
+                <div><label>Which plan are you interested in?</label><select id="if-plan"><option value="basic" id="inq-opt-basic">Basic — 1 page, 2 photos, free subdomain</option><option value="standard" id="inq-opt-standard" selected>Standard — 4 pages, 8 photos, custom domain</option><option value="premium" id="inq-opt-premium">Premium — unlimited pages &amp; photos, custom domain</option></select></div>
                 <div><label>Your current website or social media link (optional)</label><input type="url" id="if-website" placeholder="https://yourwebsite.com or instagram.com/yourbusiness"></div>
                 <div><label>Tell us about your business</label><textarea id="if-msg" placeholder="What do you do, who are your customers, any specific needs?"></textarea></div>
                 <button type="submit" class="form-submit">Send my inquiry →</button>
@@ -483,6 +493,7 @@
       <div class="site-settings-grid">
         <div class="settings-section-label">Company & pricing</div>
         <div class="dash-field"><label>Company name</label><input type="text" id="ss-name" placeholder="Sitefloa"></div>
+        <div class="dash-field"><label>Main hero title (above heading)</label><input type="text" id="ss-main-title" placeholder="Professional websites for small business"></div>
         <div class="dash-field"><label>Tagline</label><input type="text" id="ss-tagline"></div>
         <div class="settings-section-label">Plan monthly prices ($)</div>
         <div class="dash-field"><label>Basic /mo</label><input type="number" id="ss-basic-price" value="29"></div>
@@ -1175,5 +1186,13 @@
   </div>
 </div>
 
+  <!-- Cookie consent banner -->
+  <div id="cookie-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1a1a2e;color:white;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;font-family:var(--sans);font-size:13px;box-shadow:0 -4px 20px rgba(0,0,0,0.3);">
+    <div style="flex:1;min-width:200px;">🍪 We use cookies to improve your experience and process payments securely. By continuing, you agree to our use of cookies. <a href="#" onclick="showPage('home')" style="color:#6ee7b7;text-decoration:underline;">Learn more</a></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="acceptCookies()" style="background:#1a6b5a;color:white;border:none;padding:9px 20px;border-radius:8px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">Accept all</button>
+      <button onclick="declineCookies()" style="background:none;color:#aaa;border:1px solid #444;padding:9px 16px;border-radius:8px;font-family:var(--sans);font-size:13px;cursor:pointer;white-space:nowrap;">Essential only</button>
+    </div>
+  </div>
 </body>
 </html>

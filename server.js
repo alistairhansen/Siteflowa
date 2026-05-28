@@ -392,8 +392,8 @@ app.post('/admin/site-settings', authMiddleware, adminMiddleware, async (req, re
     plan_basic_price, plan_standard_price, plan_premium_price,
     plan_basic_setup, plan_standard_setup, plan_premium_setup, apply_prices_to } = req.body
   try {
-    await pool.query(`UPDATE site_settings SET company_name=$1,tagline=$2,email=$3,phone=$4,address=$5,instagram=$6,facebook=$7,tiktok=$8,twitter=$9,linkedin=$10,youtube=$11,plan_basic_price=$12,plan_standard_price=$13,plan_premium_price=$14,plan_basic_setup=$15,plan_standard_setup=$16,plan_premium_setup=$17,updated_at=NOW()`,
-      [company_name,tagline,email,phone,address,instagram,facebook,tiktok,twitter,linkedin,youtube,
+    await pool.query(`UPDATE site_settings SET company_name=$1,main_title=$2,tagline=$3,email=$4,phone=$5,address=$6,instagram=$7,facebook=$8,tiktok=$9,twitter=$10,linkedin=$11,youtube=$12,plan_basic_price=$13,plan_standard_price=$14,plan_premium_price=$15,plan_basic_setup=$16,plan_standard_setup=$17,plan_premium_setup=$18,updated_at=NOW()`,
+      [company_name, req.body.main_title||'', tagline,email,phone,address,instagram,facebook,tiktok,twitter,linkedin,youtube,
        plan_basic_price||29, plan_standard_price||49, plan_premium_price||79,
        plan_basic_setup||199, plan_standard_setup||299, plan_premium_setup||499])
     if (apply_prices_to === 'all') {

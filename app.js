@@ -82,10 +82,18 @@ function applySettings(s){
   if(!s)return
   const name=s.company_name||'Siteflowa'
   document.title=name+' - Professional Websites for Small Business'
-  document.getElementById('footer-copy').textContent='(c) 2026 '+name+'. All rights reserved.'
-  if(s.tagline)document.getElementById('hero-tagline').textContent=s.tagline
+  document.getElementById('footer-copy').textContent='\u00a9 2026 '+name+'. All rights reserved.'
+  if(s.main_title){var mt=document.getElementById('hero-main-title');if(mt)mt.textContent=s.main_title}
+  if(s.tagline){var ht=document.getElementById('hero-tagline');if(ht)ht.textContent=s.tagline}
   if(s.plan_basic_price){
     document.getElementById('home-stat-price').textContent='$'+s.plan_basic_price
+    // Update inquiry page plan dropdown with real prices
+    var inqBasic=document.getElementById('inq-opt-basic')
+    var inqStd=document.getElementById('inq-opt-standard')
+    var inqPrem=document.getElementById('inq-opt-premium')
+    if(inqBasic)inqBasic.textContent='Basic — $'+s.plan_basic_setup+' setup + $'+s.plan_basic_price+'/mo'
+    if(inqStd)inqStd.textContent='Standard — $'+s.plan_standard_setup+' setup + $'+s.plan_standard_price+'/mo'
+    if(inqPrem)inqPrem.textContent='Premium — $'+s.plan_premium_setup+' setup + $'+s.plan_premium_price+'/mo'
     document.getElementById('plan-basic-price').innerHTML='$'+s.plan_basic_price+'<span>/mo</span>'
     document.getElementById('plan-standard-price').innerHTML='$'+s.plan_standard_price+'<span>/mo</span>'
     document.getElementById('plan-premium-price').innerHTML='$'+s.plan_premium_price+'<span>/mo</span>'
@@ -117,7 +125,7 @@ function applySettings(s){
 async function loadSiteSettingsForm(){
   try{
     const res=await fetch(API+'/site-settings');const s=await res.json()
-    const map={name:'company_name',tagline:'tagline',email:'email',phone:'phone',address:'address',instagram:'instagram',facebook:'facebook',tiktok:'tiktok',twitter:'twitter',linkedin:'linkedin',youtube:'youtube'}
+    const map={name:'company_name','main-title':'main_title',tagline:'tagline',email:'email',phone:'phone',address:'address',instagram:'instagram',facebook:'facebook',tiktok:'tiktok',twitter:'twitter',linkedin:'linkedin',youtube:'youtube'}
     Object.entries(map).forEach(([id,key])=>{const el=document.getElementById('ss-'+id);if(el)el.value=s[key]||''})
     if(s.plan_basic_price){
       document.getElementById('ss-basic-price').value=s.plan_basic_price||29
@@ -132,7 +140,7 @@ async function loadSiteSettingsForm(){
 async function saveSiteSettings(){
   const applyTo=document.getElementById('ss-price-apply')?.value||'new_only'
   const body={
-    company_name:document.getElementById('ss-name').value,tagline:document.getElementById('ss-tagline').value,
+    company_name:document.getElementById('ss-name').value,main_title:document.getElementById('ss-main-title')?.value||'',tagline:document.getElementById('ss-tagline').value,
     email:document.getElementById('ss-email').value,phone:document.getElementById('ss-phone').value,address:document.getElementById('ss-address').value,
     instagram:document.getElementById('ss-instagram').value,facebook:document.getElementById('ss-facebook').value,
     tiktok:document.getElementById('ss-tiktok').value,twitter:document.getElementById('ss-twitter').value,
@@ -1048,7 +1056,7 @@ async function loadManagerData(){
     renderManagerEarningsHistory(earnData)
 
     loadInquiries('manager')
-    loadPipeline();loadMgrAssetForms();loadSubmittedBriefs();loadContractorBonus();loadDomainNotifications();loadAllChats('manager');loadAdminEmails();loadDemos()
+    loadPipeline();loadMgrAssetForms();loadSubmittedBriefs();loadContractorBonus();loadDomainNotifications();loadAllChats('manager');loadAdminEmails();loadDemos();loadUnreadChatDots()
     // Show/hide manager-only sections
     var isManager = getRole() === 'manager'
     var codeSection = document.getElementById('mgr-contractor-codes-section')
@@ -1059,8 +1067,8 @@ async function loadManagerData(){
     if (codeSection) codeSection.style.display = isManager ? '' : 'none'
     if (allClientsSection) allClientsSection.style.display = isManager ? '' : 'none'
     if (staffPerfSection) staffPerfSection.style.display = isManager ? '' : 'none'
-    if (aiWarn) aiWarn.textContent = isManager ? 'You can view all contractor AI conversations below.' : 'Your conversations are monitored by managers and admins.'
-    if (aiNotice) aiNotice.style.display = isManager ? 'none' : 'block'
+    if (aiWarn) aiWarn.textContent = isManager ? 'You can view all contractor AI conversations below.' : ''
+    if (aiNotice) aiNotice.style.display = (!isManager && getRole() === 'contractor') ? 'block' : 'none'
     if (isManager) {
       loadContractorCodes()
       loadMgrAllClients()
@@ -4436,4 +4444,60 @@ openDemo = function(demoId) {
     var delBtn = document.querySelector('#demo-modal button[onclick*="deleteDemo"]')
     if (delBtn && getRole() === 'contractor') delBtn.style.display = 'none'
   }, 50)
+}
+
+// ── COOKIE CONSENT ────────────────────────────────────────
+(function(){
+  if (localStorage.getItem('cookie_consent')) return
+  window.addEventListener('load', function() {
+    var banner = document.getElementById('cookie-banner')
+    if (banner) { banner.style.display = 'flex'; banner.style.removeProperty('display') }
+    // Actually show it
+    setTimeout(function(){
+      var b = document.getElementById('cookie-banner')
+      if (b) b.style.display = 'flex'
+    }, 1500)
+  })
+})()
+function acceptCookies() {
+  localStorage.setItem('cookie_consent', 'all')
+  var b = document.getElementById('cookie-banner')
+  if (b) b.style.display = 'none'
+}
+function declineCookies() {
+  localStorage.setItem('cookie_consent', 'essential')
+  var b = document.getElementById('cookie-banner')
+  if (b) b.style.display = 'none'
+}
+
+// ── UNREAD CHAT DOTS FOR CONTRACTOR ──────────────────────
+async function loadUnreadChatDots() {
+  if (getRole() !== 'contractor') return
+  try {
+    var res = await fetch(API + '/admin/all-chats', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    var chats = d.chats || []
+    var myEmail = localStorage.getItem('wc_email') || ''
+    var mine = chats.filter(function(c) { return c.contractor_email === myEmail })
+    var totalUnread = mine.reduce(function(sum, c) { return sum + (c.unread || 0) }, 0)
+    // Find the chats section header and add a dot
+    var chatHeaders = document.querySelectorAll('#mgr-chats-list')
+    chatHeaders.forEach(function(el) {
+      var section = el.closest('.admin-section')
+      if (!section) return
+      var h3 = section.querySelector('h3')
+      if (!h3) return
+      var existing = h3.querySelector('.chat-unread-dot')
+      if (existing) existing.remove()
+      if (totalUnread > 0) {
+        var dot = document.createElement('span')
+        dot.className = 'chat-unread-dot'
+        dot.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;background:#ef4444;color:white;border-radius:12px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:8px;'
+        dot.textContent = totalUnread
+        h3.appendChild(dot)
+      }
+    })
+  } catch(e) {}
 }
