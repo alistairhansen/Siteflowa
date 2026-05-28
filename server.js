@@ -2206,24 +2206,16 @@ app.delete('/admin/demos/:id', authMiddleware, async (req, res) => {
 
 // ── SHARE DEMO ───────────────────────────────────────────
 app.post('/admin/demos/:id/share', authMiddleware, staffMiddleware, async (req, res) => {
-  const { email, custom_html, business_name } = req.body
+  const { email, email_html, business_name } = req.body
   try {
     const demo = await pool.query('SELECT * FROM demos WHERE id=$1', [req.params.id])
     if (!demo.rows[0]) return res.status(404).json({ error: 'Demo not found' })
     const d = demo.rows[0]
-    const briefUrl = 'https://sitefloa.com?assetform=demo&email=' + encodeURIComponent(email)
     await resend.emails.send({
       from: 'Sitefloa <hello@sitefloa.com>',
       to: email,
       subject: 'Your website demo is ready — ' + (business_name || d.title),
-      html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;">
-        <h2 style="font-family:Georgia,serif;color:#1a6b5a;">Here's your website demo! 🎨</h2>
-        <p>Hi there! We've put together a demo of what your website could look like. Take a look and let us know what you think.</p>
-        ${custom_html ? '<div style="border:1px solid #eee;border-radius:12px;padding:20px;margin:20px 0;background:#fafafa;">' + custom_html + '</div>' : ''}
-        <p>Like what you see? Fill out a quick brief form to get started on your real website — it only takes a few minutes.</p>
-        <a href="${briefUrl}" style="display:inline-block;margin:20px 0;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">Get started — fill out the brief form →</a>
-        <p style="color:#888;font-size:13px;">Questions? Just reply to this email and we'll get back to you.</p>
-      </div>`
+      html: email_html || '<p>Your demo is ready. Visit <a href="https://sitefloa.com">sitefloa.com</a> to learn more.</p>'
     })
     res.json({ message: 'Demo shared successfully' })
   } catch(err) { res.status(500).json({ error: err.message }) }

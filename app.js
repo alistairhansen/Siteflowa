@@ -3887,116 +3887,247 @@ function openDemo(demoId) {
   if (!demo) return
   var existing = document.getElementById('demo-modal')
   if (existing) existing.remove()
+
+  // Each open is a fresh instance - changes don't affect the master demo
+  window._currentDemo     = JSON.parse(JSON.stringify(demo)) // deep copy
+  window._currentDemoTier = 'basic'
+  window._demoCustom      = { biz: demo.title||'', tagline: demo.description||'', color: '#1a6b5a' }
+
+  var isStaff = ['admin','manager','contractor'].includes(getRole())
+  var canDelete = ['admin','manager'].includes(getRole())
+
   var modal = document.createElement('div')
   modal.id = 'demo-modal'
-  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.7);display:flex;align-items:center;justify-content:center;padding:16px;'
+  modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(15,17,23,0.75);display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;'
+
   modal.innerHTML =
-    '<div style="background:white;border-radius:16px;width:100%;max-width:840px;max-height:94vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.25);">' +
-    '<div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
+    '<div style="background:white;border-radius:16px;width:100%;max-width:1000px;margin:auto;box-shadow:0 24px 60px rgba(0,0,0,0.25);display:flex;flex-direction:column;">' +
+    // Header
+    '<div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
     '<div><div style="font-family:var(--serif);font-size:18px;">' + demo.title + '</div>' +
-    '<div style="font-size:12px;color:var(--ink-muted);">' + (demo.business_type||'') + ' demo</div></div>' +
-    '<button onclick="document.getElementById(&quot;demo-modal&quot;).remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-muted);">&times;</button>' +
+    '<div style="font-size:12px;color:var(--ink-muted);">' + (demo.business_type||'') + ' demo · Click a tier tab to preview each plan level</div></div>' +
+    '<button onclick="document.getElementById(&quot;demo-modal&quot;).remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--ink-muted);">&times;</button>' +
     '</div>' +
-    '<div style="overflow-y:auto;padding:16px 20px;flex:1;">' +
-    // Customise section
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">' +
-    '<div class="dash-field"><label>Business name</label><input type="text" id="demo-biz-name" placeholder="e.g. Joe\'s Pizza" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;"></div>' +
-    '<div class="dash-field"><label>Brand colour</label><input type="color" id="demo-brand-color" value="#1a6b5a" style="height:38px;border:1px solid var(--border);border-radius:var(--radius);padding:2px 6px;"></div>' +
+    // Tier tabs
+    '<div style="display:flex;border-bottom:1px solid var(--border);padding:0 20px;">' +
+    '<button id="demo-tab-basic" onclick="setDemoTier(\'basic\')" style="padding:10px 20px;border:none;border-bottom:3px solid var(--accent);background:none;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;color:var(--accent);">Basic</button>' +
+    '<button id="demo-tab-standard" onclick="setDemoTier(\'standard\')" style="padding:10px 20px;border:none;border-bottom:3px solid transparent;background:none;font-family:var(--sans);font-size:13px;cursor:pointer;color:var(--ink-muted);">Standard</button>' +
+    '<button id="demo-tab-premium" onclick="setDemoTier(\'premium\')" style="padding:10px 20px;border:none;border-bottom:3px solid transparent;background:none;font-family:var(--sans);font-size:13px;cursor:pointer;color:var(--ink-muted);">Premium</button>' +
     '</div>' +
-    '<div class="dash-field" style="margin-bottom:10px;"><label>Tagline</label><input type="text" id="demo-tagline" placeholder="e.g. Fresh, local, delicious" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;width:100%;box-sizing:border-box;"></div>' +
-    // Tier switcher
-    '<div style="display:flex;gap:6px;margin-bottom:14px;">' +
-    '<span style="font-size:13px;font-weight:600;color:var(--ink-muted);align-self:center;">View tier:</span>' +
-    '<button onclick="setDemoTier(\'basic\')" id="demo-tier-basic" style="padding:5px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;background:var(--accent);color:white;">Basic</button>' +
-    '<button onclick="setDemoTier(\'standard\')" id="demo-tier-standard" style="padding:5px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;background:var(--cream);color:var(--ink);">Standard</button>' +
-    '<button onclick="setDemoTier(\'premium\')" id="demo-tier-premium" style="padding:5px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;background:var(--cream);color:var(--ink);">Premium</button>' +
+    // Main content area: preview + customise panel side by side
+    '<div style="display:grid;grid-template-columns:1fr 280px;gap:0;flex:1;">' +
+    // Preview iframe
+    '<div style="border-right:1px solid var(--border);">' +
+    '<iframe id="demo-preview-frame" style="width:100%;height:520px;border:none;" srcdoc=""></iframe>' +
     '</div>' +
-    '<div id="demo-tier-desc" style="background:var(--cream);border-radius:var(--radius);padding:10px 14px;font-size:13px;color:var(--ink-muted);margin-bottom:14px;">Basic: 1 page, 2 photos, free subdomain.</div>' +
-    // Preview frame
-    '<div style="border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:14px;">' +
-    '<iframe id="demo-preview-frame" srcdoc="" style="width:100%;height:360px;border:none;background:white;"></iframe>' +
+    // Customise panel
+    '<div id="demo-customise-panel" style="padding:16px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;max-height:520px;">' +
+    '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);">Customise</div>' +
+    '<div class="dash-field"><label style="font-size:12px;">Business name</label><input type="text" id="demo-biz-name" placeholder="e.g. Joe\'s Pizza" value="' + (demo.title||'') + '" oninput="updateDemoPreview()" style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;width:100%;box-sizing:border-box;"></div>' +
+    '<div class="dash-field"><label style="font-size:12px;">Tagline</label><input type="text" id="demo-tagline" placeholder="e.g. Fresh, local, delicious" value="' + (demo.description||'') + '" oninput="updateDemoPreview()" style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;width:100%;box-sizing:border-box;"></div>' +
+    '<div class="dash-field"><label style="font-size:12px;">Brand colour</label><div style="display:flex;gap:8px;align-items:center;"><input type="color" id="demo-brand-color" value="#1a6b5a" oninput="updateDemoPreview()" style="height:34px;border:1px solid var(--border);border-radius:var(--radius);padding:2px 4px;width:50px;"><span id="demo-color-hex" style="font-size:12px;color:var(--ink-muted);">#1a6b5a</span></div></div>' +
+    // Tier description
+    '<div id="demo-tier-desc" style="background:var(--cream);border-radius:var(--radius);padding:10px 12px;font-size:12px;color:var(--ink-muted);line-height:1.5;"></div>' +
+    // Spacer
+    '<div style="flex:1;"></div>' +
+    // Share section
+    '<div style="border-top:1px solid var(--border);padding-top:12px;">' +
+    '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Share with client</div>' +
+    '<input type="email" id="demo-share-email" placeholder="client@email.com" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;box-sizing:border-box;margin-bottom:8px;">' +
+    '<button onclick="shareDemo(\'' + demo.id + '\')" style="width:100%;padding:10px;background:var(--accent);color:white;border:none;border-radius:var(--radius);font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;">✉️ Send demo</button>' +
+    (canDelete ? '<button onclick="deleteDemo(\'' + demo.id + '\')" style="width:100%;padding:8px;background:#fee2e2;color:#ef4444;border:1px solid #ef4444;border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;margin-top:6px;">Delete demo</button>' : '') +
     '</div>' +
-    // Share
-    (demo.prompt ? '<details style="margin-bottom:12px;"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--ink-muted);">📋 Build prompt (copy to AI)</summary><pre style="background:#1a1a2e;color:#e8e8e8;border-radius:8px;padding:12px;font-size:11px;white-space:pre-wrap;margin-top:8px;">' + demo.prompt.replace(/</g,'&lt;') + '</pre></details>' : '') +
-    '<div style="display:flex;gap:8px;align-items:center;">' +
-    '<input type="email" id="demo-share-email" placeholder="Client email to share with..." style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;">' +
-    '<button onclick="shareDemo(\'' + demo.id + '\')" style="background:var(--accent);color:white;border:none;border-radius:var(--radius);padding:9px 18px;font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;">Share demo</button>' +
-    ((['admin','manager'].includes(getRole())) ? '<button onclick="deleteDemo(\'' + demo.id + '\')" style="background:#fee2e2;color:#ef4444;border:1px solid #ef4444;border-radius:var(--radius);padding:9px 12px;font-family:var(--sans);font-size:12px;cursor:pointer;">Delete</button>' : '') +
     '</div>' +
-    '</div></div>'
+    '</div>' +
+    '</div>'
+
   modal.onclick = function(e) { if (e.target === modal) modal.remove() }
   document.body.appendChild(modal)
-  // Store current demo and build preview
-  window._currentDemo = demo
-  window._currentDemoTier = 'basic'
-  buildDemoPreview()
+
+  setDemoTier('basic')
 }
 
 function setDemoTier(tier) {
   window._currentDemoTier = tier
+  var tabs = { basic:'demo-tab-basic', standard:'demo-tab-standard', premium:'demo-tab-premium' }
   var descs = {
-    basic: 'Basic: 1 page, 2 photos, free subdomain — shows core branding only.',
-    standard: 'Standard: 4 pages, gallery, services section, custom domain.',
-    premium: 'Premium: Unlimited pages, full gallery, local SEO, priority support.'
+    basic:    'Basic plan: 1 page (Home only), 2 photos, free subdomain. Core branding, contact info.',
+    standard: 'Standard plan: Up to 4 pages, gallery, services section, custom domain.',
+    premium:  'Premium plan: Unlimited pages, full gallery, testimonials, team, and local SEO so clients near you can find the business on Google.'
   }
-  var d = document.getElementById('demo-tier-desc')
-  if (d) d.textContent = descs[tier] || ''
-  ;['basic','standard','premium'].forEach(function(t) {
-    var btn = document.getElementById('demo-tier-' + t)
-    if (btn) { btn.style.background = t === tier ? 'var(--accent)' : 'var(--cream)'; btn.style.color = t === tier ? 'white' : 'var(--ink)' }
+  Object.keys(tabs).forEach(function(t) {
+    var btn = document.getElementById(tabs[t])
+    if (!btn) return
+    btn.style.borderBottomColor = t === tier ? 'var(--accent)' : 'transparent'
+    btn.style.color = t === tier ? 'var(--accent)' : 'var(--ink-muted)'
+    btn.style.fontWeight = t === tier ? '600' : '400'
   })
-  buildDemoPreview()
+  var desc = document.getElementById('demo-tier-desc')
+  if (desc) desc.textContent = descs[tier] || ''
+  updateDemoPreview()
 }
 
-function buildDemoPreview() {
+function updateDemoPreview() {
   var frame = document.getElementById('demo-preview-frame')
   if (!frame) return
-  var demo = window._currentDemo || {}
-  var tier = window._currentDemoTier || 'basic'
-  var biz = document.getElementById('demo-biz-name')?.value || demo.title || 'Your Business'
+  var demo  = window._currentDemo || {}
+  var tier  = window._currentDemoTier || 'basic'
+  var biz   = document.getElementById('demo-biz-name')?.value || demo.title || 'Your Business'
   var color = document.getElementById('demo-brand-color')?.value || '#1a6b5a'
-  var tagline = document.getElementById('demo-tagline')?.value || demo.description || 'Professional websites for your business'
-  var sections = {
-    basic: '<section style="padding:60px 20px;text-align:center;"><h1 style="font-size:2.5rem;margin-bottom:16px;">' + biz + '</h1><p style="font-size:1.1rem;color:#666;margin-bottom:32px;">' + tagline + '</p><a href="#contact" style="background:' + color + ';color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:600;font-size:1rem;">Get in touch</a></section><section id="contact" style="background:#f9f9f9;padding:60px 20px;text-align:center;"><h2 style="margin-bottom:16px;">Contact us</h2><p>Call or email us today</p></section>',
-    standard: '<section style="padding:60px 20px;text-align:center;background:linear-gradient(135deg,#f5f5f5,white);"><h1 style="font-size:2.5rem;margin-bottom:16px;">' + biz + '</h1><p style="font-size:1.1rem;color:#666;margin-bottom:32px;">' + tagline + '</p><a href="#services" style="background:' + color + ';color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:600;">Our Services</a></section><section id="services" style="padding:60px 20px;max-width:800px;margin:0 auto;"><h2 style="text-align:center;margin-bottom:32px;">Our Services</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">' + ['Service 1','Service 2','Service 3'].map(function(sv){ return '<div style="border:1px solid #eee;border-radius:12px;padding:20px;text-align:center;"><div style="font-size:2rem;margin-bottom:10px;">⭐</div><h3>' + sv + '</h3><p style="color:#666;font-size:14px;">Professional quality service.</p></div>' }).join('') + '</div></section><section style="background:#f5f5f5;padding:60px 20px;text-align:center;"><h2 style="margin-bottom:16px;">Gallery</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:600px;margin:0 auto;">' + [1,2,3,4,5,6].map(function(){ return '<div style="background:#ddd;border-radius:8px;aspect-ratio:1;"></div>' }).join('') + '</div></section>',
-    premium: '<section style="padding:80px 20px;text-align:center;background:linear-gradient(135deg,' + color + '22,white);"><h1 style="font-size:3rem;margin-bottom:16px;">' + biz + '</h1><p style="font-size:1.2rem;color:#666;margin-bottom:32px;">' + tagline + '</p><div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;"><a href="#services" style="background:' + color + ';color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:600;">Our Services</a><a href="#about" style="border:2px solid ' + color + ';color:' + color + ';padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:600;">Learn more</a></div></section><section id="about" style="padding:60px 20px;max-width:800px;margin:0 auto;"><h2 style="text-align:center;margin-bottom:16px;">About us</h2><p style="text-align:center;color:#555;">We are a dedicated team committed to excellence. Our focus is on delivering the best experience for every customer.</p></section><section id="services" style="background:#f5f5f5;padding:60px 20px;"><h2 style="text-align:center;margin-bottom:32px;">Services</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;max-width:900px;margin:0 auto;">' + ['Premium Service','Expert Care','Fast Delivery','Quality Guaranteed'].map(function(sv){ return '<div style="background:white;border-radius:12px;padding:24px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06);"><div style="font-size:2rem;margin-bottom:10px;color:' + color + ';">✓</div><h3 style="margin-bottom:8px;">' + sv + '</h3><p style="color:#666;font-size:13px;">Top-tier quality every time.</p></div>' }).join('') + '</div></section><section style="padding:60px 20px;max-width:800px;margin:0 auto;text-align:center;"><h2 style="margin-bottom:16px;">📍 Find us</h2><p style="color:#555;font-size:14px;">🔍 <strong>Local SEO optimised</strong> — we make sure people in your area can find you on Google.</p><div style="background:#f5f5f5;border-radius:12px;padding:20px;margin-top:16px;font-size:14px;color:#666;">Map placeholder</div></section>'
+  var tagline = document.getElementById('demo-tagline')?.value || demo.description || ''
+  var hexEl = document.getElementById('demo-color-hex')
+  if (hexEl) hexEl.textContent = color
+
+  // If demo has real base_html, inject customisations into it
+  if (demo.base_html && demo.base_html.length > 100) {
+    var html = demo.base_html
+    // Replace placeholder values that the AI should have left in the HTML
+    html = html.replace(/data-biz-name[^>]*>[^<]*/g, function(m){ return m.replace(/>.*/, '>' + biz) })
+    html = html.replace(/\[BUSINESS_NAME\]/g, biz)
+    html = html.replace(/\[TAGLINE\]/g, tagline)
+    html = html.replace(/#1a6b5a/g, color)
+    html = html.replace(/var\(--brand\)/g, color)
+    // Show/hide tier sections if the HTML uses data-tier attributes
+    // Inject a small script to switch tiers
+    var tierScript = '<script>function showTier(t){document.querySelectorAll("[data-tier]").forEach(function(el){el.style.display=el.dataset.tier===t||el.dataset.tier==="all"?"":"none"});document.querySelectorAll("[data-tier-btn]").forEach(function(b){b.style.background=b.dataset.tierBtn===t?"' + color + '":"#f5f5f5";b.style.color=b.dataset.tierBtn===t?"white":"#333"})};document.addEventListener("DOMContentLoaded",function(){showTier("' + tier + '")});<\/script>'
+    // Remove existing tier script if any
+    html = html.replace(/<script[^>]*>function showTier[\s\S]*?<\/script>/g, '')
+    html = html.replace('</head>', tierScript + '</head>')
+    frame.srcdoc = html
+  } else {
+    // Fallback: generate basic preview
+    frame.srcdoc = buildFallbackDemoHtml(biz, tagline, color, tier)
   }
-  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:\'DM Sans\',sans-serif;color:#111}nav{background:white;border-bottom:1px solid #eee;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;}<span style="font-weight:700;color:' + color + ';">' + biz + '</span></nav>' + sections[tier] + '</html>'
-  frame.srcdoc = html
+}
+
+function buildFallbackDemoHtml(biz, tagline, color, tier) {
+  var nav = '<nav style="background:white;border-bottom:1px solid #eee;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;"><span style="font-weight:700;font-size:18px;color:' + color + ';">' + biz + '</span>' +
+    (tier !== 'basic' ? '<div style="display:flex;gap:16px;font-size:13px;">' + (tier === 'standard' || tier === 'premium' ? '<a href="#" style="color:#333;text-decoration:none;">Services</a><a href="#" style="color:#333;text-decoration:none;">Gallery</a>' : '') + (tier === 'premium' ? '<a href="#" style="color:#333;text-decoration:none;">About</a><a href="#" style="color:#333;text-decoration:none;">Team</a>' : '') + '</div>' : '') +
+    '<a href="#contact" style="background:' + color + ';color:white;padding:8px 18px;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">Contact</a></nav>'
+  var hero = '<section style="padding:' + (tier==='premium'?'80':'60') + 'px 24px;text-align:center;background:linear-gradient(135deg,' + color + '15,white);">' +
+    '<h1 style="font-size:' + (tier==='premium'?'3':'2.4') + 'rem;margin-bottom:14px;color:#111;">' + biz + '</h1>' +
+    (tagline ? '<p style="font-size:1.1rem;color:#555;margin-bottom:28px;max-width:500px;margin-left:auto;margin-right:auto;">' + tagline + '</p>' : '') +
+    '<a href="#contact" style="background:' + color + ';color:white;padding:13px 30px;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">Get started today</a></section>'
+  var services = tier !== 'basic' ? '<section style="padding:60px 24px;max-width:900px;margin:0 auto;"><h2 style="text-align:center;font-size:1.8rem;margin-bottom:32px;">Our Services</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">' + ['Our Service','Quality Work','Expert Team'].map(function(sv){ return '<div style="border:1px solid #eee;border-radius:12px;padding:22px;text-align:center;"><div style="font-size:2rem;margin-bottom:10px;color:' + color + ';">★</div><h3 style="margin-bottom:8px;">' + sv + '</h3><p style="color:#666;font-size:13px;line-height:1.5;">Professional quality every time. Your satisfaction is our priority.</p></div>' }).join('') + '</div></section>' : ''
+  var gallery = tier !== 'basic' ? '<section style="background:#f8f8f8;padding:60px 24px;text-align:center;"><h2 style="font-size:1.8rem;margin-bottom:28px;">Gallery</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:700px;margin:0 auto;">' + [1,2,3,4,5,6].map(function(){ return '<div style="background:' + color + '33;border-radius:8px;aspect-ratio:1;display:flex;align-items:center;justify-content:center;color:' + color + ';font-size:28px;">📷</div>' }).join('') + '</div></section>' : ''
+  var seo = tier === 'premium' ? '<section style="padding:60px 24px;max-width:800px;margin:0 auto;text-align:center;"><h2 style="font-size:1.8rem;margin-bottom:16px;">📍 Find us locally</h2><p style="color:#555;margin-bottom:8px;">This website is <strong>local SEO optimised</strong> — when people nearby search for ' + biz + ', you\'ll show up.</p><div style="background:#f0fdf4;border:1px solid #6ee7b7;border-radius:10px;padding:20px;margin-top:16px;font-size:13px;color:#065f46;">✅ Schema markup · ✅ Google-ready meta tags · ✅ Location keywords</div></section>' : ''
+  var contact = '<section id="contact" style="background:' + color + ';color:white;padding:60px 24px;text-align:center;"><h2 style="font-size:1.8rem;margin-bottom:16px;">Get in touch</h2><p style="opacity:0.9;margin-bottom:24px;">Ready to work with us? We\'d love to hear from you.</p><a href="mailto:hello@' + biz.toLowerCase().replace(/[^a-z0-9]/g,'') + '.com" style="background:white;color:' + color + ';padding:12px 28px;text-decoration:none;border-radius:8px;font-weight:600;">Contact us</a></section>'
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box;margin:0;padding:0;font-family:sans-serif}</style></head><body>' + nav + hero + services + gallery + seo + contact + '</body></html>'
 }
 
 async function shareDemo(demoId) {
   var email = document.getElementById('demo-share-email')?.value.trim()
   if (!email) return alert('Please enter a client email address')
-  var frame = document.getElementById('demo-preview-frame')
-  var customHtml = frame?.srcdoc || ''
-  var bizName = document.getElementById('demo-biz-name')?.value || ''
+
+  var biz    = document.getElementById('demo-biz-name')?.value.trim() || window._currentDemo?.title || 'Your Business'
+  var color  = document.getElementById('demo-brand-color')?.value || '#1a6b5a'
+  var tagline = document.getElementById('demo-tagline')?.value.trim() || ''
+
+  // Build static snapshot for each tier (no edit widgets)
+  var tierHtmls = {}
+  var tiers = ['basic','standard','premium']
+  tiers.forEach(function(t) {
+    window._currentDemoTier = t
+    tierHtmls[t] = buildFallbackDemoHtml(biz, tagline, color, t)
+    // If real base_html exists use it
+    var demo = window._currentDemo || {}
+    if (demo.base_html && demo.base_html.length > 100) {
+      var h = demo.base_html
+      h = h.replace(/\[BUSINESS_NAME\]/g, biz).replace(/\[TAGLINE\]/g, tagline).replace(/#1a6b5a/g, color)
+      tierHtmls[t] = h
+    }
+  })
+
+  // Build the combined email HTML with tier tabs (read-only, no customise panel)
+  var briefUrl = 'https://sitefloa.com?assetform=demo&email=' + encodeURIComponent(email)
+  var emailHtml = buildDemoEmailHtml(biz, color, tagline, tierHtmls, briefUrl)
+
+  var btn = document.querySelector('#demo-modal button[onclick*="shareDemo"]')
+  if (btn) { btn.textContent = 'Sending...'; btn.disabled = true }
+
   try {
     var res = await fetch(API + '/admin/demos/' + demoId + '/share', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
-      body: JSON.stringify({ email: email, custom_html: customHtml, business_name: bizName })
+      body: JSON.stringify({ email: email, email_html: emailHtml, business_name: biz })
     })
     var d = await res.json()
     if (d.message) {
-      alert('Demo shared with ' + email + '!')
       document.getElementById('demo-share-email').value = ''
-    } else alert(d.error || 'Failed to share')
-  } catch(e) { alert('Could not connect') }
+      if (btn) { btn.textContent = '✅ Sent!'; setTimeout(function(){ btn.textContent = '✉️ Send demo'; btn.disabled = false }, 3000) }
+    } else {
+      alert(d.error || 'Failed to share')
+      if (btn) { btn.textContent = '✉️ Send demo'; btn.disabled = false }
+    }
+  } catch(e) {
+    alert('Could not connect')
+    if (btn) { btn.textContent = '✉️ Send demo'; btn.disabled = false }
+  }
+}
+
+function buildDemoEmailHtml(biz, color, tagline, tierHtmls, briefUrl) {
+  // Build a self-contained email with tier tabs and a static demo view
+  var escapedBasic    = (tierHtmls.basic    || '').replace(/`/g, '\\`').replace(/\\/g, '\\\\').substring(0, 50000)
+  var escapedStandard = (tierHtmls.standard || '').replace(/`/g, '\\`').replace(/\\/g, '\\\\').substring(0, 50000)
+  var escapedPremium  = (tierHtmls.premium  || '').replace(/`/g, '\\`').replace(/\\/g, '\\\\').substring(0, 50000)
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>*{box-sizing:border-box;margin:0;padding:0;font-family:sans-serif}body{background:#f5f5f5}.wrapper{max-width:700px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.12)}.header{background:${color};color:white;padding:28px 32px;text-align:center}.header h1{font-size:24px;margin-bottom:8px}.header p{opacity:0.9;font-size:15px}.tabs{display:flex;border-bottom:2px solid #eee;background:white}.tab-btn{flex:1;padding:14px;border:none;background:none;cursor:pointer;font-size:14px;font-weight:600;color:#999;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all 0.2s}.tab-btn.active{color:${color};border-bottom-color:${color}}.tier-desc{background:#f8f8f8;padding:10px 20px;font-size:13px;color:#666;text-align:center}.demo-frame{border:none;width:100%;height:500px}.cta{padding:32px;text-align:center;background:#f9f9f9}.cta h2{font-size:20px;margin-bottom:10px;color:#111}.cta p{color:#666;margin-bottom:20px;font-size:14px;line-height:1.6}.cta-btn{display:inline-block;background:${color};color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px}.footer{padding:20px;text-align:center;font-size:12px;color:#999}</style>
+</head><body>
+<div class="wrapper">
+  <div class="header"><h1>🎨 Your website demo is ready!</h1><p>Here's a preview of what your ${biz} website could look like</p></div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('basic',this)">Basic</button>
+    <button class="tab-btn" onclick="showTab('standard',this)">Standard</button>
+    <button class="tab-btn" onclick="showTab('premium',this)">Premium</button>
+  </div>
+  <div id="desc-basic" class="tier-desc">Basic plan — 1 page, free subdomain, core branding</div>
+  <div id="desc-standard" class="tier-desc" style="display:none;">Standard plan — 4 pages, gallery, services, custom domain</div>
+  <div id="desc-premium" class="tier-desc" style="display:none;">Premium plan — unlimited pages, local SEO, testimonials &amp; more</div>
+  <iframe id="frame-basic" class="demo-frame" srcdoc="" frameborder="0"></iframe>
+  <iframe id="frame-standard" class="demo-frame" srcdoc="" style="display:none;" frameborder="0"></iframe>
+  <iframe id="frame-premium" class="demo-frame" srcdoc="" style="display:none;" frameborder="0"></iframe>
+  <div class="cta">
+    <h2>Like what you see?</h2>
+    <p>Fill out a quick brief form to get started on your real website. It only takes a few minutes and our team will be in touch within one business day.</p>
+    <a href="${briefUrl}" class="cta-btn">✅ I'm interested — get started →</a>
+    <p style="margin-top:16px;font-size:13px;color:#888;">Or visit us at <a href="https://sitefloa.com" style="color:${color};">sitefloa.com</a> to learn more about what we offer.</p>
+  </div>
+  <div class="footer">This demo was created specifically for you by the Sitefloa team. · <a href="https://sitefloa.com" style="color:${color};">sitefloa.com</a></div>
+</div>
+<script>
+var tiers = {
+  basic: ${JSON.stringify(escapedBasic)},
+  standard: ${JSON.stringify(escapedStandard)},
+  premium: ${JSON.stringify(escapedPremium)}
+}
+Object.keys(tiers).forEach(function(t){
+  var f = document.getElementById('frame-'+t)
+  if(f) f.srcdoc = tiers[t]
+})
+function showTab(t, btn){
+  ['basic','standard','premium'].forEach(function(tier){
+    document.getElementById('frame-'+tier).style.display = tier===t ? '' : 'none'
+    document.getElementById('desc-'+tier).style.display = tier===t ? '' : 'none'
+  })
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active')})
+  btn.classList.add('active')
+}
+</script>
+</body></html>`
 }
 
 async function deleteDemo(demoId) {
-  if (!confirm('Delete this demo?')) return
   try {
     var res = await fetch(API + '/admin/demos/' + demoId, {
       method: 'DELETE',
       headers: { 'Authorization': 'Bearer ' + getToken() }
     })
     var d = await res.json()
-    if (d.message) { document.getElementById('demo-modal').remove(); loadDemos() }
+    if (d.message) { document.getElementById('demo-modal').remove(); loadDemos(); loadAdminDemos() }
     else alert(d.error || 'Failed')
   } catch(e) { alert('Could not connect') }
 }
+
 
 function showAddDemoModal() {
   var ex = document.getElementById('add-demo-modal'); if (ex) ex.remove()
@@ -4169,38 +4300,63 @@ function buildDemoPromptText() {
   var hours    = document.getElementById('dt-hours')?.value.trim()    || 'Mon-Fri 9am-5pm, Sat 10am-3pm, Sun Closed'
   var slug     = biz.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
 
-  return 'Build a professional demo website for a ' + type + ' called "' + biz + '".\n' +
+  return 'Build a complete demo website for a ' + type + ' called "' + biz + '".\n' +
 '\n' +
-'SITE CONFIG FORMAT:\n' +
-'- api: https://siteflowa.onrender.com\n' +
-'- subdomain: demo-' + slug + '\n' +
+'IMPORTANT — this demo will be opened by staff who will customise it before sending to clients.\n' +
+'Use these exact placeholder strings so customisation works:\n' +
+'  [BUSINESS_NAME] — replaced with the actual business name\n' +
+'  [TAGLINE]       — replaced with their tagline\n' +
+'  #1a6b5a         — the brand colour (will be swapped out)\n' +
 '\n' +
 'BUSINESS DETAILS:\n' +
-'- business_name: "' + biz + '"\n' +
-'- business_type: "' + type + '"\n' +
-'- tagline: "' + tagline + '"\n' +
-'- about: "' + about + '"\n' +
-'- brand_color: "' + color + '"\n' +
-'- services: [' + services + ']\n' +
-'- phone: "' + phone + '"\n' +
-'- address: "' + address + '"\n' +
-'- hours: "' + hours + '"\n' +
+'- Type: ' + type + '\n' +
+'- Name: ' + biz + '\n' +
+'- Tagline: ' + tagline + '\n' +
+'- About: ' + about + '\n' +
+'- Services: ' + services + '\n' +
+'- Phone: ' + phone + '\n' +
+'- Address: ' + address + '\n' +
+'- Hours: ' + hours + '\n' +
 '\n' +
-'BUILD 3 TIER VERSIONS in one file using CSS display toggling:\n' +
-'Basic    — Hero + About + Contact only (1 page feel)\n' +
-'Standard — adds Services section + photo gallery\n' +
-'Premium  — adds everything + Local SEO schema + Team + Testimonials\n' +
+'BUILD ALL 3 TIERS in one HTML file using data-tier attributes:\n' +
 '\n' +
-'Include a tier switcher (Basic / Standard / Premium buttons) at the top.\n' +
-'Each tier button shows only that tier\'s sections.\n' +
+'Each section that belongs to a specific tier should have:\n' +
+'  data-tier="basic"    — only shows on Basic\n' +
+'  data-tier="standard" — only shows on Standard\n' +
+'  data-tier="premium"  — only shows on Premium\n' +
+'  data-tier="all"      — shows on all tiers (e.g. nav, hero, footer)\n' +
 '\n' +
-'DESIGN: ' + style + ' aesthetic.\n' +
-'Primary brand colour: ' + color + '\n' +
-'Use this colour for CTAs, headings accents, nav highlights.\n' +
+'Add 3 tier tab buttons at the top:\n' +
+'  <button data-tier-btn="basic" onclick="showTier(\'basic\')">Basic</button>\n' +
+'  <button data-tier-btn="standard" onclick="showTier(\'standard\')">Standard</button>\n' +
+'  <button data-tier-btn="premium" onclick="showTier(\'premium\')">Premium</button>\n' +
 '\n' +
-'Single self-contained HTML. All CSS and JS inline. Mobile-first responsive.\n' +
-'Make it look like a real finished website — not a mockup or wireframe.\n' +
-'Use placeholder images (picsum.photos or coloured divs). No Lorem Ipsum — use real copy based on the business.'
+'Include this JS for tier switching:\n' +
+'function showTier(t){\n' +
+'  document.querySelectorAll("[data-tier]").forEach(function(el){\n' +
+'    el.style.display=(el.dataset.tier===t||el.dataset.tier==="all")?"":"none"\n' +
+'  });\n' +
+'  document.querySelectorAll("[data-tier-btn]").forEach(function(b){\n' +
+'    b.style.background=b.dataset.tierBtn===t?"#1a6b5a":"#f5f5f5";\n' +
+'    b.style.color=b.dataset.tierBtn===t?"white":"#333"\n' +
+'  })\n' +
+'}\n' +
+'document.addEventListener("DOMContentLoaded",function(){showTier("basic")})\n' +
+'\n' +
+'TIER CONTENT REQUIREMENTS:\n' +
+'Basic    — Nav + Hero + Contact section only. 1 page feel.\n' +
+'Standard — Adds: Services section (3 items), photo gallery grid, about section.\n' +
+'Premium  — Adds: Testimonials, team section, local SEO section with schema markup, unlimited pages nav.\n' +
+'\n' +
+'DESIGN: ' + style + ' aesthetic. Primary colour: ' + color + '.\n' +
+'Use ' + color + ' for CTAs, nav accents, headings.\n' +
+'\n' +
+'SINGLE self-contained HTML file. All CSS inline in <style> tags. All JS inline in <script> tags.\n' +
+'Make it look like a REAL finished professional website — not a wireframe or mockup.\n' +
+'Use realistic placeholder copy based on the business type — no Lorem Ipsum.\n' +
+'Use picsum.photos or coloured divs for image placeholders.\n' +
+'\n' +
+'OUTPUT: Just the complete HTML — nothing else.'
 }
 
 function copyGeneratedDemoPrompt() {
