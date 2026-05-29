@@ -81,7 +81,7 @@ async function loadSiteSettings(){
 function applySettings(s){
   if(!s)return
   const name=s.company_name||'Siteflowa'
-  document.title=name+' - Professional Websites for Small Business'
+  document.title=name+' - Professional Websites for Every Business'
   document.getElementById('footer-copy').textContent='\u00a9 2026 '+name+'. All rights reserved.'
   if(s.main_title){var mt=document.getElementById('hero-main-title');if(mt)mt.textContent=s.main_title}
   if(s.tagline){var ht=document.getElementById('hero-tagline');if(ht)ht.textContent=s.tagline}
@@ -754,6 +754,7 @@ async function loadAdminData(){
     if(data.managers)renderStaffList(data.managers)
     _adminStatsCache = data
     if(data.monthly_chart)renderChart(data.monthly_chart, data.manager_earnings_chart||[])
+    renderPayChart(data.manager_earnings_chart||[], data.managers||[])
     loadAdminCodes();loadManagerCodes();loadInquiries('admin');loadPipeline();loadAssetForms();loadSubmittedBriefs();loadDomainRequests();loadBonusGoals();loadAllChats('admin');loadAdminDemos()
   }catch(e){console.error(e)}
 }
@@ -4757,4 +4758,115 @@ async function sendEmailCenterBulk() {
     } else alert(d.error || 'Failed to send bulk email')
   } catch(e) { alert('Could not connect to server') }
   if (btn) { btn.textContent = '📢 All clients'; btn.disabled = false }
+}
+
+// ── STAFF EARNINGS CHART ─────────────────────────────────
+var _payChart = null
+var _payChartData = null
+
+function renderPayChart(earningsRows, staffList) {
+  var ctx = document.getElementById('contractor-chart')
+  if (!ctx) return
+  if (_payChart) { _payChart.destroy(); _payChart = null }
+
+  _payChartData = { earningsRows: earningsRows, staffList: staffList }
+
+  if (!earningsRows || !earningsRows.length) {
+    // No pay period data yet - show placeholder
+    ctx.parentElement.insertAdjacentHTML('beforeend',
+      '<p style="text-align:center;color:var(--ink-muted);font-size:13px;padding:20px 0;">No pay periods closed yet. Use "Close period &amp; pay" on each staff member to record earnings.</p>'
+    )
+    return
+  }
+
+  buildPayChart(earningsRows, 'all')
+}
+
+function buildPayChart(rows, timeframe) {
+  var ctx = document.getElementById('contractor-chart')
+  if (!ctx) return
+  if (_payChart) { _payChart.destroy(); _payChart = null }
+
+  // Filter by timeframe
+  var now = new Date()
+  var filtered = rows.filter(function(r) {
+    if (!r.period_end) return false
+    var d = new Date(r.period_end)
+    if (timeframe === 'year') return d.getFullYear() === now.getFullYear()
+    if (timeframe === '6m') return (now - d) < 1000*60*60*24*180
+    if (timeframe === '3m') return (now - d) < 1000*60*60*24*90
+    return true // all
+  })
+
+  if (!filtered.length) {
+    filtered = rows.slice(0, 20)
+  }
+
+  // Get unique periods and unique staff
+  var periodSet = {}
+  var staffSet = {}
+  filtered.forEach(function(r) {
+    var period = new Date(r.period_end).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: '2-digit' })
+    periodSet[period] = true
+    if (r.email) staffSet[r.email] = r.role || 'contractor'
+  })
+  var periods = Object.keys(periodSet).reverse()
+  var staff = Object.keys(staffSet)
+
+  // Build one dataset per staff member
+  var palette = ['rgba(26,107,90,0.7)','rgba(124,58,237,0.7)','rgba(59,130,246,0.7)','rgba(245,158,11,0.7)','rgba(239,68,68,0.7)','rgba(16,185,129,0.7)']
+
+  var datasets = staff.map(function(email, i) {
+    var shortEmail = email.split('@')[0]
+    return {
+      label: shortEmail,
+      data: periods.map(function(period) {
+        var row = filtered.find(function(r) {
+          return r.email === email &&
+            new Date(r.period_end).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: '2-digit' }) === period
+        })
+        return row ? Math.round(parseFloat(row.earned)||0) : 0
+      }),
+      backgroundColor: palette[i % palette.length],
+      borderRadius: 4
+    }
+  })
+
+  // Add net revenue dataset (total gross minus all commissions per period)
+  var netData = periods.map(function(period) {
+    var totalComm = filtered
+      .filter(function(r) { return new Date(r.period_end).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: '2-digit' }) === period })
+      .reduce(function(sum, r) { return sum + (parseFloat(r.earned)||0) }, 0)
+    // Approximate net: we don't have gross per period directly, so just show total commissions
+    return Math.round(totalComm)
+  })
+
+  if (datasets.length) {
+    datasets.push({
+      label: 'Total commissions paid',
+      data: netData,
+      backgroundColor: 'rgba(15,17,23,0.15)',
+      borderRadius: 4,
+      borderDash: [5,5]
+    })
+  }
+
+  _payChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: periods, datasets: datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top' } },
+      scales: { x: { stacked: false }, y: { beginAtZero: true, ticks: { callback: function(v) { return '$'+v } } } }
+    }
+  })
+}
+
+function setPayChartTimeframe(tf) {
+  document.querySelectorAll('[id^="ptf-"]').forEach(function(b) {
+    b.classList.toggle('active-tf', b.id === 'ptf-' + tf)
+  })
+  if (_payChartData) {
+    buildPayChart(_payChartData.earningsRows, tf)
+  }
 }

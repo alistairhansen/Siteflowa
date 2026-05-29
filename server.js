@@ -482,16 +482,16 @@ app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
       GROUP BY DATE_TRUNC('month', c.created_at)
       ORDER BY month DESC LIMIT 6
     `)
-    // Manager earnings chart data
+    // Staff earnings chart data - per person per period
     const managerEarnings = await pool.query(`
-      SELECT p.manager_id, c.email, 
-             DATE_TRUNC('week', p.period_end) as week,
-             SUM(p.total_earned) as earned,
-             SUM(p.websites_count) as sites
+      SELECT p.manager_id, c.email, c.role,
+             p.period_end,
+             p.total_earned as earned,
+             p.websites_count as sites,
+             p.commission_rate
       FROM pay_periods p
       LEFT JOIN clients c ON c.id = p.manager_id
-      GROUP BY p.manager_id, c.email, DATE_TRUNC('week', p.period_end)
-      ORDER BY week DESC LIMIT 20
+      ORDER BY p.period_end DESC LIMIT 100
     `)
 
     res.json({
