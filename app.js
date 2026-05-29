@@ -555,10 +555,14 @@ function loadClientDashboard(email,website,plan){
     document.getElementById('overview-url').textContent=url||'-'
   }
   const isBasic=p==='basic'
+  const isPremium=p==='premium'
   document.getElementById('nav-business').style.display=isBasic?'none':'flex'
   document.getElementById('nav-photos').style.display=isBasic?'none':'flex'
   document.getElementById('nav-hours').style.display=isBasic?'none':'flex'
   document.getElementById('nav-referral').style.display=isBasic?'none':'flex'
+  // Analytics: basic gets basic stats, standard gets detailed, premium gets full
+  var navAnalytics=document.getElementById('nav-analytics')
+  if(navAnalytics) navAnalytics.style.display='flex' // all plans get analytics
   fetchClientExtras(p)
   showPage('dashboard')
   const tourKey='siteflowa_tour_'+email
@@ -2461,6 +2465,13 @@ function buildClaudePrompt(b, fd) {
     '  - All photos listed above MUST appear in the website',
     '  - Match style: ' + (fd.style || 'Clean & professional'),
     '  - Can have FEWER features than tier allows, but NEVER more',
+  '',
+  'TIER FEATURE SUMMARY FOR THIS BUILD (' + plan.toUpperCase() + ' PLAN)',
+  plan === 'basic' ?
+    '  Basic: 1 page max, max 2 photos, free subdomain only, basic stats snippet, NO dashboard editing, NO referral code, NO custom domain' :
+  plan === 'standard' ?
+    '  Standard: up to 4 pages, up to 8 photos, custom domain support, full dashboard editing, referral code section, detailed analytics snippet' :
+    '  Premium: unlimited pages, unlimited photos, custom domain, full dashboard editing, referral code, detailed analytics, local SEO (see above), monthly report mention',
   (plan === 'premium' ? '\nLOCAL SEO REQUIREMENTS (Premium only)\n  Since this is a Premium tier site, implement full local SEO:\n  - Add meta title with business name + city/region\n  - Add meta description mentioning the business type and location\n  - Add schema.org LocalBusiness JSON-LD with address, phone, hours\n  - Add Open Graph tags for social sharing\n  - Create an SEO-friendly URL structure\n  - Add alt text to all images using business name + descriptive text\n  - Include a location section or footer with full address and embedded map placeholder\n  NOTE: Do NOT include booking or scheduling features — we do not offer this service.' : '')
   ].join('\n')
 }
@@ -4868,5 +4879,63 @@ function setPayChartTimeframe(tf) {
   })
   if (_payChartData) {
     buildPayChart(_payChartData.earningsRows, tf)
+  }
+}
+
+// ── CLIENT ANALYTICS ─────────────────────────────────────
+async function loadAnalytics() {
+  var wrap = document.getElementById('analytics-wrap')
+  if (!wrap) return
+  wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">Loading analytics...</p>'
+  try {
+    var res = await fetch(API + '/my-analytics', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    })
+    var d = await res.json()
+    if (d.error) { wrap.innerHTML = '<p style="color:var(--ink-muted);">Could not load analytics.</p>'; return }
+    var v = d.views || {}
+    var plan = d.plan || 'basic'
+    var html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;">' +
+      '<div style="background:var(--cream);border-radius:var(--radius-lg);padding:20px;text-align:center;">' +
+        '<div style="font-size:36px;font-weight:700;color:var(--accent);">' + (v.this_week||0) + '</div>' +
+        '<div style="font-size:13px;color:var(--ink-muted);margin-top:4px;">Views this week</div>' +
+      '</div>' +
+      '<div style="background:var(--cream);border-radius:var(--radius-lg);padding:20px;text-align:center;">' +
+        '<div style="font-size:36px;font-weight:700;color:var(--accent);">' + (v.this_month||0) + '</div>' +
+        '<div style="font-size:13px;color:var(--ink-muted);margin-top:4px;">Views this month</div>' +
+      '</div>' +
+      '<div style="background:var(--cream);border-radius:var(--radius-lg);padding:20px;text-align:center;">' +
+        '<div style="font-size:36px;font-weight:700;color:var(--accent);">' + (v.total||0) + '</div>' +
+        '<div style="font-size:13px;color:var(--ink-muted);margin-top:4px;">All-time views</div>' +
+      '</div>' +
+    '</div>'
+
+    if (plan !== 'basic' && v.top_pages && v.top_pages.length) {
+      html += '<div style="margin-bottom:20px;">' +
+        '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:10px;">Top pages</div>' +
+        v.top_pages.map(function(p) {
+          return '<div style="display:flex;justify-content:space-between;padding:8px 12px;background:white;border-radius:8px;margin-bottom:6px;font-size:13px;">' +
+            '<span>' + (p.path || '/') + '</span>' +
+            '<span style="font-weight:600;color:var(--accent);">' + p.c + ' views</span>' +
+          '</div>'
+        }).join('') +
+      '</div>'
+    }
+
+    if (plan === 'basic') {
+      html += '<div style="background:#fff8e6;border:1px solid #fcd34d;border-radius:var(--radius-lg);padding:16px;font-size:13px;color:#92400e;">' +
+        '📊 <strong>Upgrade to Standard or Premium</strong> to unlock detailed analytics — top pages, daily trends, and referral sources.' +
+      '</div>'
+    }
+
+    if (plan === 'premium') {
+      html += '<div style="background:#e8f4f1;border:1px solid #6ee7b7;border-radius:var(--radius-lg);padding:14px;font-size:13px;color:#065f46;margin-top:12px;">' +
+        '📬 <strong>Premium perk:</strong> You receive a monthly performance report by email on the 1st of each month.' +
+      '</div>'
+    }
+
+    wrap.innerHTML = html
+  } catch(e) {
+    wrap.innerHTML = '<p style="color:var(--ink-muted);font-size:14px;">Could not load analytics. Please try again.</p>'
   }
 }

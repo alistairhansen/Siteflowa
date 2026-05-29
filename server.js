@@ -580,6 +580,108 @@ app.post('/admin/bulk-email', authMiddleware, adminMiddleware, async (req, res) 
   } catch(err) { res.status(500).json({ error: err.message }) }
 })
 
+// ── ANALYTICS TRACKING ───────────────────────────────────
+// Serve analytics.js tracking script
+app.get('/analytics.js', (req, res) => {
+  const subdomain = req.query.subdomain || req.headers['referer']?.match(/\/\/([^.]+)\./)?.[1] || ''
+  res.setHeader('Content-Type', 'application/javascript')
+  res.send(`
+(function(){
+  var sub = document.currentScript?.getAttribute('data-subdomain') || '${subdomain}';
+  if(!sub) return;
+  fetch('https://siteflowa.onrender.com/analytics/hit', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({subdomain:sub, path:location.pathname, ref:document.referrer})
+  }).catch(function(){});
+})();`)
+})
+
+// Record a page view hit
+app.post('/analytics/hit', async (req, res) => {
+  const { subdomain, path, ref } = req.body
+  if (!subdomain) return res.json({ ok: false })
+  try {
+    await pool.query(
+      'INSERT INTO site_analytics (subdomain, path, referrer, visited_at) VALUES ($1,$2,$3,NOW()) ON CONFLICT DO NOTHING',
+      [subdomain, path || '/', ref || '']
+    )
+  } catch(e) { /* table may not exist yet — silent */ }
+  res.json({ ok: true })
+})
+
+// Get analytics for a client
+app.get('/my-analytics', authMiddleware, async (req, res) => {
+  try {
+    const client = await pool.query('SELECT id, plan FROM clients WHERE id=$1', [req.user.id])
+    if (!client.rows[0]) return res.status(404).json({ error: 'Not found' })
+    const website = await pool.query('SELECT subdomain FROM websites WHERE client_id=$1', [req.user.id])
+    const sub = website.rows[0]?.subdomain
+    const plan = client.rows[0].plan || 'standard'
+
+    // Basic stats: total views, this month
+    let views = { total: 0, this_month: 0, this_week: 0, top_pages: [], by_day: [] }
+    try {
+      const total = await pool.query("SELECT COUNT(*) as c FROM site_analytics WHERE subdomain=$1", [sub])
+      const month = await pool.query("SELECT COUNT(*) as c FROM site_analytics WHERE subdomain=$1 AND visited_at > NOW() - INTERVAL '30 days'", [sub])
+      const week  = await pool.query("SELECT COUNT(*) as c FROM site_analytics WHERE subdomain=$1 AND visited_at > NOW() - INTERVAL '7 days'", [sub])
+      views.total = parseInt(total.rows[0]?.c || 0)
+      views.this_month = parseInt(month.rows[0]?.c || 0)
+      views.this_week = parseInt(week.rows[0]?.c || 0)
+      if (plan !== 'basic') {
+        const pages = await pool.query("SELECT path, COUNT(*) as c FROM site_analytics WHERE subdomain=$1 GROUP BY path ORDER BY c DESC LIMIT 5", [sub])
+        views.top_pages = pages.rows
+        const daily = await pool.query("SELECT DATE_TRUNC('day', visited_at) as day, COUNT(*) as c FROM site_analytics WHERE subdomain=$1 AND visited_at > NOW() - INTERVAL '30 days' GROUP BY day ORDER BY day", [sub])
+        views.by_day = daily.rows
+      }
+    } catch(e) { /* analytics table may not exist */ }
+    res.json({ views, plan })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── MONTHLY PERFORMANCE REPORT (sent automatically) ──────
+async function sendMonthlyReports() {
+  try {
+    const premiumClients = await pool.query(
+      "SELECT c.id, c.email, c.plan, w.subdomain, w.business_name FROM clients c LEFT JOIN websites w ON w.client_id=c.id WHERE c.plan='premium' AND c.is_active=TRUE AND w.is_active=TRUE"
+    )
+    for (const client of premiumClients.rows) {
+      let views = 0, monthViews = 0
+      try {
+        const total = await pool.query("SELECT COUNT(*) as c FROM site_analytics WHERE subdomain=$1", [client.subdomain])
+        const month = await pool.query("SELECT COUNT(*) as c FROM site_analytics WHERE subdomain=$1 AND visited_at > NOW() - INTERVAL '30 days'", [client.subdomain])
+        views = parseInt(total.rows[0]?.c || 0)
+        monthViews = parseInt(month.rows[0]?.c || 0)
+      } catch(e) {}
+      await resend.emails.send({
+        from: 'Sitefloa <hello@sitefloa.com>',
+        to: client.email,
+        subject: 'Your monthly website performance report — ' + (client.business_name || 'your site'),
+        html: '<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;">' +
+          '<h2 style="font-family:Georgia,serif;color:#1a6b5a;">📈 Your monthly report</h2>' +
+          '<p>Here is how your website performed over the last 30 days.</p>' +
+          '<div style="background:#f5f5f5;border-radius:12px;padding:24px;margin:20px 0;display:grid;grid-template-columns:1fr 1fr;gap:16px;">' +
+          '<div style="text-align:center;"><div style="font-size:32px;font-weight:700;color:#1a6b5a;">' + monthViews + '</div><div style="font-size:13px;color:#666;">Page views this month</div></div>' +
+          '<div style="text-align:center;"><div style="font-size:32px;font-weight:700;color:#1a6b5a;">' + views + '</div><div style="font-size:13px;color:#666;">Total all-time views</div></div>' +
+          '</div>' +
+          '<p>Log in to your dashboard to see detailed analytics and manage your website.</p>' +
+          '<a href="https://sitefloa.com" style="display:inline-block;padding:12px 24px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:600;">View dashboard →</a>' +
+          '</div>'
+      }).catch(e => console.error('Monthly report error:', client.email, e))
+      await new Promise(r => setTimeout(r, 200))
+    }
+    console.log('Monthly reports sent to', premiumClients.rows.length, 'premium clients')
+  } catch(err) { console.error('Monthly report job error:', err) }
+}
+
+// Run monthly report on the 1st of each month at 9am
+const now = new Date()
+const msUntilFirstOfMonth = new Date(now.getFullYear(), now.getMonth()+1, 1, 9, 0, 0) - now
+setTimeout(function() {
+  sendMonthlyReports()
+  setInterval(sendMonthlyReports, 30 * 24 * 60 * 60 * 1000)
+}, msUntilFirstOfMonth)
+
 // ── GET SITE HTML (for download) ─────────────────────────
 app.get('/admin/get-site-html/:websiteId', authMiddleware, staffMiddleware, async (req, res) => {
   try {
