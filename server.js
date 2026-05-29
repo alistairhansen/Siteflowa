@@ -1914,11 +1914,15 @@ app.post('/submit-brief', async (req, res) => {
   const { email, plan, business_name, description, business_type, phone, address, business_email, style, colors, inspiration, tagline, services, photos, hours, existing_website, notes } = req.body
   if (!business_name) return res.status(400).json({ error: 'Business name required' })
   try {
-    // Save brief to database
+    // Strip photo file data from form_data before storing (keep filenames only, store files separately)
+    const photoFiles = req.body.photo_files || []
+    const formDataClean = { ...req.body }
+    delete formDataClean.photo_files  // remove base64 blobs from main JSON
+    // Save brief to database — photos stored in separate column
     await pool.query(
-      `INSERT INTO website_briefs (email, plan, business_name, form_data, created_at)
-       VALUES ($1, $2, $3, $4, NOW())`,
-      [email, plan, business_name, JSON.stringify(req.body)]
+      `INSERT INTO website_briefs (email, plan, business_name, form_data, photo_files, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [email, plan, business_name, JSON.stringify(formDataClean), JSON.stringify(photoFiles)]
     )
     
     // Generate Claude prompt

@@ -2488,7 +2488,10 @@ function showBriefModal(btn) {
     if (existing) existing.remove()
     var prompt = buildClaudePrompt(b, fd)
     window._currentBriefPrompt = prompt
-    window._currentBriefPhotos = b.photo_files || []
+    // photo_files may come as a JSON string from the DB
+    var rawPhotos = b.photo_files || []
+    if (typeof rawPhotos === 'string') { try { rawPhotos = JSON.parse(rawPhotos) } catch(e) { rawPhotos = [] } }
+    window._currentBriefPhotos = Array.isArray(rawPhotos) ? rawPhotos : []
 
     function row(label, val) {
       if (!val) return ''
