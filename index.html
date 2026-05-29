@@ -57,6 +57,8 @@
   #admin-inquiries-list::-webkit-scrollbar-thumb,
   #mgr-inquiries-list::-webkit-scrollbar-thumb,
   #domain-requests-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.tf-btn{padding:4px 12px;border:1px solid var(--border);border-radius:20px;background:white;font-family:var(--sans);font-size:12px;cursor:pointer;color:var(--ink-muted);transition:all 0.15s;}
+.tf-btn:hover,.active-tf{background:var(--accent);color:white;border-color:var(--accent);}
 </style>
 </head>
 <body><nav>
@@ -151,7 +153,25 @@
       <div class="service-card"><div class="service-icon">🔍</div><h3>SEO foundations</h3><p>Every website is built with proper search foundations — page titles, meta descriptions, fast load times. Premium plans include full <strong>local SEO</strong> so people near you can find your business on Google.</p><div class="service-price">Basic in all plans · <strong>Full local SEO on Premium</strong></div></div>
       <div class="service-card"><div class="service-icon">📈</div><h3>Analytics & stats</h3><p>See how many people visit your website, where they come from, and what they look at.</p><div class="service-price">All plans · <strong>more in Standard+</strong></div></div>
     </div>
-    <div style="text-align:center;margin-top:52px;"><button class="btn-primary" onclick="showPage('plans')">See our plans & pricing →</button></div>
+    <div style="text-align:center;margin-top:52px;"><button class="btn-primary" onclick="showPage('plans')">See our plans &amp; pricing →</button></div>
+
+    <!-- WHY CHOOSE US -->
+    <div style="margin-top:80px;padding-top:64px;border-top:1px solid var(--border);">
+      <div class="hero-eyebrow">Why Sitefloa</div>
+      <h2 style="font-family:var(--serif);font-size:clamp(28px,3.5vw,44px);letter-spacing:-0.02em;line-height:1.15;margin-bottom:14px;max-width:600px;">Why small businesses choose us over the rest</h2>
+      <p class="section-sub" style="margin-bottom:48px;">We built Sitefloa because small business owners deserve a professional web presence without the headaches.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;">
+        <div style="display:flex;gap:14px;"><div style="font-size:26px;flex-shrink:0;margin-top:2px;">🧑</div><div><h3 style="font-size:15px;font-weight:700;margin-bottom:5px;">Real humans, always</h3><p style="font-size:13px;color:var(--ink-muted);line-height:1.6;">You'll never talk to a bot or sit in a ticket queue. Every question goes straight to a real person who knows your website.</p></div></div>
+        <div style="display:flex;gap:14px;"><div style="font-size:26px;flex-shrink:0;margin-top:2px;">💸</div><div><h3 style="font-size:15px;font-weight:700;margin-bottom:5px;">No surprises — ever</h3><p style="font-size:13px;color:var(--ink-muted);line-height:1.6;">One setup fee. One monthly subscription. No hidden charges, no renewal tricks, no upsell calls.</p></div></div>
+        <div style="display:flex;gap:14px;"><div style="font-size:26px;flex-shrink:0;margin-top:2px;">⚡</div><div><h3 style="font-size:15px;font-weight:700;margin-bottom:5px;">Up and running fast</h3><p style="font-size:13px;color:var(--ink-muted);line-height:1.6;">Most websites go live within days, not months. Fill out a brief form, we build it, you approve it, it's live.</p></div></div>
+        <div style="display:flex;gap:14px;"><div style="font-size:26px;flex-shrink:0;margin-top:2px;">🛠️</div><div><h3 style="font-size:15px;font-weight:700;margin-bottom:5px;">We maintain it for you</h3><p style="font-size:13px;color:var(--ink-muted);line-height:1.6;">Hosting, security updates, and backups — all included. You focus on your business, we keep your website healthy.</p></div></div>
+        <div style="display:flex;gap:14px;"><div style="font-size:26px;flex-shrink:0;margin-top:2px;">📱</div><div><h3 style="font-size:15px;font-weight:700;margin-bottom:5px;">Your own dashboard</h3><p style="font-size:13px;color:var(--ink-muted);line-height:1.6;">Log in from your phone or computer to update your hours, photos, or contact info instantly. No technical knowledge needed.</p></div></div>
+        <div style="display:flex;gap:14px;"><div style="font-size:26px;flex-shrink:0;margin-top:2px;">📍</div><div><h3 style="font-size:15px;font-weight:700;margin-bottom:5px;">Built to get you found</h3><p style="font-size:13px;color:var(--ink-muted);line-height:1.6;">Every site ships with SEO foundations built in. Premium plans include full local SEO so nearby customers find you first on Google.</p></div></div>
+        <div style="display:flex;gap:14px;"><div style="font-size:26px;flex-shrink:0;margin-top:2px;">🔒</div><div><h3 style="font-size:15px;font-weight:700;margin-bottom:5px;">Secure and professional</h3><p style="font-size:13px;color:var(--ink-muted);line-height:1.6;">HTTPS, fast load times, and mobile-first design — the things that make visitors trust you and Google rank you higher.</p></div></div>
+        <div style="display:flex;gap:14px;"><div style="font-size:26px;flex-shrink:0;margin-top:2px;">🤝</div><div><h3 style="font-size:15px;font-weight:700;margin-bottom:5px;">Cancel anytime</h3><p style="font-size:13px;color:var(--ink-muted);line-height:1.6;">No long-term contracts. No cancellation fees. Stay because we're worth it — not because you're locked in.</p></div></div>
+      </div>
+      <div style="text-align:center;margin-top:48px;"><button class="btn-primary" onclick="showPage('inquiry')">Get started today →</button></div>
+    </div>
   </section>
 </div>
 
@@ -455,7 +475,19 @@
       <div class="admin-stat-card" style="border:2px solid var(--accent);"><div class="stat-label">My net revenue</div><div class="stat-value green" id="stat-net">—</div></div>
       <div class="admin-stat-card"><div class="stat-label">Brief forms sent</div><div class="stat-value" id="stat-forms-sent">—</div></div>
     </div>
-    <div class="chart-wrap"><h4>📈 Revenue over time</h4><canvas id="revenue-chart" height="80"></canvas></div>
+    <div class="chart-wrap">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <h4>📈 Revenue over time</h4>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button onclick="setChartTimeframe('period')" id="tf-period" class="tf-btn active-tf">This period</button>
+          <button onclick="setChartTimeframe('lastperiod')" id="tf-lastperiod" class="tf-btn">Last period</button>
+          <button onclick="setChartTimeframe('month')" id="tf-month" class="tf-btn">This month</button>
+          <button onclick="setChartTimeframe('year')" id="tf-year" class="tf-btn">This year</button>
+          <button onclick="setChartTimeframe('alltime')" id="tf-alltime" class="tf-btn">All time</button>
+        </div>
+      </div>
+      <canvas id="revenue-chart" height="80"></canvas>
+    </div>
     <div class="chart-wrap" style="margin-top:20px;"><h4>💼 Contractor earnings vs my net (per pay period)</h4><p style="font-size:13px;color:var(--ink-muted);margin-bottom:12px;">Green = your net revenue &middot; Blue = contractor commissions paid out</p><canvas id="contractor-chart" height="80"></canvas></div>
     <div class="admin-section" id="shared-pipeline-section">
       <h3>🎯 Sales Pipeline</h3>
@@ -489,6 +521,7 @@
             </select>
           </div>
           <button class="dash-save" onclick="sendEmailCenter()" style="height:42px;">Send</button>
+          <button class="dash-save" style="height:42px;background:#7c3aed;" onclick="sendEmailCenterBulk()" title="Send this email to every client separately">📢 All clients</button>
         </div>
         <div id="email-extra-fields" style="display:none;margin-top:12px;">
           <div class="dash-field"><label id="email-extra-label">Invite code</label><input type="text" id="email-center-extra" placeholder=""></div>

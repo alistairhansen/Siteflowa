@@ -752,7 +752,8 @@ async function loadAdminData(){
     if(data.stats){document.getElementById('stat-clients').textContent=data.stats.total_clients;document.getElementById('stat-active').textContent=data.stats.active_websites;document.getElementById('stat-monthly').textContent='$'+data.stats.monthly_revenue;document.getElementById('stat-total').textContent='$'+data.stats.total_revenue}
     if(data.clients)renderClientsTable(data.clients.filter(c=>c.role==='client'||(!c.role&&!c.is_admin)))
     if(data.managers)renderStaffList(data.managers)
-    if(data.monthly_chart)renderChart(data.monthly_chart)
+    _adminStatsCache = data
+    if(data.monthly_chart)renderChart(data.monthly_chart, data.manager_earnings_chart||[])
     loadAdminCodes();loadManagerCodes();loadInquiries('admin');loadPipeline();loadAssetForms();loadSubmittedBriefs();loadDomainRequests();loadBonusGoals();loadAllChats('admin');loadAdminDemos()
   }catch(e){console.error(e)}
 }
@@ -767,10 +768,25 @@ async function loadPaySettings(){
     if(startEl&&s.current_period_start)startEl.value=new Date(s.current_period_start).toISOString().split('T')[0]
   }catch(e){console.error(e)}
 }
-function renderChart(rows){
-  const ctx=document.getElementById('revenue-chart');if(!ctx)return
+function renderChart(rows, earningsRows) {
+  const ctx=document.getElementById('revenue-chart')
+  if(!ctx)return
   if(revenueChart)revenueChart.destroy()
-  revenueChart=new Chart(ctx,{type:'bar',data:{labels:rows.map(r=>new Date(r.month).toLocaleDateString('en',{month:'short',year:'2-digit'})),datasets:[{label:'Revenue ($)',data:rows.map(r=>r.revenue),backgroundColor:'rgba(26,107,90,0.7)',borderRadius:6},{label:'New clients',data:rows.map(r=>r.new_clients),backgroundColor:'rgba(45,158,132,0.4)',borderRadius:6}]},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}})
+  var labels = rows.map(r=>new Date(r.month).toLocaleDateString('en',{month:'short',year:'2-digit'}))
+  var datasets = [
+    {label:'Gross revenue ($)',data:rows.map(r=>Math.round(r.revenue||0)),backgroundColor:'rgba(26,107,90,0.7)',borderRadius:6},
+    {label:'New clients',data:rows.map(r=>r.new_clients||0),backgroundColor:'rgba(45,158,132,0.35)',borderRadius:6}
+  ]
+  if (earningsRows && earningsRows.length) {
+    var earningsByMonth = {}
+    earningsRows.forEach(function(e) {
+      var mo = new Date(e.week||e.period_end||e.created_at).toLocaleDateString('en',{month:'short',year:'2-digit'})
+      earningsByMonth[mo] = (earningsByMonth[mo]||0) + parseFloat(e.earned||0)
+    })
+    datasets.push({label:'Staff commissions ($)',data:labels.map(function(l){return Math.round(earningsByMonth[l]||0)}),backgroundColor:'rgba(124,58,237,0.5)',borderRadius:6})
+    datasets.push({label:'Net revenue ($)',data:labels.map(function(l,i){return Math.max(0,Math.round((rows[i]?.revenue||0)-(earningsByMonth[l]||0)))}),backgroundColor:'rgba(59,130,246,0.6)',borderRadius:6})
+  }
+  revenueChart=new Chart(ctx,{type:'bar',data:{labels,datasets},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}})
 }
 function renderStaffList(managers){
   const wrap=document.getElementById('staff-list')
@@ -2125,12 +2141,13 @@ function renderPipeline(leads) {
           (l.notes ? '<div style="font-size:12px;color:var(--ink-muted);margin-top:4px;">' + l.notes + '</div>' : '') +
           '</div>' +
           '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
-          '<span style="background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;">' + label + '</span>' +
-          (!isClaimed ? '<button onclick="claimLead(&quot;' + l.id + '&quot;)" style="background:var(--accent);color:white;border:none;padding:5px 12px;border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;">Claim</button>' : '') +
-          (claimedByMe || getRole() === 'admin' ?
-            '<select onchange="updateLeadStage(' + l.id + ',this.value)" style="padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:12px;">' +
+          // Stage badge always visible to all; dropdown only for claimer or admin
+          (claimedByMe || getRole() === 'admin' || getRole() === 'manager' ?
+            '<select onchange="updateLeadStage(&quot;' + l.id + '&quot;,this.value)" style="background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;">' +
             Object.entries(STAGE_LABELS).map(function(e) { return '<option value="' + e[0] + '"' + (l.stage === e[0] ? ' selected' : '') + '>' + e[1] + '</option>' }).join('') +
-            '</select>' : '') +
+            '</select>'
+            : '<span style="background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;">' + label + '</span>') +
+          (!isClaimed ? '<button onclick="claimLead(&quot;' + l.id + '&quot;)" style="background:var(--accent);color:white;border:none;padding:5px 12px;border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;">Claim</button>' : '') +
           (['admin','manager'].includes(getRole()) ? '<button onclick="deleteLead(&quot;' + l.id + '&quot;)" style="background:none;border:1px solid #ef444466;color:#ef4444;padding:5px 10px;border-radius:var(--radius);font-family:var(--sans);font-size:12px;cursor:pointer;">Delete</button>' : '') +
           '</div></div></div>'
       }).join('') + '</div>'
@@ -3737,11 +3754,16 @@ async function setBlockedById(btn) {
     })
     var d = await res.json()
     if (d.message) {
+      // Update button in-place without reloading entire list
       btn.setAttribute('data-blocked', String(newBlocked))
       btn.textContent = newBlocked ? '🔓 Unblock' : '🚫 Block'
-      btn.style.background = newBlocked ? '#fef2f2' : ''
-      btn.style.color = newBlocked ? '#ef4444' : ''
-      loadAdminData()
+      btn.style.background = newBlocked ? '#fef2f2' : 'white'
+      btn.style.color = newBlocked ? '#ef4444' : 'var(--ink)'
+      btn.style.border = newBlocked ? '1px solid #ef4444' : '1px solid var(--border)'
+      // Show feedback
+      var orig = btn.textContent
+      btn.textContent = newBlocked ? '✅ Blocked' : '✅ Unblocked'
+      setTimeout(function(){ btn.textContent = newBlocked ? '🔓 Unblock' : '🚫 Block' }, 1500)
     } else alert(d.error || 'Failed')
   } catch(e) { alert('Could not connect') }
 }
@@ -4675,4 +4697,64 @@ async function downloadSiteHtml(websiteId, filename) {
     document.body.appendChild(a); a.click()
     document.body.removeChild(a); URL.revokeObjectURL(url)
   } catch(e) { alert('Could not download HTML') }
+}
+
+// ── CHART TIMEFRAME SELECTOR ─────────────────────────────
+var _adminStatsCache = null
+function setChartTimeframe(tf) {
+  // Update active button
+  document.querySelectorAll('.tf-btn').forEach(function(b) {
+    b.classList.toggle('active-tf', b.id === 'tf-' + tf)
+  })
+  if (!_adminStatsCache) return
+  var allRows = _adminStatsCache.monthly_chart || []
+  var earnings = _adminStatsCache.manager_earnings_chart || []
+  var now = new Date()
+  var filtered = allRows
+  if (tf === 'period') {
+    // Last 30 days approx
+    filtered = allRows.slice(0, 1)
+  } else if (tf === 'lastperiod') {
+    filtered = allRows.slice(1, 2)
+  } else if (tf === 'month') {
+    filtered = allRows.filter(function(r) {
+      var d = new Date(r.month)
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    })
+    if (!filtered.length) filtered = allRows.slice(0, 1)
+  } else if (tf === 'year') {
+    filtered = allRows.filter(function(r) { return new Date(r.month).getFullYear() === now.getFullYear() })
+  } else {
+    filtered = allRows // all time
+  }
+  renderChart(filtered.length ? filtered : allRows, earnings)
+}
+
+// ── BULK EMAIL TO ALL CLIENTS ─────────────────────────────
+async function sendEmailCenterBulk() {
+  var type = document.getElementById('email-center-type')?.value
+  if (!type) return alert('Please select an email type first')
+  if (type === 'invite' || type === 'payment_questionnaire') {
+    return alert('This email type is not suitable for bulk sending.')
+  }
+  var subject = document.getElementById('email-center-subject')?.value.trim()
+  var message = document.getElementById('email-center-message')?.value.trim()
+  if (type === 'custom' && (!subject || !message)) {
+    return alert('Please fill in subject and message before sending to all clients.')
+  }
+  if (!confirm('Send this email to ALL active clients? This will send one email per client.')) return
+  var btn = document.getElementById('bulk-email-btn')
+  if (btn) { btn.textContent = 'Sending...'; btn.disabled = true }
+  try {
+    var res = await fetch(API + '/admin/bulk-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ type: type, subject: subject, message: message })
+    })
+    var d = await res.json()
+    if (d.message) {
+      alert('Sent to ' + (d.count || 'all') + ' clients successfully!')
+    } else alert(d.error || 'Failed to send bulk email')
+  } catch(e) { alert('Could not connect to server') }
+  if (btn) { btn.textContent = '📢 All clients'; btn.disabled = false }
 }

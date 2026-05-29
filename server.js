@@ -553,6 +553,33 @@ app.post('/admin/upload-site-html', authMiddleware, staffMiddleware, async (req,
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
+// ── BULK EMAIL TO ALL CLIENTS ────────────────────────────
+app.post('/admin/bulk-email', authMiddleware, adminMiddleware, async (req, res) => {
+  const { type, subject, message } = req.body
+  try {
+    const clients = await pool.query(
+      "SELECT email, plan FROM clients WHERE role='client' AND subscription_status != 'suspended' ORDER BY created_at DESC"
+    )
+    let sent = 0
+    for (const client of clients.rows) {
+      let html = ''
+      let sub = subject || 'A message from Sitefloa'
+      if (type === 'custom') {
+        html = '<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;"><p>' + (message||'').split('\n').join('<br>') + '</p><p style="color:#888;font-size:12px;margin-top:24px;">— The Sitefloa team · <a href="https://sitefloa.com">sitefloa.com</a></p></div>'
+      } else if (type === 'website_ready') {
+        sub = 'Your website is ready to review!'
+        html = '<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 20px;"><h2 style="font-family:Georgia,serif;color:#1a6b5a;">Your website is ready! ✨</h2><p>Log in to your Sitefloa dashboard to preview your website and request any changes.</p><a href="https://sitefloa.com" style="display:inline-block;margin:20px 0;padding:12px 24px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;">View your website →</a></div>'
+      }
+      if (!html) continue
+      await resend.emails.send({ from: 'Sitefloa <hello@sitefloa.com>', to: client.email, subject: sub, html }).catch(e => console.error('Bulk email error to ' + client.email, e))
+      sent++
+      // Small delay to avoid rate limiting
+      await new Promise(r => setTimeout(r, 100))
+    }
+    res.json({ message: 'Bulk email sent', count: sent })
+  } catch(err) { res.status(500).json({ error: err.message }) }
+})
+
 // ── GET SITE HTML (for download) ─────────────────────────
 app.get('/admin/get-site-html/:websiteId', authMiddleware, staffMiddleware, async (req, res) => {
   try {
