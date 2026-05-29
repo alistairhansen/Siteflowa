@@ -4449,9 +4449,8 @@ function sendToDemoBuilder() {
 var _allContractorHistories = {}
 
 async function loadAllContractorAIHistories() {
-  // Managers can see all contractor chat histories via the shared object
-  // In a real production system this would be stored server-side
-  // For now: show a panel below the AI builder with each contractor's history
+  // Only managers and admins can see this panel
+  if (!['admin','manager'].includes(getRole())) return
   var wrap = document.getElementById('claude-chat-msgs')
   if (!wrap) return
   // Add a manager monitor panel after the AI builder
