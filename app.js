@@ -80,6 +80,9 @@ async function loadSiteSettings(){
 }
 function applySettings(s){
   if(!s)return
+  // Store contact emails globally for use in loadAdminEmails
+  window._siteManagerContact = s.manager_contact_email || ''
+  window._siteAdminContact   = s.admin_contact_email   || ''
   const name=s.company_name||'Siteflowa'
   document.title=name+' - Professional Websites for Every Business'
   document.getElementById('footer-copy').textContent='\u00a9 2026 '+name+'. All rights reserved.'
@@ -125,7 +128,7 @@ function applySettings(s){
 async function loadSiteSettingsForm(){
   try{
     const res=await fetch(API+'/site-settings');const s=await res.json()
-    const map={name:'company_name','main-title':'main_title',tagline:'tagline',email:'email',phone:'phone',address:'address',instagram:'instagram',facebook:'facebook',tiktok:'tiktok',twitter:'twitter',linkedin:'linkedin',youtube:'youtube'}
+    const map={name:'company_name','main-title':'main_title',tagline:'tagline','manager-contact':'manager_contact_email','admin-contact':'admin_contact_email',email:'email',phone:'phone',address:'address',instagram:'instagram',facebook:'facebook',tiktok:'tiktok',twitter:'twitter',linkedin:'linkedin',youtube:'youtube'}
     Object.entries(map).forEach(([id,key])=>{const el=document.getElementById('ss-'+id);if(el)el.value=s[key]||''})
     if(s.plan_basic_price){
       document.getElementById('ss-basic-price').value=s.plan_basic_price||29
@@ -140,7 +143,7 @@ async function loadSiteSettingsForm(){
 async function saveSiteSettings(){
   const applyTo=document.getElementById('ss-price-apply')?.value||'new_only'
   const body={
-    company_name:document.getElementById('ss-name').value,main_title:document.getElementById('ss-main-title')?.value||'',tagline:document.getElementById('ss-tagline').value,
+    company_name:document.getElementById('ss-name').value,main_title:document.getElementById('ss-main-title')?.value||'',tagline:document.getElementById('ss-tagline').value,manager_contact_email:document.getElementById('ss-manager-contact')?.value||'',admin_contact_email:document.getElementById('ss-admin-contact')?.value||'',
     email:document.getElementById('ss-email').value,phone:document.getElementById('ss-phone').value,address:document.getElementById('ss-address').value,
     instagram:document.getElementById('ss-instagram').value,facebook:document.getElementById('ss-facebook').value,
     tiktok:document.getElementById('ss-tiktok').value,twitter:document.getElementById('ss-twitter').value,
@@ -3742,15 +3745,38 @@ function downloadBriefPhoto(btn) {
 async function loadAdminEmails() {
   var wrap = document.getElementById('admin-emails-list')
   if (!wrap) return
+  var label = document.querySelector('#admin-contact-bar span')
   try {
     var res = await fetch(API + '/admin/stats', { headers: { 'Authorization': 'Bearer ' + getToken() } })
     var d = await res.json()
-    var admins = (d.managers || []).filter(function(m) { return m.role === 'admin' || m.is_admin })
-    if (!admins.length) { wrap.innerHTML = '<span style="color:var(--ink-muted);">No admin emails found</span>'; return }
-    wrap.innerHTML = admins.map(function(a) {
+    var role = getRole()
+    var contacts = []
+    var overrideEmail = ''
+    // Contractors see manager contact (from settings), or all managers, or admins as fallback
+    if (role === 'contractor') {
+      if (label) label.textContent = '📧 Need help? Contact your manager:'
+      overrideEmail = window._siteManagerContact
+      if (!overrideEmail) {
+        contacts = (d.managers || []).filter(function(m) { return m.role === 'manager' })
+        if (!contacts.length) contacts = (d.managers || []).filter(function(m) { return m.role === 'admin' || m.is_admin })
+      }
+    } else if (role === 'manager') {
+      if (label) label.textContent = '📧 Need help? Contact admin:'
+      overrideEmail = window._siteAdminContact
+      if (!overrideEmail) contacts = (d.managers || []).filter(function(m) { return m.role === 'admin' || m.is_admin })
+    } else {
+      if (label) label.textContent = '📧 Admin contacts:'
+      contacts = (d.managers || []).filter(function(m) { return m.role === 'admin' || m.is_admin })
+    }
+    if (overrideEmail) {
+      wrap.innerHTML = '<a href="mailto:' + overrideEmail + '" style="color:var(--accent);text-decoration:none;font-weight:500;">' + overrideEmail + '</a>'
+      return
+    }
+    if (!contacts.length) { wrap.innerHTML = '<span style="color:var(--ink-muted);">No contacts found</span>'; return }
+    wrap.innerHTML = contacts.map(function(a) {
       return '<a href="mailto:' + a.email + '" style="color:var(--accent);text-decoration:none;font-weight:500;">' + a.email + '</a>'
     }).join('<span style="color:var(--ink-muted);">&nbsp;&middot;&nbsp;</span>')
-  } catch(e) { if (wrap) wrap.innerHTML = '<span style="color:var(--ink-muted);">Could not load admin contacts</span>' }
+  } catch(e) { if (wrap) wrap.innerHTML = '<span style="color:var(--ink-muted);">Could not load contacts</span>' }
 }
 
 // ── ITEM 4: BLOCK / UNBLOCK ACCOUNT ─────────────────────
@@ -4572,7 +4598,7 @@ function renderClientsTableTo(clients, tbodyId) {
     var statusHtml = buildClientStatus(c)
     var rowStyle = c.subscription_status === 'suspended' ? 'style="background:#fff1f1;"' : ''
     return '<tr ' + rowStyle + '>' +
-      '<td><button class="action-btn" onclick="toggleMgrDetail(\'' + c.id + '\')" style="padding:4px 8px;">▼</button></td>' +
+      '<td><button class="action-btn" data-id="' + c.id + '" onclick="toggleMgrDetail(this.dataset.id)" style="padding:4px 8px;">▼</button></td>' +
       '<td>' + (c.email||'') + '</td>' +
       '<td>' + (c.business_name||'<span style="color:var(--ink-muted);">Not set</span>') + '</td>' +
       '<td><span class="plan-badge ' + (c.plan||'standard') + '">' + (c.plan||'standard').toUpperCase() + '</span></td>' +
@@ -4582,7 +4608,7 @@ function renderClientsTableTo(clients, tbodyId) {
       '<td style="font-size:12px;color:var(--ink-muted);">' + (c.created_by_email||'—') + '</td>' +
       '<td style="font-size:12px;">' + (c.created_at ? new Date(c.created_at).toLocaleDateString('en-CA') : '—') + '</td>' +
       '<td style="display:flex;gap:4px;flex-wrap:wrap;">' +
-      '<button class="action-btn" onclick="transferClient(\'' + c.id + '\')">Transfer</button>' +
+      '<button class="action-btn" data-id="' + c.id + '" onclick="transferClient(this.dataset.id)">Transfer</button>' +
       '</td></tr>' +
       '<tr id="mgr-detail-' + c.id + '" style="display:none;"><td colspan="10" style="padding:0;">' +
       '<div style="padding:16px 20px;background:var(--cream);border-top:1px solid var(--border);">' +
@@ -4598,7 +4624,7 @@ function renderClientsTableTo(clients, tbodyId) {
       '<input type="text" id="mgr-dn-' + c.id + '" value="' + (c.domain_name||'') + '" placeholder="e.g. mybusiness.com" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;width:160px;">' +
       '<input type="number" id="mgr-dc-' + c.id + '" value="' + (c.domain_cost||'') + '" placeholder="Setup $" style="padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;width:80px;">' +
       '<input type="number" id="mgr-dy-' + c.id + '" value="' + (c.domain_yearly_fee||'') + '" placeholder="$/yr" style="padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:13px;width:70px;">' +
-      '<button class="dash-save" onclick="saveMgrClientDomain(\'' + c.id + '\')" style="padding:7px 12px;font-size:12px;">Save domain</button>' +
+      '<button class="dash-save" data-id="' + c.id + '" onclick="saveMgrClientDomain(this.dataset.id)" style="padding:7px 12px;font-size:12px;">Save domain</button>' +
       '</div></div>' +
       '</div></td></tr>'
   }).join('')
