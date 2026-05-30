@@ -4633,15 +4633,12 @@ openDemo = function(demoId) {
 // ── COOKIE CONSENT ────────────────────────────────────────
 (function(){
   if (localStorage.getItem('cookie_consent')) return
-  window.addEventListener('load', function() {
-    var banner = document.getElementById('cookie-banner')
-    if (banner) { banner.style.display = 'flex'; banner.style.removeProperty('display') }
-    // Actually show it
-    setTimeout(function(){
-      var b = document.getElementById('cookie-banner')
-      if (b) b.style.display = 'flex'
-    }, 1500)
-  })
+  setTimeout(function(){
+    var b = document.getElementById('cookie-banner')
+    if (!b) return
+    b.removeAttribute('style')  // clear inline display:none
+    b.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1a1a2e;color:white;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;font-family:sans-serif;font-size:13px;box-shadow:0 -4px 20px rgba(0,0,0,0.3);'
+  }, 1500)
 })()
 function acceptCookies() {
   localStorage.setItem('cookie_consent', 'all')
