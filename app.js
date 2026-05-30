@@ -90,13 +90,9 @@ function applySettings(s){
   if(s.tagline){var ht=document.getElementById('hero-tagline');if(ht)ht.textContent=s.tagline}
   if(s.plan_basic_price){
     document.getElementById('home-stat-price').textContent='$'+s.plan_basic_price
-    // Update inquiry page plan dropdown with real prices
-    var inqBasic=document.getElementById('inq-opt-basic')
-    var inqStd=document.getElementById('inq-opt-standard')
-    var inqPrem=document.getElementById('inq-opt-premium')
-    if(inqBasic)inqBasic.textContent='Basic — $'+s.plan_basic_setup+' setup + $'+s.plan_basic_price+'/mo'
-    if(inqStd)inqStd.textContent='Standard — $'+s.plan_standard_setup+' setup + $'+s.plan_standard_price+'/mo'
-    if(inqPrem)inqPrem.textContent='Premium — $'+s.plan_premium_setup+' setup + $'+s.plan_premium_price+'/mo'
+    // Update monthly price display
+    var statPrice = document.getElementById('home-stat-price')
+    if (statPrice) statPrice.textContent = '$' + (s.plan_standard_price || 99)
     document.getElementById('plan-basic-price').innerHTML='$'+s.plan_basic_price+'<span>/mo</span>'
     document.getElementById('plan-standard-price').innerHTML='$'+s.plan_standard_price+'<span>/mo</span>'
     document.getElementById('plan-premium-price').innerHTML='$'+s.plan_premium_price+'<span>/mo</span>'
@@ -1187,20 +1183,10 @@ async function mgrCreateWebsite(){
 }
 
 function buildClientStatus(c) {
-  // Suspended / missed payment
   if (c.subscription_status==='suspended') return '<span class="status-badge suspended">⚠️ Missed payment</span>'
-  // Fully live - must have is_active=true AND launched stage AND subscription active
-  if (c.is_active===true && c.onboarding_stage==='launched' && c.subscription_status==='active') {
-    return '<span class="status-badge active">Live ✅</span>'
-  }
-  // Deposit paid check - use the actual deposit_paid column only
-  const depositPaid = c.deposit_paid === true
-  if (!depositPaid) return '<span class="status-badge pending">No deposit yet</span>'
-  // Deposit paid - derive build state from site_html
-  if (c.site_html) {
-    return '<span class="status-badge active">Deposit paid ✓</span><div style="font-size:11px;font-weight:600;color:#3b82f6;margin-top:3px;">👁 In preview</div>'
-  }
-  return '<span class="status-badge active">Deposit paid ✓</span><div style="font-size:11px;font-weight:600;color:var(--accent);margin-top:3px;">🔨 WIP — Being built</div>'
+  if (c.is_active===true && c.onboarding_stage==='launched') return '<span class="status-badge active">Live ✅</span>'
+  if (c.site_html) return '<span class="status-badge active">Ready for review 👁</span>'
+  return '<span class="status-badge pending">🔨 Being built</span>'
 }
 function renderClientsTable(clients){
   const tbody=document.getElementById('clients-table-body')
@@ -1472,49 +1458,38 @@ async function sendInviteCodeEmail() {
 // ── HOLDING PAGE (Building / Review stages) ─────────
 function showHoldingPage(stage, website) {
   var wrap = document.getElementById('holding-content')
-  var clientId = getToken() ? JSON.parse(atob(getToken().split('.')[1])).id : null
-  var chatSection = clientId ? buildClientChatSection(clientId) : ''
-
-  if (stage === 'building') {
+  if (stage === 'review') {
+    var previewUrl = website?.subdomain ? '/client/' + website.subdomain : null
     wrap.innerHTML =
-      '<div style="max-width:680px;margin:0 auto;">' +
-      '<div style="text-align:center;margin-bottom:32px;">' +
-      '<div style="font-size:48px;margin-bottom:16px;">🏗️</div>' +
-      '<h2 style="font-family:Georgia,serif;font-size:28px;margin-bottom:12px;">We\'re building your website!</h2>' +
-      '<p style="color:#4a4f5e;font-size:15px;line-height:1.6;margin-bottom:20px;">Thank you for your deposit. Our team is now working on your website. We will notify you by email as soon as it is ready to preview.</p>' +
-      '<div style="background:#f0faf7;border:1px solid rgba(26,107,90,0.2);border-radius:12px;padding:20px;text-align:left;margin-bottom:20px;">' +
-      '<div style="font-size:13px;font-weight:600;color:#1a6b5a;margin-bottom:8px;">What happens next?</div>' +
-      '<ol style="font-size:14px;color:#4a4f5e;line-height:1.8;margin:0;padding-left:20px;">' +
-      '<li>We build your website based on your brief</li>' +
-      '<li>You will get an email when it is ready to preview</li>' +
-      '<li>Review it, request any changes via the chat below</li>' +
-      '<li>Approve it and it goes live!</li>' +
+      '<div style="max-width:600px;margin:0 auto;text-align:center;">' +
+      '<div style="font-size:52px;margin-bottom:20px;">✨</div>' +
+      '<h2 style="font-family:Georgia,serif;font-size:28px;margin-bottom:12px;">Your website is ready to review!</h2>' +
+      '<p style="color:#4a4f5e;font-size:15px;line-height:1.6;margin-bottom:28px;">Take a look at your website using the preview link below. Once you are happy with it, click the approve button to pay the final subscription and go live!</p>' +
+      (previewUrl ? '<a href="' + previewUrl + '" target="_blank" style="display:inline-block;margin-bottom:20px;padding:14px 32px;background:#1a6b5a;color:white;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px;">🌐 Preview your website</a><br>' : '') +
+      '<button onclick="approveWebsite()" style="margin-top:8px;padding:14px 32px;background:#0f4c35;color:white;border:none;border-radius:10px;cursor:pointer;font-size:15px;font-weight:600;">✅ I am happy — make it live!</button>' +
+      '<p style="font-size:12px;color:#999;margin-top:16px;">Any questions? Reply to any of our emails or contact your account manager directly.</p>' +
+      '<button onclick="doLogout()" style="margin-top:20px;padding:8px 20px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-size:13px;color:#666;">Log out</button>' +
+      '</div>'
+  } else {
+    wrap.innerHTML =
+      '<div style="max-width:600px;margin:0 auto;text-align:center;">' +
+      '<div style="font-size:52px;margin-bottom:20px;">🏗️</div>' +
+      '<h2 style="font-family:Georgia,serif;font-size:28px;margin-bottom:12px;">We are building your website!</h2>' +
+      '<p style="color:#4a4f5e;font-size:15px;line-height:1.6;margin-bottom:24px;">Our team is working on your website now. We will send you an email as soon as it is ready for you to review and approve.</p>' +
+      '<div style="background:#f0faf7;border:1px solid rgba(26,107,90,0.2);border-radius:12px;padding:20px;text-align:left;max-width:360px;margin:0 auto 24px;">' +
+      '<div style="font-weight:600;color:#1a6b5a;margin-bottom:10px;font-size:14px;">What happens next?</div>' +
+      '<ol style="font-size:14px;color:#4a4f5e;line-height:2;margin:0;padding-left:18px;">' +
+      '<li>We build your website</li>' +
+      '<li>You get an email to review it</li>' +
+      '<li>You approve it and pay the monthly fee</li>' +
+      '<li>Your website goes live!</li>' +
       '</ol></div>' +
       '<button onclick="doLogout()" style="padding:10px 24px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-size:14px;">Log out</button>' +
-      '</div>' +
-      chatSection +
-      '</div>'
-  } else if (stage === 'review') {
-    wrap.innerHTML =
-      '<div style="max-width:680px;margin:0 auto;">' +
-      '<div style="text-align:center;margin-bottom:32px;">' +
-      '<div style="font-size:48px;margin-bottom:16px;">✨</div>' +
-      '<h2 style="font-family:Georgia,serif;font-size:28px;margin-bottom:12px;">Your website is ready to review!</h2>' +
-      '<p style="color:#4a4f5e;font-size:15px;line-height:1.6;margin-bottom:20px;">Take a look at your website using the preview link. Request any final changes in the chat below, then click approve when you\'re happy.</p>' +
-      (website?.subdomain ? '<a href="/client/' + website.subdomain + '" target="_blank" style="display:inline-block;margin-bottom:16px;padding:14px 28px;background:#1a6b5a;color:white;text-decoration:none;border-radius:8px;font-weight:500;font-size:15px;">🌐 Preview your website</a><br>' : '<p style="color:#888;font-size:13px;margin-bottom:16px;">Preview link not yet available — check back soon.</p>') +
-      '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:8px;">' +
-      '<button onclick="approveWebsite()" style="padding:14px 28px;background:#1a6b5a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:500;">✅ I\'m happy — make it live!</button>' +
-      '<button onclick="doLogout()" style="padding:14px 28px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-size:14px;">Log out</button>' +
-      '</div>' +
-      '<p style="font-size:12px;color:#999;">Once you approve and complete payment, your website goes live instantly.</p>' +
-      '</div>' +
-      chatSection +
       '</div>'
   }
   showPage('holding')
-  // Load chat messages after DOM is ready
-  if (clientId) setTimeout(function(){ loadClientChat(clientId) }, 100)
 }
+
 
 function buildClientChatSection(clientId) {
   return '<div style="background:white;border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-top:8px;">' +
@@ -1588,34 +1563,21 @@ async function sendClientChatMsg(idOrBtn) {
 
 // ── APPROVE WEBSITE (triggers final payment) ────────
 async function approveWebsite() {
-  if (!confirm('Approve your website and make it live? You will be redirected to pay the remaining launch fee.')) return
   try {
-    // Use actual deposit_amount from DB (what was really charged), not a recalculation
-    var fullFee = currentWebsite?.setup_fee || 299
-    var actualDepositPaid = window._clientDepositAmount || 0
-    var remaining
-    if (actualDepositPaid > 0) {
-      // Use the exact amount already charged
-      remaining = Math.max(0, fullFee - actualDepositPaid)
-    } else {
-      // Fallback: recalculate (siteSettings may not have loaded)
-      var depositPct = (siteSettings?.deposit_percent || 50) / 100
-      remaining = Math.max(0, fullFee - Math.round(fullFee * depositPct))
-    }
     var res = await fetch(API + '/create-checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
-      body: JSON.stringify({ setup_fee: remaining, monthly_fee: currentWebsite?.monthly_fee || 49, plan: currentWebsite?.plan || 'standard', business_name: currentWebsite?.business_name || '' })
+      body: JSON.stringify({
+        setup_fee: 0,
+        monthly_fee: siteSettings?.plan_standard_price || 99,
+        plan: 'standard',
+        business_name: currentWebsite?.business_name || ''
+      })
     })
     var d = await res.json()
-    if (d.url) {
-      window.location.href = d.url
-    } else {
-      alert(d.error || 'Could not create checkout session')
-    }
-  } catch(e) {
-    alert('Could not connect to server')
-  }
+    if (d.url) window.location.href = d.url
+    else alert(d.error || 'Could not create checkout. Please contact support.')
+  } catch(e) { alert('Could not connect to server') }
 }
 
 // ── PAY DEPOSIT ─────────────────────────────────────
@@ -2477,11 +2439,7 @@ function buildClaudePrompt(b, fd) {
     '  - Can have FEWER features than tier allows, but NEVER more',
   '',
   'TIER FEATURE SUMMARY FOR THIS BUILD (' + plan.toUpperCase() + ' PLAN)',
-  plan === 'basic' ?
-    '  Basic: 1 page max, max 2 photos, free subdomain only, basic stats snippet, NO dashboard editing, NO referral code, NO custom domain' :
-  plan === 'standard' ?
-    '  Standard: up to 4 pages, up to 8 photos, custom domain support, full dashboard editing, referral code section, detailed analytics snippet' :
-    '  Premium: unlimited pages, unlimited photos, custom domain, full dashboard editing, referral code, detailed analytics, local SEO (see above), monthly report mention',
+  'Single professional tier: unlimited pages, custom domain, full dashboard, analytics, local SEO where relevant.',
   (plan === 'premium' ? '\nLOCAL SEO REQUIREMENTS (Premium only)\n  Since this is a Premium tier site, implement full local SEO:\n  - Add meta title with business name + city/region\n  - Add meta description mentioning the business type and location\n  - Add schema.org LocalBusiness JSON-LD with address, phone, hours\n  - Add Open Graph tags for social sharing\n  - Create an SEO-friendly URL structure\n  - Add alt text to all images using business name + descriptive text\n  - Include a location section or footer with full address and embedded map placeholder\n  NOTE: Do NOT include booking or scheduling features — we do not offer this service.' : '')
   ].join('\n')
 }

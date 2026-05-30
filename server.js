@@ -2400,7 +2400,7 @@ app.post('/admin/create-code', authMiddleware, async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }) }
 })
 
-// ── CLAUDE AI PROXY (per-user, CORS-safe) ────────────────
+// ── CLAUDE AI PROXY (per-user, CORS-safe, with web search) ──
 app.post('/ai/chat', authMiddleware, staffMiddleware, async (req, res) => {
   const { messages } = req.body
   if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: 'messages array required' })
@@ -2415,8 +2415,9 @@ app.post('/ai/chat', authMiddleware, staffMiddleware, async (req, res) => {
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 8000,
-        system: 'You are a web development expert helping build professional client websites for a web agency called Sitefloa. When asked to build a website, output complete, self-contained HTML with all CSS and JS inline. Make websites mobile-responsive and professional.',
-        messages: messages
+        system: 'You are a web development expert helping build professional client websites for a web agency called Sitefloa. When asked to build a website, output complete, self-contained HTML with all CSS and JS inline. Make websites mobile-responsive, modern, and visually impressive — avoid generic AI-looking layouts. Use real design patterns, interesting typography, and thoughtful spacing. You can search the web to look up the client business, find design inspiration, or research their industry before building.',
+        messages: messages,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }]
       })
     })
     const data = await response.json()
