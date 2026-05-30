@@ -1075,6 +1075,13 @@ async function loadManagerData(){
     document.getElementById('mgr-stat-mine').textContent=earnData.websites_count||0
     document.getElementById('mgr-stat-earnings').textContent='$'+(earnData.total_earnings||0)
     document.getElementById('mgr-stat-rate').textContent=(earnData.commission_rate||10)+'%'
+    // Show org rate card for managers only
+    var orgCard = document.getElementById('mgr-stat-org-card')
+    var orgRateEl = document.getElementById('mgr-stat-org-rate')
+    if (earnData.is_manager && orgCard && orgRateEl) {
+      orgCard.style.display = ''
+      orgRateEl.textContent = (earnData.manager_commission_rate||0) + '%'
+    }
 
     // load earnings history
     renderManagerEarningsHistory(earnData)

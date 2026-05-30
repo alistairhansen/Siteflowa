@@ -413,7 +413,7 @@ app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
   const isManager = req.user.role === 'manager'
   const isContractor = req.user.role === 'contractor'
   try {
-    const clientsQuery = (isManager || isContractor)
+    const clientsQuery = isContractor
       ? `SELECT c.id, c.email, c.created_at, c.is_admin, c.role, c.subscription_status, c.plan,
              c.update_fee_required, c.update_fee_amount, c.commission_rate,
              c.domain_name, c.domain_cost, c.domain_yearly_fee,
@@ -443,7 +443,7 @@ app.get('/admin/stats', authMiddleware, staffMiddleware, async (req, res) => {
       LEFT JOIN clients cb ON cb.id = w.created_by
       LEFT JOIN referral_codes r ON r.owner_client_id = c.id
       ORDER BY c.created_at DESC`
-    const clients = await pool.query(clientsQuery, (isManager || isContractor) ? [req.user.id] : [])
+    const clients = await pool.query(clientsQuery, isContractor ? [req.user.id] : [])
     const nonStaff = clients.rows.filter(c => c.role === 'client' || (!c.role && !c.is_admin))
     const activeCount = nonStaff.filter(c => c.is_active).length
     const monthlyRevenue = nonStaff.filter(c => c.is_active).reduce((sum,c) => sum + (c.monthly_fee||49), 0)
@@ -863,12 +863,16 @@ app.get('/manager/earnings', authMiddleware, async (req, res) => {
     `, [req.user.id])
     // For earnings: only count fully launched websites
     const launchedSites = websites.rows.filter(w => w.is_active && w.activated_at)
-    const managerData = await pool.query('SELECT commission_rate FROM clients WHERE id=$1', [req.user.id])
+    const managerData = await pool.query('SELECT commission_rate, manager_commission_rate, role FROM clients WHERE id=$1', [req.user.id])
     const rate = managerData.rows[0]?.commission_rate || 10
+    const orgRate = managerData.rows[0]?.manager_commission_rate || 0
+    const isManager = managerData.rows[0]?.role === 'manager'
     const earnings = launchedSites.reduce((sum, w) => sum + ((w.setup_fee || 299) * rate / 100), 0)
     res.json({
       websites: websites.rows,
       commission_rate: rate,
+      manager_commission_rate: orgRate,
+      is_manager: isManager,
       period_start: periodStart,
       period_end: new Date(),
       total_earnings: Math.round(earnings),
